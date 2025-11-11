@@ -6,7 +6,8 @@ from sqlalchemy.orm import selectinload, joinedload
 
 from flowork.models import db, Product, Variant, Store
 from flowork.utils import clean_string_upper
-from flowork.services_db import get_filter_options_from_db
+# [수정] services 패키지 경로 수정
+from flowork.services.db import get_filter_options_from_db
 from . import ui_bp
 
 @ui_bp.route('/product/<int:product_id>')

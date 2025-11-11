@@ -3,7 +3,8 @@ import uuid
 import traceback
 from flask import jsonify, current_app
 from . import api_bp
-from flowork.services_excel import process_stock_upsert_excel
+# [수정] services 패키지 경로 수정
+from flowork.services.excel import process_stock_upsert_excel
 
 TASKS = {}
 
