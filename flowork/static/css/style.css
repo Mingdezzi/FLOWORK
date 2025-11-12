@@ -1,14 +1,20 @@
 /* --- index.html & Global Layout --- */
-/* (수정) 모든 페이지의 너비를 sales.html 처럼 넓게 통일 (기존 800px 제한 제거) */
+
+/* [수정] (2) 스크롤바 흔들림 방지: 스크롤바 트랙을 항상 표시 */
+html { 
+    overflow-y: scroll; 
+}
+
+/* [수정] (2) 모든 페이지의 너비를 sales의 1800px로 통일 */
+/* Bootstrap의 기본 반응형 너비(1320px 등)를 !important로 덮어씁니다 */
 .container { 
     width: 100%; 
-    max-width: 1800px; 
+    max-width: 1800px !important; 
     padding-right: var(--bs-gutter-x, .75rem);
     padding-left: var(--bs-gutter-x, .75rem);
     margin-right: auto;
     margin-left: auto;
 }
-html { overflow-y: scroll; }
 
 .navbar-brand { font-weight: bold; }
 .product-item .item-image { width: 60px; height: 60px; object-fit: contain; background-color: #fff; }
@@ -652,7 +658,7 @@ body[data-page-mode="edit"] #btn-enable-edit {
     display: none; 
 }
 
-/* --- (수정) Navigation Grid --- */
+/* --- Navigation Grid --- */
 .nav-grid-container {
     display: grid;
     grid-template-columns: repeat(4, 1fr); 
@@ -733,7 +739,7 @@ body[data-page-mode="edit"] #btn-enable-edit {
 }
 
 
-/* --- (수정) Main Header Layout --- */
+/* --- Main Header Layout --- */
 .main-header {
     margin-bottom: 1rem !important;
     padding: 0 0.5rem;

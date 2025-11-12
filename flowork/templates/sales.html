@@ -19,7 +19,7 @@
 
         .cart-table-wrapper { flex-grow: 1; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; background: #fff; }
         
-        /* [수정] 좌측 테이블 스타일 및 너비 조정 */
+        /* 좌측 테이블 스타일 및 너비 조정 */
         .left-table-wrapper { flex-grow: 1; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; background: #fff; margin-top: 10px; }
         .left-table { font-size: 0.8rem; width: 100%; table-layout: fixed; } /* 폰트 사이즈 약간 축소, 레이아웃 고정 */
         .left-table th, .left-table td { 
@@ -32,17 +32,13 @@
         .left-table tbody tr { cursor: pointer; }
         .left-table tbody tr:hover { background-color: #f8f9fa; }
 
-        /* [신규] 열 너비 강제 지정 (총합 100%) */
-        /* 품번(27%), 품명(28%) - 중요 정보 확보 */
+        /* 열 너비 강제 지정 (총합 100%) */
         .left-table th:nth-child(1), .left-table td:nth-child(1) { width: 27%; } 
         .left-table th:nth-child(2), .left-table td:nth-child(2) { width: 28%; }
-        /* 컬러(9%), 년도(9%) */
         .left-table th:nth-child(3), .left-table td:nth-child(3) { width: 9%; }
         .left-table th:nth-child(4), .left-table td:nth-child(4) { width: 9%; text-align: center; }
-        /* 최초가(11%), 판매가(11%) */
         .left-table th:nth-child(5), .left-table td:nth-child(5) { width: 11%; text-align: right; }
         .left-table th:nth-child(6), .left-table td:nth-child(6) { width: 11%; text-align: right; }
-        /* 재고(5%) - 최소화 */
         .left-table th:nth-child(7), .left-table td:nth-child(7) { width: 5%; text-align: center; }
 
         .cart-input { width: 70px; text-align: right; padding: 2px 5px; font-size: 0.9rem; }
