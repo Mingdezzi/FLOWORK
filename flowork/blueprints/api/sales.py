@@ -3,7 +3,7 @@ import io
 from datetime import datetime, date
 from flask import request, jsonify, send_file
 from flask_login import login_required, current_user
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 import openpyxl
 
 from flowork.models import db, Sale, SaleItem, Setting, StoreStock, Variant, Product
@@ -111,6 +111,160 @@ def create_sale():
         db.session.rollback()
         print(f"Sale Error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@api_bp.route('/api/sales/search_products', methods=['POST'])
+@login_required
+def search_sales_products():
+    if not current_user.store_id:
+        return jsonify({'status': 'error', 'message': '권한 없음'}), 403
+    
+    data = request.json
+    query = data.get('query', '').strip()
+    mode = data.get('mode', 'sales') # 'sales', 'refund', 'detail_stock'
+    
+    if not query:
+        return jsonify({'status': 'success', 'results': []})
+
+    q_clean = clean_string_upper(query)
+    search_filter = or_(
+        Product.product_number_cleaned.contains(q_clean),
+        Product.product_name_cleaned.contains(q_clean)
+    )
+
+    if mode == 'detail_stock':
+        # 판매 모드에서 상세 모달용 (품번으로 Variant 조회)
+        product = Product.query.filter(
+            Product.brand_id == current_user.current_brand_id,
+            Product.product_number == query # 정확한 품번 매칭
+        ).first()
+        
+        if not product: return jsonify({'status': 'error', 'variants': []})
+        
+        variants = db.session.query(Variant).filter_by(product_id=product.id).all()
+        stocks = db.session.query(StoreStock).filter(
+            StoreStock.store_id == current_user.store_id,
+            StoreStock.variant_id.in_([v.id for v in variants])
+        ).all()
+        stock_map = {s.variant_id: s.quantity for s in stocks}
+        
+        result_vars = []
+        for v in variants:
+            result_vars.append({
+                'variant_id': v.id,
+                'color': v.color,
+                'size': v.size,
+                'original_price': v.original_price,
+                'sale_price': v.sale_price,
+                'stock': stock_map.get(v.id, 0)
+            })
+        # 정렬 로직(필요시)
+        return jsonify({'status': 'success', 'variants': result_vars})
+
+    # 기본 검색 (리스트용)
+    products = Product.query.filter(
+        Product.brand_id == current_user.current_brand_id,
+        search_filter
+    ).limit(50).all()
+    
+    results = []
+    for p in products:
+        # 공통 정보
+        base_info = {
+            'product_id': p.id,
+            'product_number': p.product_number,
+            'product_name': p.product_name,
+            'year': p.release_year,
+        }
+        
+        # Variant 정보 집계
+        variants_all = Variant.query.filter_by(product_id=p.id).all()
+        color_map = {}
+        for v in variants_all:
+            if v.color not in color_map:
+                color_map[v.color] = {'ids': [], 'org': v.original_price, 'sale': v.sale_price}
+            color_map[v.color]['ids'].append(v.id)
+        
+        for color, v_data in color_map.items():
+            row = base_info.copy()
+            row['color'] = color
+            row['original_price'] = v_data['org']
+            row['sale_price'] = v_data['sale']
+            
+            stat_qty = 0
+            
+            if mode == 'sales':
+                # 현재고 합계
+                stocks = db.session.query(func.sum(StoreStock.quantity)).filter(
+                    StoreStock.store_id == current_user.store_id,
+                    StoreStock.variant_id.in_(v_data['ids'])
+                ).scalar()
+                stat_qty = stocks if stocks else 0
+                
+            elif mode == 'refund':
+                # 기간 내 판매량 합계
+                start_dt = data.get('start_date')
+                end_dt = data.get('end_date')
+                if start_dt and end_dt:
+                    sold = db.session.query(func.sum(SaleItem.quantity)).join(Sale).filter(
+                        Sale.store_id == current_user.store_id,
+                        Sale.sale_date >= start_dt,
+                        Sale.sale_date <= end_dt,
+                        Sale.status == 'valid',
+                        SaleItem.variant_id.in_(v_data['ids'])
+                    ).scalar()
+                    stat_qty = sold if sold else 0
+            
+            row['stat_qty'] = stat_qty
+            results.append(row)
+            
+    return jsonify({'status': 'success', 'results': results})
+
+@api_bp.route('/api/sales/refund_records', methods=['POST'])
+@login_required
+def get_refund_records():
+    if not current_user.store_id:
+        return jsonify({'status': 'error'}), 403
+        
+    data = request.json
+    pn = data.get('product_number')
+    color = data.get('color')
+    start_dt = data.get('start_date')
+    end_dt = data.get('end_date')
+    
+    # 해당 품번+컬러를 가진 Variant ID들 찾기
+    variants = db.session.query(Variant.id).join(Product).filter(
+        Product.product_number == pn,
+        Product.brand_id == current_user.current_brand_id,
+        Variant.color == color
+    ).all()
+    v_ids = [v[0] for v in variants]
+    
+    if not v_ids: return jsonify({'records': []})
+    
+    # SaleItem과 Sale 조인하여 내역 조회
+    items = db.session.query(Sale, SaleItem).join(SaleItem).filter(
+        Sale.store_id == current_user.store_id,
+        Sale.sale_date >= start_dt,
+        Sale.sale_date <= end_dt,
+        Sale.status == 'valid',
+        SaleItem.variant_id.in_(v_ids)
+    ).order_by(Sale.sale_date.desc()).all()
+    
+    records = []
+    for sale, item in items:
+        records.append({
+            'sale_id': sale.id,
+            'sale_date': sale.sale_date.strftime('%Y-%m-%d'),
+            'receipt_number': sale.receipt_number,
+            'product_number': item.product_number,
+            'product_name': item.product_name,
+            'color': item.color,
+            'size': item.size,
+            'quantity': item.quantity,
+            'total_amount': sale.total_amount
+        })
+        
+    return jsonify({'status': 'success', 'records': records})
 
 @api_bp.route('/api/sales/list_by_date', methods=['GET'])
 @login_required
@@ -295,6 +449,7 @@ def get_sale_details(sale_id):
             'color': i.color,
             'size': i.size,
             'price': i.unit_price,
+            'original_price': i.original_price,
             'discount_amount': i.discount_amount,
             'quantity': i.quantity
         })
