@@ -693,10 +693,8 @@ body[data-page-mode="edit"] #btn-enable-edit {
     margin-bottom: 2px;
 }
 
+/* (수정) 판매등록 버튼 강조 스타일 제거 -> 다른 버튼과 동일하게 */
 .nav-grid-item.nav-grid-sales {
-    background-color: #fff3cd;
-    border-color: #ffecb5;
-    color: #856404;
     grid-row: auto;
     grid-column: auto;
 }
