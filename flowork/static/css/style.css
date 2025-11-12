@@ -1,7 +1,12 @@
-/* --- index.html --- */
+/* --- index.html & Global Layout --- */
+/* (수정) 모든 페이지의 너비를 sales.html 처럼 넓게 통일 (기존 800px 제한 제거) */
 .container { 
-    width: 800px; 
-    max-width: 100%; 
+    width: 100%; 
+    max-width: 1800px; 
+    padding-right: var(--bs-gutter-x, .75rem);
+    padding-left: var(--bs-gutter-x, .75rem);
+    margin-right: auto;
+    margin-left: auto;
 }
 html { overflow-y: scroll; }
 
@@ -26,19 +31,15 @@ html { overflow-y: scroll; }
 
 /* [수정] 카테고리 버튼바 스타일 (Grid 적용) */
 #category-bar {
-    /* 기존 flex 스타일 덮어쓰기 */
     display: grid !important;
     gap: 5px;
     margin-bottom: 15px;
-    /* grid-template-columns는 HTML 인라인 스타일로 동적 적용됨 */
 }
 
 #category-bar .btn {
-    /* 기존 flex-grow 제거 */
     flex-grow: 0; 
     flex-basis: auto;
-    width: 100%; /* 그리드 셀 채우기 */
-    
+    width: 100%;
     padding: 0.5rem 0.25rem;
     font-size: 0.9rem;
 }
@@ -139,7 +140,7 @@ html { overflow-y: scroll; }
 }
 
 
-/* --- list.html (중복 제외 추가) --- */
+/* --- list.html --- */
 .advanced-search-form .form-label { 
     font-size: 0.85rem; 
     margin-bottom: 0.2rem; 
@@ -151,7 +152,7 @@ html { overflow-y: scroll; }
 }
 
 
-/* --- (STEP 4-2) detail.html --- */
+/* --- detail.html --- */
 .nav-item.disabled > .nav-link { color: #adb5bd !important; background-color: transparent !important; }
 
 .product-details {
@@ -359,7 +360,7 @@ body.edit-mode #add-variant-row { display: table-row; }
     }
 }
 
-/* --- (STEP 4-3) stock.html --- */
+/* --- stock.html --- */
 .card-header h3 { font-size: 1.15rem; font-weight: 500;}
 .management-form button { flex-shrink: 0; }
 .reset-button { background-color: #ffc107; color: #333; border: none;}
@@ -504,13 +505,11 @@ body.edit-mode #add-variant-row { display: table-row; }
     color: #dc3545;
 }
 
-/* --- (신규) order.html --- */
+/* --- order.html --- */
 .order-list-item-stacked {
-    /* (수정) 이전의 .order-list-item 클래스명 변경 */
     padding: 0.75rem 1rem;
     border-bottom: 1px solid rgba(0, 0, 0, 0.125);
 }
-/* (신규) 주문 정보 영역은 클릭 가능 */
 .order-info-area {
     cursor: pointer;
 }
@@ -529,37 +528,33 @@ body.edit-mode #add-variant-row { display: table-row; }
     margin-left: 0.5rem;
 }
 
-/* (수정) 3열 -> 2열 그리드 */
 .order-details-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr); /* 3열 (기본) */
+    grid-template-columns: repeat(3, 1fr); 
     gap: 0.75rem;
     font-size: 0.9rem;
 }
 .order-details-grid-2col {
-    grid-template-columns: repeat(2, 1fr); /* 2열 (요청 1) */
+    grid-template-columns: repeat(2, 1fr); 
 }
 
 .order-details-grid > div {
     line-height: 1.4;
-    word-break: break-all; /* 긴 품번/품명 줄바꿈 */
+    word-break: break-all; 
 }
 .order-details-grid > div .sub-info {
     font-size: 0.85rem;
     margin-left: 0;
 }
-/* (신규) 날짜 뱃지 */
 .order-date-badge {
     font-size: 0.85rem;
     font-weight: normal;
 }
 
 @media (max-width: 576px) {
-    /* (수정) 모바일 1열 -> 2열로 변경 */
     .order-details-grid-2col {
         grid-template-columns: repeat(2, 1fr); 
     }
-    /* (기존) 3열 그리드는 1열로 */
     .order-details-grid {
         grid-template-columns: 1fr; 
     }
@@ -568,17 +563,16 @@ body.edit-mode #add-variant-row { display: table-row; }
         font-size: 1.0rem;
     }
     .order-list-item-stacked .sub-info {
-        display: block; /* 모바일에선 연락처 줄바꿈 */
+        display: block; 
         margin-left: 0;
     }
 }
 
-/* --- (수정) 주문 목록 상태 그리드 (order.html) --- */
+/* --- Order Status Grid --- */
 .order-status-grid {
     display: grid;
-    /* (수정) 2열 -> 6열 */
     grid-template-columns: repeat(6, 1fr); 
-    gap: 4px; /* (수정) 간격 살짝 줄임 */
+    gap: 4px; 
     border-top: 1px dashed #dee2e6;
     padding-top: 0.75rem;
 }
@@ -586,36 +580,30 @@ body.edit-mode #add-variant-row { display: table-row; }
     border: 1px solid #dee2e6;
     background-color: #f8f9fa;
     color: #6c757d;
-    /* (수정) 폰트/패딩/정렬 조정 */
     font-size: 0.8rem;
     padding: 0.3rem 0.2rem;
     text-align: center;
-    /* (신규) 긴 텍스트 줄바꿈 방지 */
     white-space: nowrap;
-    /* (신규) 모바일에서 텍스트가 넘칠 경우 대비 */
     overflow: hidden;
     text-overflow: ellipsis;
 }
 .status-btn:hover {
     background-color: #e9ecef;
 }
-/* (신규) 활성 상태 버튼 색상 */
 .status-btn.active {
     color: #fff;
     border-color: transparent;
     font-weight: bold;
 }
-.status-btn.status-1.active { background-color: var(--bs-danger); } /* 고객주문 */
-.status-btn.status-2.active { background-color: var(--bs-warning); color: #333; } /* 주문등록 */
-.status-btn.status-3.active { background-color: var(--bs-info); color: #333; } /* 매장도착 */
-.status-btn.status-4.active { background-color: var(--bs-primary); } /* 고객연락/택배발송 */
-.status-btn.status-5.active { background-color: var(--bs-success); } /* 완료 */
-.status-btn.status-6.active { background-color: var(--bs-secondary); } /* 기타사항 */
+.status-btn.status-1.active { background-color: var(--bs-danger); } 
+.status-btn.status-2.active { background-color: var(--bs-warning); color: #333; } 
+.status-btn.status-3.active { background-color: var(--bs-info); color: #333; } 
+.status-btn.status-4.active { background-color: var(--bs-primary); } 
+.status-btn.status-5.active { background-color: var(--bs-success); } 
+.status-btn.status-6.active { background-color: var(--bs-secondary); } 
 
 
-/* --- (신규) order_detail.html '조회/수정 모드' --- */
-
-/* '조회' 모드일 때 (수정 불가 항목) */
+/* --- order_detail.html Modes --- */
 body[data-page-mode="view"] .editable-on-demand:disabled,
 body[data-page-mode="view"] .editable-on-demand[readonly] {
     background-color: transparent;
@@ -625,8 +613,8 @@ body[data-page-mode="view"] .editable-on-demand[readonly] {
     appearance: none;
     padding-left: 0; 
     padding-right: 0;
-    color: var(--bs-body-color); /* 비활성화된 회색 대신 일반 텍스트 색상 */
-    opacity: 1; /* 비활성화된 투명도 제거 */
+    color: var(--bs-body-color); 
+    opacity: 1; 
 }
 
 body[data-page-mode="view"] .editable-on-demand.form-control {
@@ -635,41 +623,39 @@ body[data-page-mode="view"] .editable-on-demand.form-control {
 }
 
 body[data-page-mode="view"] .editable-on-demand.form-select {
-    background-image: none; /* select 화살표 숨기기 */
+    background-image: none; 
 }
 
 body[data-page-mode="view"] .input-group .btn.editable-on-demand {
-    display: none; /* 주소검색/상품검색 버튼 숨기기 */
+    display: none; 
 }
 
 body[data-page-mode="view"] .input-group .form-control.editable-on-demand {
-    border-radius: var(--bs-border-radius) !important; /* 버튼 없는 input 모서리 복원 */
+    border-radius: var(--bs-border-radius) !important; 
 }
 
 body[data-page-mode="view"] .btn-delete-row.editable-on-demand {
-    display: none; /* 상품 처리 '행 삭제' 버튼 숨기기 */
+    display: none; 
 }
 
-/* '조회' 모드일 때 버튼 가시성 */
 body[data-page-mode="view"] #btn-submit-order {
-    display: none; /* '주문 수정' (저장) 버튼 숨기기 */
+    display: none; 
 }
 body[data-page-mode="view"] #btn-enable-edit {
-    display: inline-block; /* '수정 활성화' 버튼 보이기 */
+    display: inline-block; 
 }
 
-/* '수정' 모드일 때 (신규 등록 포함) */
 body[data-page-mode="edit"] #btn-submit-order {
-    display: inline-block; /* '주문 수정/등록' (저장) 버튼 보이기 */
+    display: inline-block; 
 }
 body[data-page-mode="edit"] #btn-enable-edit {
-    display: none; /* '수정 활성화' 버튼 숨기기 */
+    display: none; 
 }
 
-/* --- (신규) Navigation Grid --- */
+/* --- (수정) Navigation Grid --- */
 .nav-grid-container {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(4, 1fr); 
     gap: 5px;
     border: 1px solid #dee2e6;
     border-radius: 0.375rem;
@@ -677,6 +663,14 @@ body[data-page-mode="edit"] #btn-enable-edit {
     background-color: #f8f9fa;
 }
 
+/* 화면이 넓으면 한 줄로 8개 배치 */
+@media (min-width: 992px) {
+    .nav-grid-container {
+        grid-template-columns: repeat(8, 1fr);
+    }
+}
+
+/* 네비게이션 버튼 스타일 (기준) */
 .nav-grid-item {
     display: flex;
     flex-direction: column;
@@ -689,43 +683,32 @@ body[data-page-mode="edit"] #btn-enable-edit {
     border: 1px solid #dee2e6;
     border-radius: 0.25rem;
     text-decoration: none;
-    height: 55px;
+    height: 60px; /* 높이 고정 */
     text-align: center;
     line-height: 1.3;
 }
 
 .nav-grid-item i {
-    font-size: 1.25rem;
+    font-size: 1.4rem; 
     margin-bottom: 2px;
 }
 
-.nav-grid-item.nav-grid-home {
-    grid-row: 1 / 2;
-    grid-column: 3 / 4;
-    height: 55px; /* 높이 고정 (다른 버튼과 동일하게) */
-    font-size: 0.85rem; /* 폰트 크기 원복 (선택 사항) */
-}
-.nav-grid-item.nav-grid-home i {
-     font-size: 1.25rem; /* 아이콘 크기 원복 (선택 사항) */
-}
-
-/* 신규: 판매등록 버튼 (홈 버튼 아래 위치) */
 .nav-grid-item.nav-grid-sales {
-    grid-row: 2 / 3; /* 2번째 행에 위치 */
-    grid-column: 3 / 4; /* 3번째 열 (홈 버튼과 같은 열) */
-    background-color: #fff3cd; /* 강조 색상 (예: 노란색 계열) */
+    background-color: #fff3cd;
     border-color: #ffecb5;
     color: #856404;
+    grid-row: auto;
+    grid-column: auto;
 }
 
-.nav-grid-item.nav-grid-sales:hover {
-    background-color: #ffeeba;
+.nav-grid-item.nav-grid-home {
+    grid-row: auto;
+    grid-column: auto;
+    height: 60px; 
+    font-size: 0.85rem;
 }
-
-.nav-grid-item.nav-grid-sales.active {
-    background-color: #ffc107;
-    border-color: #ffc107;
-    color: #212529;
+.nav-grid-item.nav-grid-home i {
+     font-size: 1.4rem;
 }
 
 .nav-grid-item:hover {
@@ -752,58 +735,57 @@ body[data-page-mode="edit"] #btn-enable-edit {
 }
 
 
-/* --- (수정) 매장 이름/로그아웃 버튼을 위한 헤더 스타일 --- */
+/* --- (수정) Main Header Layout --- */
 .main-header {
+    margin-bottom: 1rem !important;
+    padding: 0 0.5rem;
     position: relative;
-    /* (수정) Bootstrap mb-4 (1.5rem)를 덮어쓰고 여백 축소 */
-    margin-bottom: 0.75rem !important; 
 }
 
-/* [신규] 매장명과 로그아웃 버튼 래퍼 */
-.header-meta {
-    display: flex;
-    justify-content: flex-end; /* 오른쪽 정렬 */
-    align-items: center;
-    gap: 0.5rem; /* 이름과 버튼 사이 간격 */
-    
-    /* (수정) 로고 및 네비게이션과의 간격 조정 */
-    margin-top: -10px; /* 로고와의 간격 축소 */
-    margin-bottom: 0;  /* 네비게이션과의 간격 축소 */
-    padding-right: 5px; 
+.header-left, .header-right {
+    flex: 1;
+    min-width: 0; 
 }
 
-.header-shop-name {
-    /* [수정] display: block, text-align: right 삭제 */
-    font-size: 0.9rem; 
-    font-weight: 500; 
-    color: #6c757d; 
-    /* [신규] 버튼 때문에 줄이 밀리는 것을 방지 */
+.header-center {
+    flex: 0 0 auto;
+}
+
+.header-right span, .header-right a {
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
-/* [신규] 로그아웃 버튼 스타일 */
-.header-logout-btn {
-    padding: 0.1rem 0.4rem;
-    font-size: 0.9rem;
-    flex-shrink: 0; /* 버튼이 찌그러지지 않게 */
+/* (신규) 헤더 버튼용 공통 스타일 - 네비게이션 버튼과 동일하게 맞춤 */
+.header-btn-uniform {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 0.25rem;
+    font-size: 0.85rem;
+    color: #6c757d;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    text-decoration: none;
+    height: 60px;
+    width: 100%;
+    max-width: 80px; /* 너무 넓어지지 않게 제한 */
+    min-width: 60px;
+    text-align: center;
+    line-height: 1.3;
+}
+.header-btn-uniform:hover {
+    background-color: #e9ecef;
+    color: #495057;
+}
+.header-btn-uniform i {
+    font-size: 1.4rem;
+    margin-bottom: 2px;
 }
 
-/* 모바일 뷰 (컨테이너가 좁아질 때) */
-@media (max-width: 576px) {
-    .header-meta {
-        margin-top: -5px;
-    }
-    .header-shop-name {
-        font-size: 0.8rem; 
-    }
-    .header-logout-btn {
-        font-size: 0.8rem;
-    }
-}
 
-/* --- (신규) 공지사항 목록 --- */
+/* --- Announcements --- */
 .announcement-list-item:hover {
     background-color: #f8f9fa;
 }
@@ -815,7 +797,7 @@ body[data-page-mode="edit"] #btn-enable-edit {
     text-overflow: ellipsis;
 }
 
-/* --- (신규) 설정 페이지 --- */
+/* --- Settings --- */
 .section-title-sub {
     font-size: 1.1rem;
     font-weight: 500;

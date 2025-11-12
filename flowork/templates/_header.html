@@ -1,15 +1,28 @@
-<header class="text-center mb-4 main-header">
-    <a href="{{ url_for('ui.home') }}">
-        <img src="{{ url_for('static', filename='logo.png') }}" alt="FLOWORK Logo" style="height: 40px; object-fit: contain;">
-    </a>
-    
-    <div class="header-meta">
-        <span class="header-shop-name">{{ shop_name }}</span>
-        
-        {% if current_user.is_authenticated %}
-        <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-secondary header-logout-btn" title="로그아웃">
-            <i class="bi bi-box-arrow-right"></i>
+<header class="mb-3 main-header d-flex justify-content-between align-items-center">
+    <div class="header-left d-flex align-items-center">
+        <a href="{{ url_for('ui.announcement_list') }}" class="header-btn-uniform" title="공지사항">
+            <i class="bi bi-megaphone-fill"></i>
+            <span>공지사항</span>
         </a>
-        {% endif %}
+    </div>
+
+    <div class="header-center text-center">
+        <a href="{{ url_for('ui.home') }}">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="FLOWORK Logo" style="height: 40px; object-fit: contain;">
+        </a>
+    </div>
+    
+    <div class="header-right d-flex align-items-center justify-content-end gap-2">
+        <div class="text-end lh-1 me-1">
+            <span class="d-block fw-bold" style="font-size: 0.85rem;">{{ shop_name }}</span>
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('auth.logout') }}" class="text-decoration-none text-muted" style="font-size: 0.75rem;">로그아웃</a>
+            {% endif %}
+        </div>
+        
+        <a href="{{ url_for('ui.setting_page') }}" class="header-btn-uniform" title="전체설정">
+            <i class="bi bi-gear-fill"></i>
+            <span>전체설정</span>
+        </a>
     </div>
 </header>
