@@ -3,122 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FLOWORK - 판매등록</title>
+    <title>FLOWORK - 판매현황</title>
     <link rel="icon" href="{{ url_for('static', filename='symbol.png') }}">
     <link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/journal/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <script src="https://unpkg.com/hangul-js"></script>
     <style>
-        .sales-container { display: flex; gap: 20px; height: calc(100vh - 150px); }
-        .sales-left { flex: 1; display: flex; flex-direction: column; }
-        .sales-right { flex: 1.2; display: flex; flex-direction: column; border-left: 1px solid #dee2e6; padding-left: 20px; }
-        .cart-table-wrapper { flex-grow: 1; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; }
-        .search-results { max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; display: none; position: absolute; width: 100%; z-index: 1000; background: white; }
-        .variant-row:hover { background-color: #f8f9fa; cursor: pointer; }
+        /* 커스텀 스타일 */
     </style>
 </head>
-<body data-live-search-url="{{ url_for('api.live_search') }}"
-      data-fetch-variant-url="{{ url_for('api.api_fetch_variant') }}"
-      data-product-variants-url="{{ url_for('api.get_product_variants_for_sale') }}"
-      data-submit-sales-url="{{ url_for('api.create_sale') }}">
+<body>
     
-    <div class="container-fluid my-4" style="max-width: 1400px;">
+    <div class="container my-4">
         {% include '_header.html' %}
         {% include '_navigation.html' %}
 
-        <div class="sales-container">
-            <div class="sales-left">
-                <h4 class="mb-3"><i class="bi bi-search me-2"></i>상품 검색 / 스캔</h4>
-                
-                <div class="position-relative mb-3">
-                    <div class="input-group input-group-lg">
-                        <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
-                        <input type="text" id="sales-input" class="form-control" placeholder="바코드 스캔 또는 품번/품명 입력..." autocomplete="off">
-                        <button class="btn btn-outline-secondary" type="button" id="btn-clear-input">지우기</button>
-                    </div>
-                    <div id="search-results" class="list-group search-results shadow-sm"></div>
-                </div>
-
-                <div class="alert alert-info">
-                    <small>
-                        <i class="bi bi-info-circle-fill me-1"></i> 사용법<br>
-                        1. <strong>바코드 스캔:</strong> 상품이 즉시 우측 목록에 추가됩니다.<br>
-                        2. <strong>검색:</strong> 품번/품명을 입력하고 목록을 클릭하세요.<br>
-                        3. <strong>팝업 선택:</strong> 팝업에서 원하는 사이즈를 <strong>더블 클릭</strong>하세요.
-                    </small>
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3 class="mb-0"><i class="bi bi-clock-history me-2"></i>판매 현황 (전체)</h3>
+                <div class="text-end">
+                    <a href="{{ url_for('api.export_daily_sales', date=today_date if today_date else '') }}" class="btn btn-success btn-sm" id="btn-export-excel">
+                        <i class="bi bi-file-earmark-excel-fill me-1"></i>오늘 판매 엑셀 다운로드
+                    </a>
                 </div>
             </div>
-
-            <div class="sales-right">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h4 class="mb-0"><i class="bi bi-cart4 me-2"></i>판매 목록</h4>
-                    <button class="btn btn-danger btn-sm" id="btn-clear-cart"><i class="bi bi-trash me-1"></i>전체 삭제</button>
-                </div>
-
-                <div class="cart-table-wrapper mb-3">
-                    <table class="table table-hover mb-0" style="font-size: 0.95rem;">
-                        <thead class="table-light sticky-top">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped text-center align-middle">
+                        <thead class="table-dark">
                             <tr>
-                                <th>상품정보</th>
-                                <th>옵션</th>
-                                <th class="text-end">단가</th>
-                                <th class="text-center" style="width: 100px;">수량</th>
-                                <th class="text-end">합계</th>
-                                <th class="text-center" style="width: 50px;">삭제</th>
+                                <th>판매일시</th>
+                                <th>영수증번호</th>
+                                <th>결제수단</th>
+                                <th>총 금액</th>
+                                <th>구분</th>
+                                <th>상태</th>
+                                <th>상세</th>
                             </tr>
                         </thead>
-                        <tbody id="cart-tbody">
-                            </tbody>
+                        <tbody>
+                            {% for sale in sales %}
+                            <tr>
+                                <td>{{ sale.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>{{ sale.receipt_number }}</td>
+                                <td>{{ sale.payment_method }}</td>
+                                <td class="text-end">{{ "{:,d}".format(sale.total_amount) }}원</td>
+                                <td>
+                                    {% if sale.is_online %}
+                                    <span class="badge bg-info text-dark">온라인</span>
+                                    {% else %}
+                                    <span class="badge bg-light text-dark">오프라인</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if sale.status == 'valid' %}
+                                    <span class="badge bg-success">정상</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">환불</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('ui.sales_detail', sale_id=sale.id) }}" class="btn btn-sm btn-outline-secondary">
+                                        상세보기
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-4">판매 내역이 없습니다.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
                     </table>
                 </div>
 
-                <div class="card bg-light">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <span class="h5 mb-0">총 결제금액</span>
-                            <span class="h3 mb-0 text-primary fw-bold" id="total-amount">0원</span>
-                        </div>
-                        <div class="d-grid gap-2">
-                            <button class="btn btn-primary btn-lg" id="btn-submit-sale">
-                                <i class="bi bi-check-circle-fill me-2"></i>판매 등록 완료
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="product-modal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-light">
-                    <h5 class="modal-title" id="modal-product-title">상품 선택</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p class="text-muted small mb-2"><i class="bi bi-mouse me-1"></i> 목록을 <strong>더블 클릭</strong>하면 판매 목록에 추가됩니다.</p>
-                    <div class="table-responsive">
-                        <table class="table table-hover table-bordered text-center align-middle">
-                            <thead class="table-secondary">
-                                <tr>
-                                    <th>컬러</th>
-                                    <th>사이즈</th>
-                                    <th>가격</th>
-                                    <th>현재고</th>
-                                    <th>선택</th>
-                                </tr>
-                            </thead>
-                            <tbody id="modal-variants-tbody"></tbody>
-                        </table>
-                    </div>
-                </div>
+                {% if pagination.pages > 1 %}
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
+                            <a class="page-link" href="{{ url_for('ui.sales_record', page=pagination.prev_num) }}">이전</a>
+                        </li>
+                        {% for page_num in pagination.iter_pages() %}
+                            {% if page_num %}
+                                <li class="page-item {{ 'active' if page_num == pagination.page }}">
+                                    <a class="page-link" href="{{ url_for('ui.sales_record', page=page_num) }}">{{ page_num }}</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">...</span></li>
+                            {% endif %}
+                        {% endfor %}
+                        <li class="page-item {{ 'disabled' if not pagination.has_next }}">
+                            <a class="page-link" href="{{ url_for('ui.sales_record', page=pagination.next_num) }}">다음</a>
+                        </li>
+                    </ul>
+                </nav>
+                {% endif %}
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='js/sales.js') }}"></script>
+    <script>
+        document.getElementById('btn-export-excel').addEventListener('click', (e) => {
+            // 오늘 날짜 자동 계산하여 링크 수정 (템플릿에서 처리되지 않았을 경우 대비)
+            const url = new URL(e.target.href);
+            if (!url.searchParams.get('date')) {
+                e.preventDefault();
+                const today = new Date().toISOString().split('T')[0];
+                url.searchParams.set('date', today);
+                window.location.href = url.toString();
+            }
+        });
+    </script>
 </body>
 </html>

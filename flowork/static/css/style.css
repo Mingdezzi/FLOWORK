@@ -1,15 +1,15 @@
 /* --- index.html & Global Layout --- */
 
-/* [수정] (2) 스크롤바 흔들림 방지: 스크롤바 트랙을 항상 표시 */
+/* (1) 스크롤바 흔들림 방지: 스크롤바 트랙을 항상 표시 */
 html { 
     overflow-y: scroll; 
 }
 
-/* [수정] (2) 모든 페이지의 너비를 sales의 1800px로 통일 */
-/* Bootstrap의 기본 반응형 너비(1320px 등)를 !important로 덮어씁니다 */
+/* (2) 모든 페이지 너비를 1800px로 강제 통일 */
+/* Bootstrap의 반응형 너비(media query)를 무시하고 꽉 차게 설정 */
 .container { 
-    width: 100%; 
-    max-width: 1800px !important; 
+    width: 100% !important; /* 반응형 고정 너비 무시하고 꽉 채움 */
+    max-width: 1800px !important; /* 최대 너비 제한 */
     padding-right: var(--bs-gutter-x, .75rem);
     padding-left: var(--bs-gutter-x, .75rem);
     margin-right: auto;
@@ -35,7 +35,7 @@ html {
 .nav-tabs { border-bottom: 1px solid #dee2e6; }
 .nav-link { color: #6c757d; }
 
-/* [수정] 카테고리 버튼바 스타일 (Grid 적용) */
+/* 카테고리 버튼바 스타일 (Grid 적용) */
 #category-bar {
     display: grid !important;
     gap: 5px;
@@ -699,7 +699,6 @@ body[data-page-mode="edit"] #btn-enable-edit {
     margin-bottom: 2px;
 }
 
-/* (수정) 판매등록 버튼 강조 스타일 제거 -> 다른 버튼과 동일하게 */
 .nav-grid-item.nav-grid-sales {
     grid-row: auto;
     grid-column: auto;
@@ -759,7 +758,7 @@ body[data-page-mode="edit"] #btn-enable-edit {
     white-space: nowrap;
 }
 
-/* (신규) 헤더 버튼용 공통 스타일 - 네비게이션 버튼과 동일하게 맞춤 */
+/* 헤더 버튼용 공통 스타일 - 네비게이션 버튼과 동일하게 맞춤 */
 .header-btn-uniform {
     display: flex;
     flex-direction: column;
