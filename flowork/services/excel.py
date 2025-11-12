@@ -12,7 +12,7 @@ import traceback
 import re
 import json
 
-# [추가] 변환기 임포트 (pandas 의존성 처리)
+# 변환기 임포트
 try:
     from flowork.services.transformer import transform_horizontal_to_vertical
 except ImportError:
@@ -141,7 +141,7 @@ def import_excel_file(file, form, brand_id):
         settings_query = Setting.query.filter_by(brand_id=brand_id).all()
         brand_settings = {s.key: s.value for s in settings_query}
         
-        # [신규 로직] 고급 변환 전략 확인 (예: 아이더)
+        # 고급 변환 전략 확인
         import_strategy = brand_settings.get('IMPORT_STRATEGY')
         
         data = []
@@ -150,29 +150,35 @@ def import_excel_file(file, form, brand_id):
             if transform_horizontal_to_vertical is None:
                 return False, '서버에 pandas 라이브러리가 설치되지 않아 변환 기능을 사용할 수 없습니다.', 'error'
             
-            # JSON 설정에서 사이즈 매핑표 파싱
+            # (1) 사이즈 매핑표 파싱
             size_mapping_json = brand_settings.get('SIZE_MAPPING', '{}')
             try:
                 size_mapping_config = json.loads(size_mapping_json)
             except json.JSONDecodeError:
                 return False, '브랜드 설정 오류: SIZE_MAPPING 형식이 올바르지 않습니다.', 'error'
 
-            # 변환기 실행 -> 표준 데이터 리스트 획득
+            # (2) [신규] 카테고리 매핑 규칙 파싱
+            category_mapping_json = brand_settings.get('CATEGORY_MAPPING_RULE', '{}')
             try:
-                data = transform_horizontal_to_vertical(file, size_mapping_config)
+                category_mapping_config = json.loads(category_mapping_json)
+            except json.JSONDecodeError:
+                return False, '브랜드 설정 오류: CATEGORY_MAPPING_RULE 형식이 올바르지 않습니다.', 'error'
+
+            # (3) 변환기 실행 (설정값 2개 모두 전달)
+            try:
+                data = transform_horizontal_to_vertical(file, size_mapping_config, category_mapping_config)
             except Exception as e:
                 traceback.print_exc()
                 return False, f'엑셀 변환 중 오류 발생: {e}', 'error'
                 
         else:
-            # [기존 로직] 일반적인 엑셀 업로드 (컬럼 매핑 사용)
+            # [기존 로직] 일반적인 엑셀 업로드
             if not (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')):
                 return False, '엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.', 'error'
 
             wb = openpyxl.load_workbook(file, data_only=True)
             ws = wb.active
             
-            # 폼에서 컬럼 인덱스 가져오기
             field_map = {
                 'product_number': ('col_pn', True),
                 'product_name': ('col_pname', True),
@@ -195,13 +201,12 @@ def import_excel_file(file, form, brand_id):
         seen_barcodes = set()
 
         for i, item in enumerate(data):
-            row_num = i + 2 # 엑셀 행 번호 (변환된 데이터의 경우 가상의 번호)
+            row_num = i + 2 
             
             try:
                 # 바코드 생성
                 item['barcode'] = generate_barcode(item, brand_settings)
                 
-                # 변환된 데이터는 필수 값이 누락되면 바코드가 없으므로 건너뜀
                 if not item.get('barcode'):
                     if import_strategy: continue 
                     errors.append(f"{row_num}행: 바코드 생성 실패")
@@ -216,10 +221,7 @@ def import_excel_file(file, form, brand_id):
                 item['size'] = str(item['size']).strip()
                 item['original_price'] = int(item.get('original_price') or 0)
                 item['sale_price'] = int(item.get('sale_price') or item['original_price'])
-                
-                # 변환된 데이터는 release_year가 없을 수 있으므로 None 처리
                 item['release_year'] = int(item['release_year']) if item.get('release_year') else None
-                
                 item['item_category'] = str(item['item_category']).strip() if item.get('item_category') else None
                 item['is_favorite'] = 1 if item.get('is_favorite') in [True, 1, '1', 'Y', 'O'] else 0
                 
@@ -229,14 +231,13 @@ def import_excel_file(file, form, brand_id):
                 item['color_cleaned'] = clean_string_upper(item['color'])
                 item['size_cleaned'] = clean_string_upper(item['size'])
                 
-                item['hq_stock'] = int(item.get('hq_stock') or 0) # 재고 필드 추가
+                item['hq_stock'] = int(item.get('hq_stock') or 0) 
 
             except (ValueError, TypeError) as e:
                 errors.append(f"{row_num}행 데이터 오류: {e}")
                 continue
 
             if item['barcode_cleaned'] in seen_barcodes:
-                # 일반 업로드일 때만 중복 에러 체크 (변환기는 중복이 자연스럽게 제거됨)
                 if not import_strategy:
                     errors.append(f"{row_num}행: 바코드 중복 ({item['barcode']})")
                 continue
@@ -338,7 +339,7 @@ def import_excel_file(file, form, brand_id):
         return False, f"엑셀 처리 중 알 수 없는 오류 발생: {e}", 'error'
 
 
-# (이하 process_stock_upsert_excel 등 기존 함수 유지)
+# (process_stock_upsert_excel 등 나머지 함수들은 기존 로직 유지)
 def process_stock_upsert_excel(file_path, form, stock_type, brand_id, target_store_id=None, progress_callback=None, excluded_row_indices=None):
     try:
         wb = openpyxl.load_workbook(file_path, data_only=True)
@@ -648,7 +649,7 @@ def _process_stock_update_excel(file, form, stock_type, brand_id, target_store_i
                 else:
                     new_stock = StoreStock(
                         store_id=target_store_id,
-                        variant_id=variant_id,
+                        variant_id=variant.id,
                         quantity=new_qty,
                         actual_stock=None
                     )
