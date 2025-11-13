@@ -5,7 +5,7 @@ from flask import request, jsonify, current_app, flash, redirect, url_for, abort
 from flask_login import login_required, current_user
 from sqlalchemy import func, exc
 
-# [수정] StockHistory 모델 추가 임포트
+# Sale, SaleItem, StockHistory 모델 임포트 확인
 from flowork.models import db, Brand, Store, Setting, User, Staff, Order, OrderProcessing, Announcement, ScheduleEvent, Variant, Product, StoreStock, Sale, SaleItem, StockHistory
 from . import api_bp
 from .utils import admin_required
@@ -406,6 +406,16 @@ def reset_store_registration(store_id):
             return jsonify({'status': 'error', 'message': '매장을 찾을 수 없습니다.'}), 404
 
         users_to_delete = User.query.filter_by(store_id=store.id).all()
+        
+        # [수정] 사용자 삭제 전 참조 데이터 연결 해제 (NULL 처리)
+        user_ids = [u.id for u in users_to_delete]
+        if user_ids:
+            # 1. 판매 기록의 user_id를 NULL로 변경
+            db.session.query(Sale).filter(Sale.user_id.in_(user_ids)).update({Sale.user_id: None}, synchronize_session=False)
+            
+            # 2. 재고 이력의 user_id를 NULL로 변경 (StockHistory 테이블 존재 여부 확인은 생략, create_all()로 생성됨을 가정)
+            db.session.query(StockHistory).filter(StockHistory.user_id.in_(user_ids)).update({StockHistory.user_id: None}, synchronize_session=False)
+
         user_count = len(users_to_delete)
         for user in users_to_delete:
             db.session.delete(user)
@@ -648,7 +658,6 @@ def reset_database_completely():
         print("Resetting Product/Variant/StoreStock/Sales data...")
         
         # [수정] 1. 주문(Order) 테이블에서 상품 참조 해제 (주문 내역 보존)
-        # 상품 삭제 시 외래키 오류 방지 및 내역 보존을 위해 product_id를 NULL로 업데이트
         db.session.query(Order).update({Order.product_id: None})
         
         # [수정] 2. 테이블 데이터 삭제 (DROP 대신 DELETE 사용하여 외래키 제약 조건 우회 및 순차 삭제)
@@ -663,7 +672,6 @@ def reset_database_completely():
         db.session.commit()
         
         # [추가] StockHistory 테이블 생성 (테이블이 없을 경우를 대비해 create_all 호출)
-        # 이미 모델이 로드되어 있으므로 누락된 테이블만 생성됨
         db.create_all()
         
         flash('상품 데이터 초기화 완료. (상품/옵션/재고/매출/재고이력 삭제됨. 계정/주문 내역 보존)', 'success')
