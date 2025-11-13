@@ -5,7 +5,8 @@ from flask import request, jsonify, current_app, flash, redirect, url_for, abort
 from flask_login import login_required, current_user
 from sqlalchemy import func, exc
 
-from flowork.models import db, Brand, Store, Setting, User, Staff, Order, OrderProcessing, Announcement, ScheduleEvent, Variant, Product, StoreStock
+# [수정] Sale, SaleItem 모델 추가 임포트
+from flowork.models import db, Brand, Store, Setting, User, Staff, Order, OrderProcessing, Announcement, ScheduleEvent, Variant, Product, StoreStock, Sale, SaleItem
 from . import api_bp
 from .utils import admin_required
 
@@ -644,10 +645,13 @@ def reset_database_completely():
         abort(403, description="상품 데이터 초기화는 본사 관리자만 가능합니다.")
         
     try:
-        print("Deleting Product/Variant/StoreStock tables...")
+        print("Deleting Product/Variant/StoreStock/Sales tables...")
         engine = db.get_engine(bind=None)
         
+        # [수정] SaleItem, Sale을 목록에 추가 (참조 역순으로 삭제)
         tables_to_drop = [
+            SaleItem.__table__,
+            Sale.__table__,
             StoreStock.__table__, 
             Variant.__table__, 
             Product.__table__
@@ -656,7 +660,7 @@ def reset_database_completely():
         db.Model.metadata.drop_all(bind=engine, tables=tables_to_drop, checkfirst=True)
         db.Model.metadata.create_all(bind=engine, tables=tables_to_drop, checkfirst=True)
         
-        flash('상품 데이터 초기화 완료. (상품/옵션/재고 데이터 삭제됨. 계정/주문 내역 보존)', 'success')
+        flash('상품 데이터 초기화 완료. (상품/옵션/재고/매출 데이터 삭제됨. 계정/주문 내역 보존)', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'DB 초기화 오류: {e}', 'error')
