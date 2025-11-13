@@ -5,8 +5,8 @@ from flask import request, jsonify, current_app, flash, redirect, url_for, abort
 from flask_login import login_required, current_user
 from sqlalchemy import func, exc
 
-# [수정] Sale, SaleItem 모델 추가 임포트 (데이터 삭제 시 필요)
-from flowork.models import db, Brand, Store, Setting, User, Staff, Order, OrderProcessing, Announcement, ScheduleEvent, Variant, Product, StoreStock, Sale, SaleItem
+# [수정] StockHistory 모델 추가 임포트
+from flowork.models import db, Brand, Store, Setting, User, Staff, Order, OrderProcessing, Announcement, ScheduleEvent, Variant, Product, StoreStock, Sale, SaleItem, StockHistory
 from . import api_bp
 from .utils import admin_required
 
@@ -652,7 +652,8 @@ def reset_database_completely():
         db.session.query(Order).update({Order.product_id: None})
         
         # [수정] 2. 테이블 데이터 삭제 (DROP 대신 DELETE 사용하여 외래키 제약 조건 우회 및 순차 삭제)
-        # 자식 테이블부터 부모 테이블 순으로 삭제: SaleItem -> Sale -> StoreStock -> Variant -> Product
+        # StockHistory -> SaleItem -> Sale -> StoreStock -> Variant -> Product 순서로 삭제
+        db.session.query(StockHistory).delete()
         db.session.query(SaleItem).delete()
         db.session.query(Sale).delete()
         db.session.query(StoreStock).delete()
@@ -661,7 +662,11 @@ def reset_database_completely():
         
         db.session.commit()
         
-        flash('상품 데이터 초기화 완료. (상품/옵션/재고/매출 데이터 삭제됨. 계정/주문 내역 보존)', 'success')
+        # [추가] StockHistory 테이블 생성 (테이블이 없을 경우를 대비해 create_all 호출)
+        # 이미 모델이 로드되어 있으므로 누락된 테이블만 생성됨
+        db.create_all()
+        
+        flash('상품 데이터 초기화 완료. (상품/옵션/재고/매출/재고이력 삭제됨. 계정/주문 내역 보존)', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'DB 초기화 오류: {e}', 'error')
