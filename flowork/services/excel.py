@@ -134,6 +134,8 @@ def import_excel_file(file, form, brand_id):
     if not file:
         return False, '파일이 없습니다.', 'error'
 
+    BATCH_SIZE = 500
+    
     try:
         # 1. 브랜드 설정 로드
         settings_query = Setting.query.filter_by(brand_id=brand_id).all()
@@ -142,6 +144,27 @@ def import_excel_file(file, form, brand_id):
         # 고급 변환 전략 확인
         import_strategy = brand_settings.get('IMPORT_STRATEGY')
         
+        # 2. [수정] 폼 데이터 파싱 및 열 인덱스 추출 (전략 확인 후 분기 처리)
+        field_map = {
+            'product_number': ('col_pn', True),
+            'product_name': ('col_pname', True),
+            'release_year': ('col_year', True),
+            'item_category': ('col_category', True),
+            'color': ('col_color', True),
+            'size': ('col_size', True),
+            'original_price': ('col_oprice', False),
+            'sale_price': ('col_sprice', False),
+            'is_favorite': ('col_favorite', False),
+            'hq_stock': ('col_hq_stock', False),
+        }
+
+        # horizontal_matrix 전략인 경우 size와 hq_stock은 필수 아님 (자동 처리)
+        if import_strategy == 'horizontal_matrix':
+            field_map['size'] = ('col_size', False)
+            field_map['hq_stock'] = ('col_hq_stock', False)
+        
+        column_map_indices = _get_column_indices_from_form(form, field_map)
+
         data = []
         
         if import_strategy == 'horizontal_matrix':
@@ -162,9 +185,15 @@ def import_excel_file(file, form, brand_id):
             except json.JSONDecodeError:
                 return False, '브랜드 설정 오류: CATEGORY_MAPPING_RULE 형식이 올바르지 않습니다.', 'error'
 
-            # (3) 변환기 실행 (설정값 2개 모두 전달)
+            # (3) 변환기 실행 (사용자 선택 열 정보 포함하여 전달)
             try:
-                data = transform_horizontal_to_vertical(file, size_mapping_config, category_mapping_config)
+                # [수정] column_map_indices 인자 추가
+                data = transform_horizontal_to_vertical(
+                    file, 
+                    size_mapping_config, 
+                    category_mapping_config,
+                    column_map_indices 
+                )
             except Exception as e:
                 traceback.print_exc()
                 return False, f'엑셀 변환 중 오류 발생: {e}', 'error'
@@ -176,20 +205,6 @@ def import_excel_file(file, form, brand_id):
 
             wb = openpyxl.load_workbook(file, data_only=True)
             ws = wb.active
-            
-            field_map = {
-                'product_number': ('col_pn', True),
-                'product_name': ('col_pname', True),
-                'release_year': ('col_year', True),
-                'item_category': ('col_category', True),
-                'color': ('col_color', True),
-                'size': ('col_size', True),
-                'original_price': ('col_oprice', False),
-                'sale_price': ('col_sprice', False),
-                'is_favorite': ('col_favorite', False),
-                'hq_stock': ('col_hq_stock', False),
-            }
-            column_map_indices = _get_column_indices_from_form(form, field_map)
             data = _read_excel_data_by_indices(ws, column_map_indices)
 
         # --- 이하 공통 검증 및 저장 로직 ---
@@ -246,111 +261,80 @@ def import_excel_file(file, form, brand_id):
         if errors and not import_strategy:
              return False, f"검증 오류 (최대 5개): {', '.join(errors[:5])}", 'error'
 
-        # [수정 1-1] UPSERT 로직 적용 (기존 DELETE ALL 로직 제거)
+        # [DB 초기화 및 저장 로직]
+        store_ids_to_delete = db.session.query(Store.id).filter_by(brand_id=brand_id)
+        db.session.query(StoreStock).filter(StoreStock.store_id.in_(store_ids_to_delete)).delete(synchronize_session=False)
+        product_ids_to_delete = db.session.query(Product.id).filter_by(brand_id=brand_id)
+        db.session.query(Variant).filter(Variant.product_id.in_(product_ids_to_delete)).delete(synchronize_session=False)
+        db.session.query(Product).filter_by(brand_id=brand_id).delete(synchronize_session=False)
         
-        # 1. 기존 데이터 메모리 로드 (Bulk 처리를 위해)
-        existing_products = Product.query.filter_by(brand_id=brand_id).all()
-        product_map = {p.product_number_cleaned: p for p in existing_products}
-        
-        existing_variants = Variant.query.join(Product).filter(Product.brand_id == brand_id).all()
-        variant_map = {v.barcode_cleaned: v for v in existing_variants}
+        db.session.commit()
 
-        new_products = []
-        new_variants = []
-        updated_products_count = 0
-        updated_variants_count = 0
+        products_map = {}
+        total_products_created = 0
+        total_variants_created = 0
 
-        # 2. Product 처리
-        for item in validated_data:
-            pn_key = item['product_number_cleaned']
-            product = product_map.get(pn_key)
+        for i in range(0, len(validated_data), BATCH_SIZE):
+            batch_data = validated_data[i:i+BATCH_SIZE]
+            products_to_add_batch = []
+            variants_to_add_batch = []
             
-            if not product:
-                # 신규 상품
-                product = Product(
-                    brand_id=brand_id,
-                    product_number=item['product_number'],
-                    product_name=item['product_name'],
-                    release_year=item['release_year'],
-                    item_category=item['item_category'],
-                    is_favorite=item['is_favorite'],
-                    product_number_cleaned=pn_key,
-                    product_name_cleaned=item['product_name_cleaned'],
-                    product_name_choseong=item['product_name_choseong']
-                )
-                new_products.append(product)
-                product_map[pn_key] = product # 새로 생성된 객체도 맵에 등록
-            else:
-                # 기존 상품 업데이트
-                if (product.product_name != item['product_name'] or 
-                    product.release_year != item['release_year'] or 
-                    product.item_category != item['item_category'] or
-                    product.is_favorite != item['is_favorite']):
+            for item in batch_data:
+                pn_key = item['product_number_cleaned']
+                if pn_key not in products_map:
+                    product = Product(
+                        brand_id=brand_id,
+                        product_number=item['product_number'],
+                        product_name=item['product_name'],
+                        release_year=item['release_year'],
+                        item_category=item['item_category'],
+                        is_favorite=item['is_favorite'],
+                        product_number_cleaned=item['product_number_cleaned'],
+                        product_name_cleaned=item['product_name_cleaned'],
+                        product_name_choseong=item['product_name_choseong']
+                    )
+                    products_map[pn_key] = product
+                    products_to_add_batch.append(product)
+
+            if products_to_add_batch:
+                db.session.add_all(products_to_add_batch)
+                total_products_created += len(products_to_add_batch)
+
+            try:
+                db.session.flush()
+            except Exception as e:
+                db.session.rollback()
+                print(f"Error flushing products batch: {e}")
+                return False, f"DB 저장 실패 (Product Flush): {e}", 'error'
+            
+            for item in batch_data:
+                pn_key = item['product_number_cleaned']
+                product = products_map.get(pn_key)
+                
+                if not product or not product.id:
+                    continue
                     
-                    product.product_name = item['product_name']
-                    product.release_year = item['release_year']
-                    product.item_category = item['item_category']
-                    product.is_favorite = item['is_favorite']
-                    product.product_name_cleaned = item['product_name_cleaned']
-                    product.product_name_choseong = item['product_name_choseong']
-                    updated_products_count += 1
-
-        # 신규 Product DB 반영 (ID 생성을 위해 flush)
-        if new_products:
-            db.session.add_all(new_products)
-            db.session.flush()
-
-        # 3. Variant 처리
-        for item in validated_data:
-            bc_key = item['barcode_cleaned']
-            variant = variant_map.get(bc_key)
-            
-            pn_key = item['product_number_cleaned']
-            parent_product = product_map.get(pn_key)
-            
-            if not parent_product or not parent_product.id:
-                continue # Should not happen if product logic is correct
-
-            if not variant:
-                # 신규 옵션
                 variant = Variant(
-                    product_id=parent_product.id,
+                    product_id=product.id, 
                     barcode=item['barcode'],
                     color=item['color'],
                     size=item['size'],
                     original_price=item['original_price'],
                     sale_price=item['sale_price'],
                     hq_quantity=item['hq_stock'],
-                    barcode_cleaned=bc_key,
+                    barcode_cleaned=item['barcode_cleaned'],
                     color_cleaned=item['color_cleaned'],
                     size_cleaned=item['size_cleaned']
                 )
-                new_variants.append(variant)
-                variant_map[bc_key] = variant
-            else:
-                # 기존 옵션 업데이트
-                if (variant.original_price != item['original_price'] or
-                    variant.sale_price != item['sale_price'] or
-                    variant.hq_quantity != item['hq_stock']):
-                    
-                    variant.color = item['color']
-                    variant.size = item['size']
-                    variant.original_price = item['original_price']
-                    variant.sale_price = item['sale_price']
-                    variant.hq_quantity = item['hq_stock']
-                    variant.color_cleaned = item['color_cleaned']
-                    variant.size_cleaned = item['size_cleaned']
-                    updated_variants_count += 1
+                variants_to_add_batch.append(variant)
 
-        if new_variants:
-            db.session.add_all(new_variants)
+            if variants_to_add_batch:
+                db.session.bulk_save_objects(variants_to_add_batch)
+                total_variants_created += len(variants_to_add_batch)
             
-        db.session.commit()
+            db.session.commit()
         
-        total_products = len(new_products) + updated_products_count
-        total_variants = len(new_variants) + updated_variants_count
-        
-        return True, f'업로드 완료. (신규 상품: {len(new_products)}, 신규 옵션: {len(new_variants)}, 업데이트: {updated_variants_count})', 'success'
+        return True, f'업로드 완료. (상품 {total_products_created}개, 옵션 {total_variants_created}개)', 'success'
 
     except ValueError as ve:
         return False, str(ve), 'error'
