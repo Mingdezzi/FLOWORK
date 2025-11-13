@@ -1,5 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     
+    // [수정] CSRF 토큰 가져오기
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
     const bodyData = document.body.dataset;
     
     // [기존] 브랜드 이름 설정 URL
@@ -81,7 +84,10 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const response = await fetch(setBrandNameUrl, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                    },
                     body: JSON.stringify({ brand_name: brandName })
                 });
                 const data = await response.json();
@@ -112,7 +118,12 @@ document.addEventListener('DOMContentLoaded', () => {
             loadSettingsStatus.innerHTML = '<div class="alert alert-info">로딩 중...</div>';
 
             try {
-                const response = await fetch(loadSettingsUrl, { method: 'POST' });
+                const response = await fetch(loadSettingsUrl, { 
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                    }
+                });
                 const data = await response.json();
 
                 if (!response.ok) throw new Error(data.message || '설정 로드 실패');
@@ -216,7 +227,10 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const response = await fetch(updateSettingUrl, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                    },
                     body: JSON.stringify({
                         key: 'CATEGORY_CONFIG',
                         value: configData
@@ -260,7 +274,10 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const response = await fetch(addStoreUrl, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                    },
                     body: JSON.stringify({
                         store_code: storeCode, 
                         store_name: storeName,
@@ -308,7 +325,12 @@ document.addEventListener('DOMContentLoaded', () => {
         deleteStoreStatus.innerHTML = '<div class="alert alert-info">삭제 중...</div>';
         
         try {
-            const response = await fetch(`${deleteStoreUrlPrefix}${storeId}`, { method: 'DELETE' });
+            const response = await fetch(`${deleteStoreUrlPrefix}${storeId}`, { 
+                method: 'DELETE',
+                headers: {
+                    'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                }
+            });
             const data = await response.json();
             if (!response.ok) throw new Error(data.message);
 
@@ -343,7 +365,10 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const response = await fetch(`${updateStoreUrlPrefix}${storeId}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                    },
                     body: JSON.stringify({ store_code: storeCode, store_name: storeName, store_phone: storePhone })
                 });
                 const data = await response.json();
@@ -366,7 +391,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!confirm(`[${button.dataset.name}] 매장 가입을 승인하시겠습니까?`)) return;
         
         try {
-            const response = await fetch(`${approveStoreUrlPrefix}${storeId}`, { method: 'POST' });
+            const response = await fetch(`${approveStoreUrlPrefix}${storeId}`, { 
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                }
+            });
             if (response.ok) { window.location.reload(); } 
             else { alert('승인 실패'); }
         } catch (e) { console.error(e); }
@@ -377,7 +407,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!confirm(`[${button.dataset.name}] 매장 상태를 변경하시겠습니까?`)) return;
         
         try {
-            const response = await fetch(`${toggleStoreActiveUrlPrefix}${storeId}`, { method: 'POST' });
+            const response = await fetch(`${toggleStoreActiveUrlPrefix}${storeId}`, { 
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                }
+            });
             if (response.ok) { window.location.reload(); }
         } catch (e) { console.error(e); }
     }
@@ -387,7 +422,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!confirm(`[${button.dataset.name}] 매장 등록을 초기화하시겠습니까?\n모든 계정이 삭제됩니다.`)) return;
         
         try {
-            const response = await fetch(`${resetStoreUrlPrefix}${storeId}`, { method: 'POST' });
+            const response = await fetch(`${resetStoreUrlPrefix}${storeId}`, { 
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                }
+            });
             if (response.ok) { window.location.reload(); }
         } catch (e) { console.error(e); }
     }
@@ -440,7 +480,10 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const response = await fetch(addStaffUrl, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                    },
                     body: JSON.stringify({ name, position, contact })
                 });
                 const data = await response.json();
@@ -471,7 +514,12 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleDeleteStaff(button) {
         if (!confirm(`[${button.dataset.name}] 직원을 삭제하시겠습니까?`)) return;
         try {
-            const response = await fetch(`${deleteStaffUrlPrefix}${button.dataset.id}`, { method: 'DELETE' });
+            const response = await fetch(`${deleteStaffUrlPrefix}${button.dataset.id}`, { 
+                method: 'DELETE',
+                headers: {
+                    'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                }
+            });
             if (response.ok) {
                 document.getElementById(`staff-row-${button.dataset.id}`).remove();
             }
@@ -499,7 +547,10 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const response = await fetch(`${updateStaffUrlPrefix}${staffId}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                    },
                     body: JSON.stringify({ name, position, contact })
                 });
                 if (response.ok) {

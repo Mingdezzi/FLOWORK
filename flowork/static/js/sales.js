@@ -1,4 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
+    
+    // [수정] CSRF 토큰 가져오기
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
     const urls = JSON.parse(document.body.dataset.apiUrls);
     
     // State
@@ -141,7 +145,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const res = await fetch(urls.searchSalesProducts, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                },
                 body: JSON.stringify(payload)
             });
             const data = await res.json();
@@ -181,7 +188,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const res = await fetch(urls.searchSalesProducts, { 
                 method: 'POST', 
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                },
                 body: JSON.stringify({ query: item.product_number, mode: 'detail_stock' })
             });
             const data = await res.json();
@@ -213,7 +223,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const res = await fetch(urls.getRefundRecords, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                },
                 body: JSON.stringify({
                     product_number: item.product_number,
                     color: item.color,
@@ -438,7 +451,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const res = await fetch(urls.submitSales, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                },
                 body: JSON.stringify(payload)
             });
             const data = await res.json();
@@ -456,7 +472,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!confirm('이 영수증을 전체 환불 처리하시겠습니까?')) return;
 
         try {
-            const res = await fetch(urls.refund.replace('999999', currentRefundSaleId), {method: 'POST'});
+            const res = await fetch(urls.refund.replace('999999', currentRefundSaleId), {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                }
+            });
             const data = await res.json();
             if (data.status === 'success') {
                 alert('환불 처리되었습니다.');

@@ -1,3 +1,5 @@
+<meta name="csrf-token" content="{{ csrf_token() }}">
+
 <header class="mb-3 main-header d-flex justify-content-between align-items-center">
     <div class="header-left d-flex align-items-center">
         <a href="{{ url_for('ui.announcement_list') }}" class="header-btn-uniform" title="공지사항">

@@ -1,5 +1,5 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
-from flask_login import login_user, logout_user, current_user
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
+from flask_login import login_user, logout_user, current_user, login_required
 from flowork.models import db, Brand, Store, User 
 
 auth_bp = Blueprint('auth', __name__, template_folder='../templates')
@@ -180,3 +180,22 @@ def register_store():
     # GET 요청: 브랜드 목록을 템플릿에 전달
     brands = Brand.query.order_by(Brand.brand_name).all()
     return render_template('register_store.html', brands=brands)
+
+@auth_bp.route('/change_password', methods=['POST'])
+@login_required
+def change_password():
+    """[신규 2-5] 비밀번호 변경 API"""
+    data = request.json
+    current_pw = data.get('current_password')
+    new_pw = data.get('new_password')
+    
+    if not current_pw or not new_pw:
+        return jsonify({'status': 'error', 'message': '입력 값이 부족합니다.'}), 400
+        
+    if not current_user.check_password(current_pw):
+        return jsonify({'status': 'error', 'message': '현재 비밀번호가 일치하지 않습니다.'}), 400
+        
+    current_user.set_password(new_pw)
+    db.session.commit()
+    
+    return jsonify({'status': 'success', 'message': '비밀번호가 변경되었습니다.'})

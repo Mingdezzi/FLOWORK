@@ -6,7 +6,8 @@ from flask_login import login_required, current_user
 from sqlalchemy import func, or_
 import openpyxl
 
-from flowork.models import db, Sale, SaleItem, Setting, StoreStock, Variant, Product
+# [수정] Store, StockHistory 모델 추가 임포트
+from flowork.models import db, Sale, SaleItem, Setting, StoreStock, Variant, Product, Store, StockHistory
 from flowork.utils import clean_string_upper
 from . import api_bp
 
@@ -50,8 +51,13 @@ def create_sale():
     if not items: return jsonify({'status': 'error', 'message': '상품 없음'}), 400
         
     try:
+        # [수정 1-2] 영수증 번호 동시성 제어를 위한 Row Lock (SELECT FOR UPDATE)
+        # 해당 매장의 Store 레코드를 잠그어 동시에 번호가 채번되는 것을 방지
+        store = db.session.query(Store).with_for_update().get(current_user.store_id)
+        
         sale_date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else date.today()
         
+        # Lock 상태에서 안전하게 마지막 번호 조회
         last_sale = Sale.query.filter_by(store_id=current_user.store_id, sale_date=sale_date).order_by(Sale.daily_number.desc()).first()
         next_num = (last_sale.daily_number + 1) if last_sale else 1
         
@@ -78,11 +84,23 @@ def create_sale():
             discounted_price = unit_price - discount_amt
             subtotal = discounted_price * qty
             
+            # 재고 차감 (Lock)
             stock = StoreStock.query.filter_by(store_id=current_user.store_id, variant_id=variant_id).with_for_update().first()
             if not stock:
                 stock = StoreStock(store_id=current_user.store_id, variant_id=variant_id, quantity=0)
                 db.session.add(stock)
             stock.quantity -= qty
+            
+            # [수정 2-1] 재고 변동 이력(History) 기록
+            history = StockHistory(
+                store_id=current_user.store_id,
+                variant_id=variant_id,
+                change_type='SALE',
+                quantity_change=-qty,
+                current_quantity=stock.quantity,
+                user_id=current_user.id
+            )
+            db.session.add(history)
             
             variant = db.session.get(Variant, variant_id)
             sale_item = SaleItem(
@@ -423,7 +441,19 @@ def refund_sale(sale_id):
     try:
         for item in sale.items:
             stock = StoreStock.query.filter_by(store_id=current_user.store_id, variant_id=item.variant_id).first()
-            if stock: stock.quantity += item.quantity
+            if stock: 
+                stock.quantity += item.quantity
+                
+                # [수정 2-1] 전체 환불 시에도 History 기록
+                history = StockHistory(
+                    store_id=current_user.store_id,
+                    variant_id=item.variant_id,
+                    change_type='REFUND_FULL',
+                    quantity_change=item.quantity,
+                    current_quantity=stock.quantity,
+                    user_id=current_user.id
+                )
+                db.session.add(history)
             
         sale.status = 'refunded'
         db.session.commit()
@@ -431,6 +461,83 @@ def refund_sale(sale_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@api_bp.route('/api/sales/<int:sale_id>/refund_partial', methods=['POST'])
+@login_required
+def refund_sale_partial(sale_id):
+    """[신규 2-2] 부분 환불 기능"""
+    if not current_user.store_id: return jsonify({'status': 'error'}), 403
+    
+    data = request.json
+    refund_items = data.get('items', []) # [{variant_id: 1, quantity: 1}, ...]
+    
+    if not refund_items:
+        return jsonify({'status': 'error', 'message': '환불할 상품이 없습니다.'}), 400
+
+    try:
+        sale = Sale.query.filter_by(id=sale_id, store_id=current_user.store_id).first()
+        if not sale: return jsonify({'status': 'error', 'message': '내역 없음'}), 404
+        if sale.status == 'refunded': return jsonify({'status': 'error', 'message': '이미 전체 환불된 건입니다.'}), 400
+
+        total_refunded_amount = 0
+        remaining_items_count = 0
+
+        for r_item in refund_items:
+            variant_id = r_item['variant_id']
+            refund_qty = int(r_item['quantity'])
+            
+            if refund_qty <= 0: continue
+
+            # 1. SaleItem 찾기
+            sale_item = SaleItem.query.filter_by(sale_id=sale.id, variant_id=variant_id).first()
+            
+            if sale_item and sale_item.quantity >= refund_qty:
+                # 2. 수량 및 금액 차감
+                refund_amount = sale_item.discounted_price * refund_qty
+                
+                sale_item.quantity -= refund_qty
+                sale_item.subtotal -= refund_amount
+                sale.total_amount -= refund_amount
+                total_refunded_amount += refund_amount
+                
+                # 3. 재고 복구
+                stock = StoreStock.query.filter_by(store_id=sale.store_id, variant_id=variant_id).first()
+                if stock:
+                    stock.quantity += refund_qty
+                    
+                    # 4. 히스토리 기록
+                    history = StockHistory(
+                        store_id=sale.store_id,
+                        variant_id=variant_id,
+                        change_type='REFUND_PARTIAL',
+                        quantity_change=refund_qty,
+                        current_quantity=stock.quantity,
+                        user_id=current_user.id
+                    )
+                    db.session.add(history)
+                
+                # 수량이 0이 되면 아이템 삭제 고려 (또는 0으로 유지) -> 여기서는 0이면 유지하되 화면에서 안보이게 처리 등 필요할 수 있음
+                # 로직상 0이면 DB에서 삭제해도 무방하나, 기록 보존을 위해 0으로 둘 수도 있음.
+                # 여기서는 그대로 둠.
+
+        # 모든 아이템의 수량이 0인지 확인하여 전체 환불 상태로 변경
+        all_zero = True
+        for item in sale.items:
+            if item.quantity > 0:
+                all_zero = False
+                break
+        
+        if all_zero:
+            sale.status = 'refunded'
+
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': '부분 환불이 완료되었습니다.'})
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Partial Refund Error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 
 @api_bp.route('/api/sales/<int:sale_id>/details', methods=['GET'])
 @login_required
@@ -442,17 +549,19 @@ def get_sale_details(sale_id):
     
     items = []
     for i in sale.items:
-        items.append({
-            'variant_id': i.variant_id,
-            'name': i.product_name,
-            'pn': i.product_number,
-            'color': i.color,
-            'size': i.size,
-            'price': i.unit_price,
-            'original_price': i.original_price,
-            'discount_amount': i.discount_amount,
-            'quantity': i.quantity
-        })
+        # 수량이 0보다 큰 것만 리턴 (부분 환불된 것은 제외)
+        if i.quantity > 0:
+            items.append({
+                'variant_id': i.variant_id,
+                'name': i.product_name,
+                'pn': i.product_number,
+                'color': i.color,
+                'size': i.size,
+                'price': i.unit_price,
+                'original_price': i.original_price,
+                'discount_amount': i.discount_amount,
+                'quantity': i.quantity
+            })
     
     return jsonify({
         'status': 'success', 

@@ -1,5 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     
+    // [수정] CSRF 토큰 가져오기
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
     const bodyData = document.body.dataset;
     const updateStockUrl = bodyData.updateStockUrl;
     const toggleFavoriteUrl = bodyData.toggleFavoriteUrl;
@@ -186,6 +189,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 // (추가) 삭제 진행 시 버튼 비활성화
                 deleteProductBtn.disabled = true;
                 deleteProductBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 삭제 중...';
+                
+                // [주의] standard form submit은 JS에서 헤더를 추가하기 어려우므로,
+                // 템플릿(_header.html)에서 meta 태그를 사용하거나 form 내부에 hidden input으로 csrf_token을 포함해야 합니다.
+                // 여기서는 기존 form submit 방식을 유지합니다.
                 deleteProductForm.submit();
             }
         });
@@ -317,7 +324,10 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const response = await fetch(updateProductDetailsUrl, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                    },
                     body: JSON.stringify(productData)
                 });
                 const data = await response.json();
@@ -446,7 +456,14 @@ document.addEventListener('DOMContentLoaded', () => {
     //  본사 계정이 이 버튼을 누르면 403 오류가 발생하는 것이 맞습니다.)
     
     function updateStockOnServer(barcode, change, buttons) {
-        fetch(updateStockUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ barcode: barcode, change: change }) })
+        fetch(updateStockUrl, { 
+            method: 'POST', 
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken // [수정] 헤더 추가
+            }, 
+            body: JSON.stringify({ barcode: barcode, change: change }) 
+        })
         .then(response => response.json()).then(data => {
             if (data.status === 'success') {
                 const quantitySpan = document.getElementById(`stock-${data.barcode}`);
@@ -459,7 +476,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function toggleFavoriteOnServer(productID, button) {
-        fetch(toggleFavoriteUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ product_id: productID }) })
+        fetch(toggleFavoriteUrl, { 
+            method: 'POST', 
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken // [수정] 헤더 추가
+            }, 
+            body: JSON.stringify({ product_id: productID }) 
+        })
         .then(response => response.json()).then(data => {
              if (data.status === 'success') {
                  if (data.new_favorite_status === 1) {
@@ -477,7 +501,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function saveActualStock(barcode, actualStock, saveButton, inputElement) {
-        fetch(updateActualStockUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ barcode: barcode, actual_stock: actualStock }) })
+        fetch(updateActualStockUrl, { 
+            method: 'POST', 
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken // [수정] 헤더 추가
+            }, 
+            body: JSON.stringify({ barcode: barcode, actual_stock: actualStock }) 
+        })
         .then(response => response.json()).then(data => {
             if (data.status === 'success') {
                 updateStockDiffDisplayDirectly(barcode, data.new_stock_diff);

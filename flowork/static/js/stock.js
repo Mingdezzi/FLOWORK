@@ -1,5 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     
+    // [수정] CSRF 토큰 가져오기
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    
     const analyzeExcelUrl = document.body.dataset.analyzeExcelUrl;
     
     function setupExcelAnalyzer(config) {
@@ -87,6 +90,9 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const response = await fetch(analyzeExcelUrl, {
                     method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken // [수정] CSRF 토큰 헤더 추가
+                    },
                     body: formData
                 });
                 const data = await response.json();
@@ -161,6 +167,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     // 1. 검증 API 호출
                     const verifyResp = await fetch('/api/verify_excel', {
                         method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrfToken // [수정] CSRF 토큰 헤더 추가
+                        },
                         body: formData
                     });
 
@@ -288,6 +297,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const actionUrl = form.action; 
                 const response = await fetch(actionUrl, {
                     method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken // [수정] CSRF 토큰 헤더 추가
+                    },
                     body: formData
                 });
                 const data = await response.json();

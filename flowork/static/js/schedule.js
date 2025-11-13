@@ -1,5 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     
+    // [수정] CSRF 토큰 가져오기
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
     // --- 1. DOM 요소 및 API URL 가져오기 ---
     const calendarEl = document.getElementById('calendar');
     const eventModalEl = document.getElementById('event-modal');
@@ -171,7 +174,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                },
                 body: JSON.stringify(eventData)
             });
             const data = await response.json();
@@ -206,7 +212,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const url = `${apiUrls.deletePrefix}${eventId}`;
 
         try {
-            const response = await fetch(url, { method: 'DELETE' });
+            const response = await fetch(url, { 
+                method: 'DELETE',
+                headers: {
+                    'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                }
+            });
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || '삭제 실패');
 

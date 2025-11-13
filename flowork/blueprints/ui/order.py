@@ -7,14 +7,13 @@ from sqlalchemy import extract
 from sqlalchemy.orm import selectinload
 
 from flowork.models import db, Order, OrderProcessing, Product, Store, Setting, Brand
+# [수정 1-5] 상수 모듈 임포트
+from flowork.constants import OrderStatus, ReceptionMethod
 from . import ui_bp
 
-ORDER_STATUSES_LIST = [
-    '고객주문', '주문등록', '매장도착', '고객연락', '택배 발송', '완료', '기타'
-]
-PENDING_STATUSES = [
-    '고객주문', '주문등록', '매장도착', '고객연락', '택배 발송'
-]
+# [수정 1-5] 상수를 사용하여 리스트 정의
+ORDER_STATUSES_LIST = OrderStatus.ALL
+PENDING_STATUSES = OrderStatus.PENDING
 
 def _parse_date(date_str):
     if not date_str:
@@ -84,7 +83,9 @@ def _validate_order_form(form):
     if not product_number or not product_name: errors.append('상품 정보(품번, 품명)는 필수입니다.')
     if not color or not size: errors.append('상품 옵션(컬러, 사이즈)은 필수입니다.')
     if not reception_method: errors.append('수령 방법은 필수입니다.')
-    if reception_method == '택배수령':
+    
+    # [수정 1-5] 상수 사용
+    if reception_method == ReceptionMethod.DELIVERY:
         if not form.get('address1') or not form.get('address2'):
             errors.append('택배수령 시 기본주소와 상세주소는 필수입니다.')
     
@@ -114,9 +115,10 @@ def order_list():
         
         brand_name = _get_brand_name_for_sms(current_user.current_brand_id)
         
+        # [수정 1-5] 상수 사용 (완료, 기타 제외한 진행중 주문 조회)
         pending_orders = db.session.query(Order).filter(
             Order.store_id == current_user.store_id, 
-            Order.order_status.not_in(['완료', '기타'])
+            Order.order_status.not_in([OrderStatus.COMPLETED, OrderStatus.ETC])
         ).order_by(Order.created_at.desc(), Order.id.desc()).all()
         
         monthly_orders = db.session.query(Order).filter(

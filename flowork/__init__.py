@@ -2,10 +2,14 @@ import os
 from flask import Flask
 from sqlalchemy import text
 from apscheduler.schedulers.background import BackgroundScheduler
+from flask_wtf.csrf import CSRFProtect  # [수정 1-3] CSRF 보호 모듈 임포트
 
 from .extensions import db, login_manager
 from .models import User 
-from .commands import init_db_command  # [신규] 명령어 import
+from .commands import init_db_command
+
+# [수정 1-3] CSRF 객체 생성
+csrf = CSRFProtect()
 
 login_manager.login_view = 'auth.login' 
 login_manager.login_message = '로그인이 필요합니다.'
@@ -34,7 +38,8 @@ def create_app(config_class):
 
     # 1. 확장 모듈 초기화
     db.init_app(app)
-    login_manager.init_app(app) 
+    login_manager.init_app(app)
+    csrf.init_app(app) # [수정 1-3] CSRF 보호 초기화
 
     # 2. CLI 명령어 등록
     app.cli.add_command(init_db_command)
@@ -43,6 +48,10 @@ def create_app(config_class):
     from .blueprints.ui import ui_bp 
     from .blueprints.api import api_bp
     from .blueprints.auth import auth_bp 
+    
+    # CSRF 예외 처리 (필요한 경우)
+    # api_bp의 특정 라우트만 예외 처리하고 싶다면 csrf.exempt(api_bp) 등을 사용할 수 있으나,
+    # 보안을 위해 모든 POST 요청에 토큰을 검증하는 것이 원칙입니다.
     
     app.register_blueprint(ui_bp)
     app.register_blueprint(api_bp)
