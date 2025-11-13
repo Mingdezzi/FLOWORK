@@ -130,7 +130,7 @@ def verify_stock_excel(file_path, form, stock_type):
         return {'status': 'error', 'message': f"검증 중 오류: {e}"}
 
 
-def import_excel_file(file, form, brand_id):
+def import_excel_file(file, form, brand_id, progress_callback=None):
     if not file:
         return False, '파일이 없습니다.', 'error'
 
@@ -144,7 +144,7 @@ def import_excel_file(file, form, brand_id):
         # 고급 변환 전략 확인
         import_strategy = brand_settings.get('IMPORT_STRATEGY')
         
-        # 2. [수정] 폼 데이터 파싱 및 열 인덱스 추출 (전략 확인 후 분기 처리)
+        # 2. 폼 데이터 파싱 및 열 인덱스 추출 (전략 확인 후 분기 처리)
         field_map = {
             'product_number': ('col_pn', True),
             'product_name': ('col_pname', True),
@@ -178,7 +178,7 @@ def import_excel_file(file, form, brand_id):
             except json.JSONDecodeError:
                 return False, '브랜드 설정 오류: SIZE_MAPPING 형식이 올바르지 않습니다.', 'error'
 
-            # (2) [신규] 카테고리 매핑 규칙 파싱
+            # (2) 카테고리 매핑 규칙 파싱
             category_mapping_json = brand_settings.get('CATEGORY_MAPPING_RULE', '{}')
             try:
                 category_mapping_config = json.loads(category_mapping_json)
@@ -187,7 +187,6 @@ def import_excel_file(file, form, brand_id):
 
             # (3) 변환기 실행 (사용자 선택 열 정보 포함하여 전달)
             try:
-                # [수정] column_map_indices 인자 추가
                 data = transform_horizontal_to_vertical(
                     file, 
                     size_mapping_config, 
@@ -199,13 +198,15 @@ def import_excel_file(file, form, brand_id):
                 return False, f'엑셀 변환 중 오류 발생: {e}', 'error'
                 
         else:
-            # [기존 로직] 일반적인 엑셀 업로드
-            if not (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')):
-                return False, '엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.', 'error'
-
-            wb = openpyxl.load_workbook(file, data_only=True)
-            ws = wb.active
-            data = _read_excel_data_by_indices(ws, column_map_indices)
+            # 일반적인 엑셀 업로드
+            # file 객체가 BytesIO 혹은 실제 파일인지 확인
+            # (스레드에서 넘어온 파일 핸들이면 바로 로드 가능)
+            try:
+                wb = openpyxl.load_workbook(file, data_only=True)
+                ws = wb.active
+                data = _read_excel_data_by_indices(ws, column_map_indices)
+            except Exception as e:
+                 return False, f'엑셀 파일 읽기 오류: {e}', 'error'
 
         # --- 이하 공통 검증 및 저장 로직 ---
 
@@ -273,8 +274,14 @@ def import_excel_file(file, form, brand_id):
         products_map = {}
         total_products_created = 0
         total_variants_created = 0
+        
+        total_items = len(validated_data)
 
         for i in range(0, len(validated_data), BATCH_SIZE):
+            # 진행률 보고
+            if progress_callback:
+                progress_callback(i, total_items)
+
             batch_data = validated_data[i:i+BATCH_SIZE]
             products_to_add_batch = []
             variants_to_add_batch = []
@@ -333,6 +340,9 @@ def import_excel_file(file, form, brand_id):
                 total_variants_created += len(variants_to_add_batch)
             
             db.session.commit()
+        
+        if progress_callback:
+            progress_callback(total_items, total_items)
         
         return True, f'업로드 완료. (상품 {total_products_created}개, 옵션 {total_variants_created}개)', 'success'
 
