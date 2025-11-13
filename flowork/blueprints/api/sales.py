@@ -1,5 +1,6 @@
 import json
 import io
+import traceback
 from datetime import datetime, date
 from flask import request, jsonify, send_file
 from flask_login import login_required, current_user
@@ -84,6 +85,8 @@ def create_sale():
             if not stock:
                 stock = StoreStock(store_id=current_user.store_id, variant_id=variant_id, quantity=0)
                 db.session.add(stock)
+            
+            current_qty = stock.quantity
             stock.quantity -= qty
             
             history = StockHistory(
@@ -97,6 +100,9 @@ def create_sale():
             db.session.add(history)
             
             variant = db.session.get(Variant, variant_id)
+            if not variant:
+                raise ValueError(f"Variant ID {variant_id} not found")
+
             sale_item = SaleItem(
                 sale_id=new_sale.id,
                 variant_id=variant_id,
@@ -121,8 +127,9 @@ def create_sale():
         
     except Exception as e:
         db.session.rollback()
-        print(f"Sale Error: {e}")
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        print("Sale Creation Error:")
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'message': f'판매 등록 중 오류 발생: {str(e)}'}), 500
 
 @api_bp.route('/api/sales/search_products', methods=['POST'])
 @login_required
@@ -432,6 +439,7 @@ def refund_sale(sale_id):
         for item in sale.items:
             stock = StoreStock.query.filter_by(store_id=current_user.store_id, variant_id=item.variant_id).first()
             if stock: 
+                current_qty = stock.quantity
                 stock.quantity += item.quantity
                 
                 history = StockHistory(
@@ -449,6 +457,8 @@ def refund_sale(sale_id):
         return jsonify({'status': 'success', 'message': f'환불 완료 ({sale.receipt_number})'})
     except Exception as e:
         db.session.rollback()
+        print("Refund Error:")
+        traceback.print_exc()
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @api_bp.route('/api/sales/<int:sale_id>/refund_partial', methods=['POST'])
@@ -515,6 +525,7 @@ def refund_sale_partial(sale_id):
     except Exception as e:
         db.session.rollback()
         print(f"Partial Refund Error: {e}")
+        traceback.print_exc()
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 

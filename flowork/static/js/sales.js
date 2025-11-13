@@ -101,6 +101,19 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.settingsModal.hide();
     });
 
+    // [수정] 모달 닫힘 시 포커스 이동 (aria-hidden 오류 방지)
+    // 모달이 닫힐 때 포커스가 모달 내부 요소에 남아있으면 브라우저가 접근성 오류를 발생시킴
+    const modals = ['detail-modal', 'records-modal', 'settings-modal'];
+    modals.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('hidden.bs.modal', () => {
+                // 모달이 닫히면 검색창으로 포커스 이동 (안전한 외부 요소)
+                if (dom.searchInput) dom.searchInput.focus();
+            });
+        }
+    });
+
     function setMode(mode) {
         currentMode = mode;
         cart = []; renderCart(); // 모드 변경 시 카트 초기화
