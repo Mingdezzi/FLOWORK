@@ -6,9 +6,8 @@ from flask_login import login_required, current_user
 from sqlalchemy import func, or_
 import openpyxl
 
-# [수정] Store, StockHistory 모델 추가 임포트
 from flowork.models import db, Sale, SaleItem, Setting, StoreStock, Variant, Product, Store, StockHistory
-from flowork.utils import clean_string_upper
+from flowork.utils import clean_string_upper, get_sort_key
 from . import api_bp
 
 @api_bp.route('/api/sales/settings', methods=['GET', 'POST'])
@@ -51,13 +50,10 @@ def create_sale():
     if not items: return jsonify({'status': 'error', 'message': '상품 없음'}), 400
         
     try:
-        # [수정 1-2] 영수증 번호 동시성 제어를 위한 Row Lock (SELECT FOR UPDATE)
-        # 해당 매장의 Store 레코드를 잠그어 동시에 번호가 채번되는 것을 방지
         store = db.session.query(Store).with_for_update().get(current_user.store_id)
         
         sale_date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else date.today()
         
-        # Lock 상태에서 안전하게 마지막 번호 조회
         last_sale = Sale.query.filter_by(store_id=current_user.store_id, sale_date=sale_date).order_by(Sale.daily_number.desc()).first()
         next_num = (last_sale.daily_number + 1) if last_sale else 1
         
@@ -84,14 +80,12 @@ def create_sale():
             discounted_price = unit_price - discount_amt
             subtotal = discounted_price * qty
             
-            # 재고 차감 (Lock)
             stock = StoreStock.query.filter_by(store_id=current_user.store_id, variant_id=variant_id).with_for_update().first()
             if not stock:
                 stock = StoreStock(store_id=current_user.store_id, variant_id=variant_id, quantity=0)
                 db.session.add(stock)
             stock.quantity -= qty
             
-            # [수정 2-1] 재고 변동 이력(History) 기록
             history = StockHistory(
                 store_id=current_user.store_id,
                 variant_id=variant_id,
@@ -138,7 +132,7 @@ def search_sales_products():
     
     data = request.json
     query = data.get('query', '').strip()
-    mode = data.get('mode', 'sales') # 'sales', 'refund', 'detail_stock'
+    mode = data.get('mode', 'sales') 
     
     if not query:
         return jsonify({'status': 'success', 'results': []})
@@ -150,15 +144,19 @@ def search_sales_products():
     )
 
     if mode == 'detail_stock':
-        # 판매 모드에서 상세 모달용 (품번으로 Variant 조회)
         product = Product.query.filter(
             Product.brand_id == current_user.current_brand_id,
-            Product.product_number == query # 정확한 품번 매칭
+            Product.product_number == query 
         ).first()
         
         if not product: return jsonify({'status': 'error', 'variants': []})
         
+        settings_query = Setting.query.filter_by(brand_id=current_user.current_brand_id).all()
+        brand_settings = {s.key: s.value for s in settings_query}
+        
         variants = db.session.query(Variant).filter_by(product_id=product.id).all()
+        variants.sort(key=lambda v: get_sort_key(v, brand_settings))
+        
         stocks = db.session.query(StoreStock).filter(
             StoreStock.store_id == current_user.store_id,
             StoreStock.variant_id.in_([v.id for v in variants])
@@ -175,10 +173,8 @@ def search_sales_products():
                 'sale_price': v.sale_price,
                 'stock': stock_map.get(v.id, 0)
             })
-        # 정렬 로직(필요시)
         return jsonify({'status': 'success', 'variants': result_vars})
 
-    # 기본 검색 (리스트용)
     products = Product.query.filter(
         Product.brand_id == current_user.current_brand_id,
         search_filter
@@ -186,7 +182,6 @@ def search_sales_products():
     
     results = []
     for p in products:
-        # 공통 정보
         base_info = {
             'product_id': p.id,
             'product_number': p.product_number,
@@ -194,7 +189,6 @@ def search_sales_products():
             'year': p.release_year,
         }
         
-        # Variant 정보 집계
         variants_all = Variant.query.filter_by(product_id=p.id).all()
         color_map = {}
         for v in variants_all:
@@ -211,7 +205,6 @@ def search_sales_products():
             stat_qty = 0
             
             if mode == 'sales':
-                # 현재고 합계
                 stocks = db.session.query(func.sum(StoreStock.quantity)).filter(
                     StoreStock.store_id == current_user.store_id,
                     StoreStock.variant_id.in_(v_data['ids'])
@@ -219,7 +212,6 @@ def search_sales_products():
                 stat_qty = stocks if stocks else 0
                 
             elif mode == 'refund':
-                # 기간 내 판매량 합계
                 start_dt = data.get('start_date')
                 end_dt = data.get('end_date')
                 if start_dt and end_dt:
@@ -249,7 +241,6 @@ def get_refund_records():
     start_dt = data.get('start_date')
     end_dt = data.get('end_date')
     
-    # 해당 품번+컬러를 가진 Variant ID들 찾기
     variants = db.session.query(Variant.id).join(Product).filter(
         Product.product_number == pn,
         Product.brand_id == current_user.current_brand_id,
@@ -259,7 +250,6 @@ def get_refund_records():
     
     if not v_ids: return jsonify({'records': []})
     
-    # SaleItem과 Sale 조인하여 내역 조회
     items = db.session.query(Sale, SaleItem).join(SaleItem).filter(
         Sale.store_id == current_user.store_id,
         Sale.sale_date >= start_dt,
@@ -444,7 +434,6 @@ def refund_sale(sale_id):
             if stock: 
                 stock.quantity += item.quantity
                 
-                # [수정 2-1] 전체 환불 시에도 History 기록
                 history = StockHistory(
                     store_id=current_user.store_id,
                     variant_id=item.variant_id,
@@ -465,11 +454,10 @@ def refund_sale(sale_id):
 @api_bp.route('/api/sales/<int:sale_id>/refund_partial', methods=['POST'])
 @login_required
 def refund_sale_partial(sale_id):
-    """[신규 2-2] 부분 환불 기능"""
     if not current_user.store_id: return jsonify({'status': 'error'}), 403
     
     data = request.json
-    refund_items = data.get('items', []) # [{variant_id: 1, quantity: 1}, ...]
+    refund_items = data.get('items', []) 
     
     if not refund_items:
         return jsonify({'status': 'error', 'message': '환불할 상품이 없습니다.'}), 400
@@ -488,11 +476,9 @@ def refund_sale_partial(sale_id):
             
             if refund_qty <= 0: continue
 
-            # 1. SaleItem 찾기
             sale_item = SaleItem.query.filter_by(sale_id=sale.id, variant_id=variant_id).first()
             
             if sale_item and sale_item.quantity >= refund_qty:
-                # 2. 수량 및 금액 차감
                 refund_amount = sale_item.discounted_price * refund_qty
                 
                 sale_item.quantity -= refund_qty
@@ -500,12 +486,10 @@ def refund_sale_partial(sale_id):
                 sale.total_amount -= refund_amount
                 total_refunded_amount += refund_amount
                 
-                # 3. 재고 복구
                 stock = StoreStock.query.filter_by(store_id=sale.store_id, variant_id=variant_id).first()
                 if stock:
                     stock.quantity += refund_qty
                     
-                    # 4. 히스토리 기록
                     history = StockHistory(
                         store_id=sale.store_id,
                         variant_id=variant_id,
@@ -515,12 +499,7 @@ def refund_sale_partial(sale_id):
                         user_id=current_user.id
                     )
                     db.session.add(history)
-                
-                # 수량이 0이 되면 아이템 삭제 고려 (또는 0으로 유지) -> 여기서는 0이면 유지하되 화면에서 안보이게 처리 등 필요할 수 있음
-                # 로직상 0이면 DB에서 삭제해도 무방하나, 기록 보존을 위해 0으로 둘 수도 있음.
-                # 여기서는 그대로 둠.
 
-        # 모든 아이템의 수량이 0인지 확인하여 전체 환불 상태로 변경
         all_zero = True
         for item in sale.items:
             if item.quantity > 0:
@@ -549,7 +528,6 @@ def get_sale_details(sale_id):
     
     items = []
     for i in sale.items:
-        # 수량이 0보다 큰 것만 리턴 (부분 환불된 것은 제외)
         if i.quantity > 0:
             items.append({
                 'variant_id': i.variant_id,
@@ -582,7 +560,12 @@ def get_product_variants_for_sale():
     if not product_id: return jsonify({'status': 'error', 'message': 'ID 없음'}), 400
         
     try:
+        settings_query = Setting.query.filter_by(brand_id=current_user.current_brand_id).all()
+        brand_settings = {s.key: s.value for s in settings_query}
+
         variants = db.session.query(Variant).filter_by(product_id=product_id).all()
+        variants.sort(key=lambda v: get_sort_key(v, brand_settings))
+
         variant_ids = [v.id for v in variants]
         stocks = db.session.query(StoreStock).filter(StoreStock.store_id == current_user.store_id, StoreStock.variant_id.in_(variant_ids)).all()
         stock_map = {s.variant_id: s.quantity for s in stocks}
@@ -597,7 +580,6 @@ def get_product_variants_for_sale():
                 'stock': stock_map.get(v.id, 0)
             })
         
-        result.sort(key=lambda x: (x['color'], x['size']))
         product = db.session.get(Product, product_id)
         
         return jsonify({'status': 'success', 'product_name': product.product_name, 'product_number': product.product_number, 'variants': result})
