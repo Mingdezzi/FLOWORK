@@ -12,7 +12,6 @@ import traceback
 import re
 import json
 
-# 변환기 임포트
 try:
     from flowork.services.transformer import transform_horizontal_to_vertical
 except ImportError:
@@ -74,7 +73,7 @@ def verify_stock_excel(file_path, form, stock_type):
         return {'status': 'error', 'message': f'파일 읽기 오류: {e}'}
 
     field_map = {
-        'product_number': ('col_pn', True),
+        'product_number': ('col_pn', False),
         'product_name': ('col_pname', False),
         'original_price': ('col_oprice', False),
         'sale_price': ('col_sprice', False),
@@ -137,14 +136,11 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
     BATCH_SIZE = 500
     
     try:
-        # 1. 브랜드 설정 로드
         settings_query = Setting.query.filter_by(brand_id=brand_id).all()
         brand_settings = {s.key: s.value for s in settings_query}
         
-        # 고급 변환 전략 확인
-        import_strategy = brand_settings.get('IMPORT_STRATEGY')
+        import_strategy = brand_settings.get('IMPORT_STRATEGESY')
         
-        # 2. 폼 데이터 파싱 및 열 인덱스 추출 (전략 확인 후 분기 처리)
         field_map = {
             'product_number': ('col_pn', True),
             'product_name': ('col_pname', True),
@@ -158,7 +154,6 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
             'hq_stock': ('col_hq_stock', False),
         }
 
-        # horizontal_matrix 전략인 경우 size와 hq_stock은 필수 아님 (자동 처리)
         if import_strategy == 'horizontal_matrix':
             field_map['size'] = ('col_size', False)
             field_map['hq_stock'] = ('col_hq_stock', False)
@@ -171,21 +166,18 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
             if transform_horizontal_to_vertical is None:
                 return False, '서버에 pandas 라이브러리가 설치되지 않아 변환 기능을 사용할 수 없습니다.', 'error'
             
-            # (1) 사이즈 매핑표 파싱
             size_mapping_json = brand_settings.get('SIZE_MAPPING', '{}')
             try:
                 size_mapping_config = json.loads(size_mapping_json)
             except json.JSONDecodeError:
                 return False, '브랜드 설정 오류: SIZE_MAPPING 형식이 올바르지 않습니다.', 'error'
 
-            # (2) 카테고리 매핑 규칙 파싱
             category_mapping_json = brand_settings.get('CATEGORY_MAPPING_RULE', '{}')
             try:
                 category_mapping_config = json.loads(category_mapping_json)
             except json.JSONDecodeError:
                 return False, '브랜드 설정 오류: CATEGORY_MAPPING_RULE 형식이 올바르지 않습니다.', 'error'
 
-            # (3) 변환기 실행 (사용자 선택 열 정보 포함하여 전달)
             try:
                 data = transform_horizontal_to_vertical(
                     file, 
@@ -198,15 +190,12 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
                 return False, f'엑셀 변환 중 오류 발생: {e}', 'error'
                 
         else:
-            # 일반적인 엑셀 업로드
             try:
                 wb = openpyxl.load_workbook(file, data_only=True)
                 ws = wb.active
                 data = _read_excel_data_by_indices(ws, column_map_indices)
             except Exception as e:
                  return False, f'엑셀 파일 읽기 오류: {e}', 'error'
-
-        # --- 이하 공통 검증 및 저장 로직 ---
 
         validated_data = []
         errors = []
@@ -216,7 +205,6 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
             row_num = i + 2 
             
             try:
-                # 바코드 생성
                 item['barcode'] = generate_barcode(item, brand_settings)
                 
                 if not item.get('barcode'):
@@ -226,14 +214,13 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
                 
                 item['barcode_cleaned'] = clean_string_upper(item['barcode'])
                 
-                # 데이터 정제
                 item['product_number'] = str(item['product_number']).strip()
                 item['product_name'] = str(item['product_name']).strip()
                 item['color'] = str(item['color']).strip()
                 item['size'] = str(item['size']).strip()
                 item['original_price'] = int(item.get('original_price') or 0)
                 item['sale_price'] = int(item.get('sale_price') or item['original_price'])
-                item['release_year'] = int(item['release_year']) if item.get('release_year') else None
+                item['release_year'] = int(item.get('release_year') or 0) if item.get('release_year') else None
                 item['item_category'] = str(item['item_category']).strip() if item.get('item_category') else None
                 item['is_favorite'] = 1 if item.get('is_favorite') in [True, 1, '1', 'Y', 'O'] else 0
                 
@@ -260,7 +247,6 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
         if errors and not import_strategy:
              return False, f"검증 오류 (최대 5개): {', '.join(errors[:5])}", 'error'
 
-        # [DB 초기화 및 저장 로직]
         store_ids_to_delete = db.session.query(Store.id).filter_by(brand_id=brand_id)
         db.session.query(StoreStock).filter(StoreStock.store_id.in_(store_ids_to_delete)).delete(synchronize_session=False)
         product_ids_to_delete = db.session.query(Product.id).filter_by(brand_id=brand_id)
@@ -276,7 +262,6 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
         total_items = len(validated_data)
 
         for i in range(0, len(validated_data), BATCH_SIZE):
-            # 진행률 보고
             if progress_callback:
                 progress_callback(i, total_items)
 
@@ -328,8 +313,8 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
                     sale_price=item['sale_price'],
                     hq_quantity=item['hq_stock'],
                     barcode_cleaned=item['barcode_cleaned'],
-                    color_cleaned=item['color_cleaned'],
-                    size_cleaned=item['size_cleaned']
+                    color_cleaned=clean_string_upper(item['color']),
+                    size_cleaned=clean_string_upper(item['size'])
                 )
                 variants_to_add_batch.append(variant)
 
@@ -360,14 +345,11 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
 
 def process_stock_upsert_excel(file_path, form, stock_type, brand_id, target_store_id=None, progress_callback=None, excluded_row_indices=None, allow_create=True):
     try:
-        # 1. 브랜드 설정 로드
         settings_query = Setting.query.filter_by(brand_id=brand_id).all()
         brand_settings = {s.key: s.value for s in settings_query}
         import_strategy = brand_settings.get('IMPORT_STRATEGY')
 
-        # 파일 핸들 얻기 (openpyxl 또는 바이너리)
         wb = None
-        # 일단 openpyxl로 열어보지만, horizontal의 경우 바이너리로 다시 열 수 있음
         try:
             wb = openpyxl.load_workbook(file_path, data_only=True)
         except Exception as e:
@@ -393,7 +375,6 @@ def process_stock_upsert_excel(file_path, form, stock_type, brand_id, target_sto
             'item_category': ('col_category', False),
         }
         
-        # 전략에 따라 필수값 조정
         if import_strategy == 'horizontal_matrix':
             field_map['size'] = ('col_size', False)
             field_map['hq_stock'] = ('col_hq_stock', False)
@@ -410,7 +391,6 @@ def process_stock_upsert_excel(file_path, form, stock_type, brand_id, target_sto
         column_map_indices = _get_column_indices_from_form(form, active_field_map)
         items_to_process = []
 
-        # 2. 데이터 읽기 및 변환
         if import_strategy == 'horizontal_matrix':
             if transform_horizontal_to_vertical is None:
                 return 0, 0, '서버에 pandas 라이브러리가 없어 변환 기능을 사용할 수 없습니다.', 'error'
@@ -422,7 +402,6 @@ def process_stock_upsert_excel(file_path, form, stock_type, brand_id, target_sto
                 return 0, 0, '브랜드 설정(SIZE_MAPPING 등) 형식이 올바르지 않습니다.', 'error'
 
             try:
-                # 파일을 바이너리로 열어서 변환기에 전달
                 with open(file_path, 'rb') as f:
                     items_to_process = transform_horizontal_to_vertical(
                         f, 
@@ -431,7 +410,6 @@ def process_stock_upsert_excel(file_path, form, stock_type, brand_id, target_sto
                         column_map_indices 
                     )
                 
-                # 변환 결과 정규화
                 for item in items_to_process:
                     qty = item.get('hq_stock') or item.get('quantity') or 0
                     if stock_type == 'store':
@@ -444,11 +422,9 @@ def process_stock_upsert_excel(file_path, form, stock_type, brand_id, target_sto
                 return 0, 0, f'엑셀 변환 중 오류 발생: {e}', 'error'
         
         else:
-            # 일반 전략
             ws = wb.active
             items_to_process = _read_excel_data_by_indices(ws, column_map_indices)
 
-        # 제외 행 처리
         excluded_set = set(excluded_row_indices) if excluded_row_indices else set()
         if excluded_set:
             items_to_process = [it for it in items_to_process if it.get('_row_index') not in excluded_set]
@@ -460,7 +436,6 @@ def process_stock_upsert_excel(file_path, form, stock_type, brand_id, target_sto
         if progress_callback:
             progress_callback(0, total_items)
 
-        # 3. DB 데이터 조회
         pn_cleaned_list = list(set(clean_string_upper(item['product_number']) for item in items_to_process if item.get('product_number')))
         
         products_in_db = Product.query.filter(
@@ -484,7 +459,6 @@ def process_stock_upsert_excel(file_path, form, stock_type, brand_id, target_sto
                 ).all()
                 store_stock_map = {s.variant_id: s for s in existing_stock}
 
-        # 4. 데이터 처리 Loop
         created_product_count = 0
         created_variant_count = 0
         updated_variant_price_count = 0
@@ -528,10 +502,8 @@ def process_stock_upsert_excel(file_path, form, stock_type, brand_id, target_sto
                 barcode_cleaned = clean_string_upper(barcode)
                 pn_cleaned = clean_string_upper(pn)
                 
-                # Product 처리
                 product = product_map.get(pn_cleaned)
                 if not product:
-                    # [수정] 생성 권한 확인
                     if not allow_create:
                         continue
 
@@ -549,13 +521,11 @@ def process_stock_upsert_excel(file_path, form, stock_type, brand_id, target_sto
                     new_products_to_add.append(product)
                     created_product_count += 1
                 
-                # Variant 처리
                 variant = variant_map.get(barcode_cleaned)
                 original_price = int(item.get('original_price') or 0)
                 sale_price = int(item.get('sale_price') or original_price)
 
                 if not variant:
-                    # [수정] 생성 권한 확인
                     if not allow_create:
                         continue
 
@@ -579,7 +549,6 @@ def process_stock_upsert_excel(file_path, form, stock_type, brand_id, target_sto
                     if sale_price > 0: variant.sale_price = sale_price
                     updated_variant_price_count += 1
                 
-                # 재고 수량 준비
                 if stock_type == 'hq':
                     qty = int(item.get('hq_stock') or 0)
                     variants_to_update_stock.append((variant, qty))
@@ -594,7 +563,6 @@ def process_stock_upsert_excel(file_path, form, stock_type, brand_id, target_sto
         if progress_callback:
             progress_callback(int(total_items * 0.9), total_items)
 
-        # 5. DB 저장
         if new_products_to_add:
             db.session.add_all(new_products_to_add)
         if new_variants_to_add:
@@ -614,36 +582,32 @@ def process_stock_upsert_excel(file_path, form, stock_type, brand_id, target_sto
         
         elif stock_type == 'store':
             new_store_stock_entries = []
-            
-            # [수정] 중복 INSERT 방지를 위한 세트 (이미 처리한 variant ID 추적)
-            processed_variant_ids_in_batch = set()
-            
+
+            variant_qty_map = {}
             for variant, store_qty in items_for_store_stock:
-                if not variant.id: 
-                    continue
-                
-                # 이미 DB에 있는지 확인
-                stock_entry = store_stock_map.get(variant.id)
+                if variant.id:
+                    variant_qty_map[variant.id] = store_qty 
+            
+            updated_store_stock_count_in_batch = 0
+
+            for variant_id, store_qty in variant_qty_map.items():
+                stock_entry = store_stock_map.get(variant_id)
                 
                 if stock_entry:
                     stock_entry.quantity = store_qty
-                    updated_store_stock_count += 1
-                # [수정] 이번 배치에서 이미 생성 리스트에 추가했는지 확인
-                elif variant.id in processed_variant_ids_in_batch:
-                    # 이미 추가된 경우 중복 생성을 건너뜀
-                    continue
+                    updated_store_stock_count_in_batch += 1
                 else:
                     new_stock = StoreStock(
                         store_id=target_store_id,
-                        variant_id=variant.id,
+                        variant_id=variant_id,
                         quantity=store_qty,
                         actual_stock=None
                     )
                     new_store_stock_entries.append(new_stock)
-                    # [수정] 처리된 목록에 추가
-                    processed_variant_ids_in_batch.add(variant.id)
                     created_store_stock_count += 1
             
+            updated_store_stock_count += updated_store_stock_count_in_batch
+
             if new_store_stock_entries:
                 db.session.add_all(new_store_stock_entries)
 
@@ -653,15 +617,10 @@ def process_stock_upsert_excel(file_path, form, stock_type, brand_id, target_sto
             progress_callback(total_items, total_items)
         
         if stock_type == 'hq':
-             msg = f"본사재고 UPSERT 완료. " \
-                  f"(신규 상품: {created_product_count} / 신규 옵션: {created_variant_count}) " \
-                  f"(옵션 가격 수정: {updated_variant_price_count} / 본사 재고 수정: {updated_hq_stock_count})"
+             msg = f"본사재고 UPSERT 완료. (신규 상품: {created_product_count} / 신규 옵션: {created_variant_count}) (옵션 가격 수정: {updated_variant_price_count} / 본사 재고 수정: {updated_hq_stock_count})"
              total_processed = updated_hq_stock_count
         else:
-             msg = f"매장재고 UPSERT 완료. " \
-                  f"(신규 상품: {created_product_count} / 신규 옵션: {created_variant_count}) " \
-                  f"(옵션 가격 수정: {updated_variant_price_count}) " \
-                  f"(매장 재고 생성: {created_store_stock_count} / 매장 재고 수정: {updated_store_stock_count})"
+             msg = f"매장재고 UPSERT 완료. (신규 상품: {created_product_count} / 신규 옵션: {created_variant_count}) (옵션 가격 수정: {updated_variant_price_count}) (매장 재고 생성: {created_store_stock_count} / 매장 재고 수정: {updated_store_stock_count})"
              total_processed = created_store_stock_count + updated_store_stock_count
         
         total_created = created_product_count + created_variant_count
@@ -748,7 +707,7 @@ def _process_stock_update_excel(file, form, stock_type, brand_id, target_store_i
                 else:
                     new_stock = StoreStock(
                         store_id=target_store_id,
-                        variant_id=variant.id,
+                        variant_id=variant_id,
                         quantity=new_qty,
                         actual_stock=None
                     )
@@ -787,13 +746,10 @@ def _process_stock_update_excel(file, form, stock_type, brand_id, target_store_i
 
 def export_db_to_excel(brand_id):
     try:
-        products = Product.query.filter_by(brand_id=brand_id).options(
+        products_query = Product.query.filter_by(brand_id=brand_id).options(
             selectinload(Product.variants)
-        ).order_by(Product.product_number).all()
+        ).order_by(Product.product_number).execution_options(yield_per=100)
         
-        if not products:
-            return None, None, "백업할 상품 데이터가 없습니다."
-
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Products_Variants_Backup"
@@ -809,7 +765,11 @@ def export_db_to_excel(brand_id):
         for cell in ws[1]:
             cell.font = header_font
 
-        for product in products:
+        is_empty = True
+        for product in products_query:
+            if is_empty:
+                 is_empty = False
+                 
             for variant in product.variants:
                 row = [
                     product.product_number,
@@ -825,6 +785,9 @@ def export_db_to_excel(brand_id):
                     product.is_favorite
                 ]
                 ws.append(row)
+        
+        if is_empty:
+             return None, None, "백업할 상품 데이터가 없습니다."
 
         for i, col in enumerate(ws.columns, 1):
             max_length = 0
