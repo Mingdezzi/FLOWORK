@@ -746,9 +746,21 @@ def _process_stock_update_excel(file, form, stock_type, brand_id, target_store_i
 
 def export_db_to_excel(brand_id):
     try:
-        products_query = Product.query.filter_by(brand_id=brand_id).options(
-            selectinload(Product.variants)
-        ).order_by(Product.product_number).execution_options(yield_per=100)
+        products_variants_query = db.session.query(
+            Product.product_number,
+            Product.product_name,
+            Product.release_year,
+            Product.item_category,
+            Product.is_favorite,
+            Variant.barcode,
+            Variant.color,
+            Variant.size,
+            Variant.original_price,
+            Variant.sale_price,
+            Variant.hq_quantity,
+        ).join(Variant, Product.id == Variant.product_id).filter(
+            Product.brand_id == brand_id
+        ).order_by(Product.product_number, Variant.id).execution_options(yield_per=100)
         
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -766,25 +778,26 @@ def export_db_to_excel(brand_id):
             cell.font = header_font
 
         is_empty = True
-        for product in products_query:
+        for row in products_variants_query:
             if is_empty:
                  is_empty = False
                  
-            for variant in product.variants:
-                row = [
-                    product.product_number,
-                    product.product_name,
-                    product.release_year,
-                    product.item_category,
-                    variant.barcode,
-                    variant.color,
-                    variant.size,
-                    variant.original_price,
-                    variant.sale_price,
-                    variant.hq_quantity,
-                    product.is_favorite
-                ]
-                ws.append(row)
+            product_number, product_name, release_year, item_category, is_favorite, barcode, color, size, original_price, sale_price, hq_quantity = row
+            
+            data_row = [
+                product_number,
+                product_name,
+                release_year,
+                item_category,
+                barcode,
+                color,
+                size,
+                original_price,
+                sale_price,
+                hq_quantity,
+                is_favorite
+            ]
+            ws.append(data_row)
         
         if is_empty:
              return None, None, "백업할 상품 데이터가 없습니다."
@@ -811,6 +824,7 @@ def export_db_to_excel(brand_id):
         return output, download_name, None
 
     except Exception as e:
+        db.session.rollback()
         print(f"DB Export Error: {e}")
         traceback.print_exc()
         return None, None, f"엑셀 백업 중 오류 발생: {e}"
