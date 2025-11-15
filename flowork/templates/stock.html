@@ -157,10 +157,13 @@
                         <strong>(요청) 엑셀 파일로 상품 데이터(STOCK_INFO)를 재설정합니다.</strong>
                         <span>(경고) 현재 브랜드의 기존 상품/옵션/재고 DB가 **모두 삭제**되고 엑셀 내용으로 덮어씁니다.</span>
                     </div>
-                    <form action="{{ url_for('api.import_excel') }}" method="POST" enctype="multipart/form-data" 
+                    <form action="{{ url_for('api.inventory_upsert') }}" method="POST" enctype="multipart/form-data" 
                           class="update-stock-form" id="form-import-db"
                           onsubmit="return confirm('🚨 경고! DB를 덮어씁니다.\n계속하시겠습니까?');">
                         
+                        <input type="hidden" name="upload_mode" value="db"/>
+                        <input type="hidden" name="is_full_import" value="true"/>
+
                         <div class="mb-3">
                             <label for="db_excel_file" class="form-label file-upload-wrapper" id="wrapper-db-file">
                                 <i class="bi bi-file-earmark-excel-fill fs-4"></i>
