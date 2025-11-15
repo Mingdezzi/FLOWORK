@@ -60,7 +60,7 @@ def transform_horizontal_to_vertical(file_stream, size_mapping_config, category_
         value_name='Quantity'
     )
 
-    # 6. 매핑 테이블 병합 (Merge)
+    # 6. 매핑 테이블 병합
     mapping_list = []
     for key, map_data in size_mapping_config.items():
         for code, real_size in map_data.items():
@@ -82,18 +82,38 @@ def transform_horizontal_to_vertical(file_stream, size_mapping_config, category_
         df_final = df_final.merge(df_other_map, on='Size_Code', how='left')
         df_final['Real_Size'] = df_final['Real_Size'].fillna(df_final['Real_Size_Other'])
 
-    # 유효하지 않은 사이즈 제거
     df_final = df_final.dropna(subset=['Real_Size'])
 
-    # 수량 0인 데이터는 의미 없으므로 제거 (선택사항: 필요 시 주석 해제)
-    # df_final = df_final[pd.to_numeric(df_final['Quantity'], errors='coerce').fillna(0) > 0]
+    # 7. 데이터 정제 및 반환 (DataFrame 반환!)
+    df_final['hq_stock'] = pd.to_numeric(df_final['Quantity'], errors='coerce').fillna(0).astype(int)
+    
+    df_final['original_price'] = pd.to_numeric(df_final['original_price'], errors='coerce').fillna(0).astype(int)
+    df_final['sale_price'] = pd.to_numeric(df_final['sale_price'], errors='coerce').fillna(0).astype(int)
+    
+    condition_op_only = (df_final['original_price'] > 0) & (df_final['sale_price'] == 0)
+    condition_sp_only = (df_final['sale_price'] > 0) & (df_final['original_price'] == 0)
+    
+    df_final['sale_price'] = np.where(condition_op_only, df_final['original_price'], df_final['sale_price'])
+    df_final['original_price'] = np.where(condition_sp_only, df_final['sale_price'], df_final['original_price'])
+    
+    df_final['release_year'] = pd.to_numeric(df_final['release_year'], errors='coerce').fillna(0).astype(int)
+    
+    str_cols = ['product_number', 'product_name', 'color', 'Real_Size', 'DB_Category']
+    for col in str_cols:
+        df_final[col] = df_final[col].astype(str).str.strip()
 
-    # 7. 데이터 정제 및 반환 (DataFrame 그대로 반환)
+    df_final['is_favorite'] = 0
+
     df_final = df_final.rename(columns={
         'Real_Size': 'size',
-        'DB_Category': 'item_category',
-        'Quantity': 'hq_stock' # 가로형은 보통 본사재고 기준
+        'DB_Category': 'item_category'
     })
+
+    final_cols = [
+        'product_number', 'product_name', 'color', 'size', 
+        'hq_stock', 'sale_price', 'original_price', 
+        'item_category', 'release_year', 'is_favorite'
+    ]
     
-    # 필요한 컬럼만 선택
-    return df_final
+    # [수정됨] to_dict 제거하고 DataFrame 반환
+    return df_final[final_cols]

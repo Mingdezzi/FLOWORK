@@ -112,6 +112,12 @@ def _optimize_dataframe(df, brand_settings, upload_mode):
         df['product_name_cleaned'] = df['product_name'].apply(clean_string_upper)
         df['product_name_choseong'] = df['product_name'].apply(get_choseong)
     
+    # [수정] is_favorite 컬럼 처리 (없으면 생성, 있으면 정수 변환)
+    if 'is_favorite' not in df.columns:
+        df['is_favorite'] = 0
+    else:
+        df['is_favorite'] = pd.to_numeric(df['is_favorite'], errors='coerce').fillna(0).astype(int)
+    
     df = df.drop_duplicates(subset=['barcode_cleaned'], keep='last')
 
     return df
@@ -152,7 +158,7 @@ def verify_stock_excel(file_path, form, upload_mode):
         return {'status': 'error', 'message': f"검증 중 오류: {e}"}
 
 def import_excel_file(file, form, brand_id, progress_callback=None):
-    # file: 이미 열린 파일 객체(BytesIO 등)가 전달됨 (tasks.py에서 open)
+    # file: tasks.py에서 넘어온 파일 객체
     if not file: return False, '파일이 없습니다.', 'error'
     BATCH_SIZE = 1000
     
@@ -181,7 +187,7 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
         
         column_map_indices = _get_column_indices_from_form(form, field_map, strict=False)
 
-        # [수정] 이미 열린 파일 객체(file)를 그대로 사용 (with open 제거)
+        # [수정] file 객체를 그대로 사용
         df = pd.DataFrame()
         if import_strategy == 'horizontal_matrix':
             if transform_horizontal_to_vertical is None:
@@ -202,7 +208,7 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
         if df.empty:
             return False, "유효한 데이터가 없습니다.", 'error'
             
-        # 기존 데이터 삭제
+        # DB 초기화
         store_ids = db.session.query(Store.id).filter_by(brand_id=brand_id)
         db.session.query(StoreStock).filter(StoreStock.store_id.in_(store_ids)).delete(synchronize_session=False)
         product_ids = db.session.query(Product.id).filter_by(brand_id=brand_id)
@@ -210,8 +216,8 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
         db.session.query(Product).filter_by(brand_id=brand_id).delete(synchronize_session=False)
         db.session.commit()
 
-        # [수정] ID 맵핑 전략 변경: 객체 대신 ID만 저장하여 세션 만료 문제 방지
-        products_id_map = {} # {pn: product_id}
+        # ID 맵핑용 딕셔너리 (세션 만료 방지를 위해 ID만 저장)
+        products_id_map = {} 
         
         total_products = 0
         total_variants = 0
@@ -223,10 +229,10 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
             if progress_callback: progress_callback(i, total_items)
             batch = records[i:i+BATCH_SIZE]
             
-            # 1. Product 생성 및 ID 확보
             products_to_add = []
-            new_products_in_batch = {} # {pn: Product객체} - ID 확보용
+            new_products_in_batch = {} # pn -> product obj
 
+            # 1. Product 생성
             for item in batch:
                 pn = item['product_number_cleaned']
                 if pn not in products_id_map and pn not in new_products_in_batch:
@@ -236,7 +242,7 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
                         product_name=item['product_name'],
                         release_year=item['release_year'] if item['release_year'] > 0 else None,
                         item_category=item['item_category'],
-                        is_favorite=item['is_favorite'],
+                        is_favorite=item['is_favorite'], # 이제 키 에러 안 남
                         product_number_cleaned=pn,
                         product_name_cleaned=item['product_name_cleaned'],
                         product_name_choseong=item['product_name_choseong']
@@ -246,21 +252,18 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
             
             if products_to_add:
                 db.session.add_all(products_to_add)
-                db.session.flush() # ID 생성
-                
-                # 생성된 ID를 맵에 저장
+                db.session.flush()
                 for pn, p_obj in new_products_in_batch.items():
                     products_id_map[pn] = p_obj.id
-                
                 total_products += len(products_to_add)
             
-            # 2. Variant 생성 (ID 사용)
+            # 2. Variant 생성
             variants_to_add = []
             for item in batch:
                 pid = products_id_map.get(item['product_number_cleaned'])
                 if pid:
                     v = Variant(
-                        product_id=pid, # 객체 대신 ID 사용
+                        product_id=pid,
                         barcode=item['barcode'],
                         color=item['color'],
                         size=item['size'],
@@ -294,11 +297,11 @@ def process_stock_upsert_excel(file_path, form, upload_mode, brand_id, target_st
         
         import_strategy = brand_settings.get('IMPORT_STRATEGY')
         has_size_column = bool(form.get('col_size'))
+        
         if has_size_column:
             import_strategy = None
 
-        field_map = {}
-        base_fields = {
+        field_map = {
             'product_number': ('col_pn', True),
             'product_name': ('col_pname', False),
             'color': ('col_color', True),
@@ -319,19 +322,17 @@ def process_stock_upsert_excel(file_path, form, upload_mode, brand_id, target_st
             
         column_map_indices = _get_column_indices_from_form(form, field_map, strict=False)
 
-        df = pd.DataFrame()
-        if import_strategy == 'horizontal_matrix':
-            if transform_horizontal_to_vertical:
+        # [수정] 경로로 파일 열기
+        with open(file_path, 'rb') as f:
+            df = pd.DataFrame()
+            if import_strategy == 'horizontal_matrix' and transform_horizontal_to_vertical:
                 try:
                     size_conf = json.loads(brand_settings.get('SIZE_MAPPING', '{}'))
                     cat_conf = json.loads(brand_settings.get('CATEGORY_MAPPING_RULE', '{}'))
-                    
-                    with open(file_path, 'rb') as f:
-                        df = transform_horizontal_to_vertical(f, size_conf, cat_conf, column_map_indices)
+                    df = transform_horizontal_to_vertical(f, size_conf, cat_conf, column_map_indices)
                 except Exception as e:
                     return 0, 0, f"매트릭스 변환 오류: {e}", 'error'
-        else:
-            with open(file_path, 'rb') as f:
+            else:
                 df = _read_excel_data_to_df(f, column_map_indices)
             
         if df.empty:
@@ -456,8 +457,8 @@ def _process_stock_update_excel(file, form, upload_mode, brand_id, target_store_
         }
         column_map_indices = _get_column_indices_from_form(form, field_map)
         
-        # [수정] file 객체 그대로 전달
-        df = _read_excel_data_to_df(file, column_map_indices)
+        with open(file, 'rb') as f:
+            df = _read_excel_data_to_df(f, column_map_indices)
             
         if df.empty: return 0, 0, "데이터 없음", "warning"
 
