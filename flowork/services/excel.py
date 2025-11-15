@@ -334,6 +334,8 @@ def process_stock_upsert_excel(file_path, form, upload_mode, brand_id, target_st
                     cat_conf = json.loads(brand_settings.get('CATEGORY_MAPPING_RULE', '{}'))
                     df = transform_horizontal_to_vertical(f, size_conf, cat_conf, column_map_indices)
                     
+                    # [수정] 매트릭스 변환 후엔 항상 hq_stock이 나오므로, 
+                    # store 모드인 경우 컬럼명을 store_stock으로 변경
                     if upload_mode == 'store' and 'hq_stock' in df.columns:
                         df.rename(columns={'hq_stock': 'store_stock'}, inplace=True)
                         
@@ -354,7 +356,15 @@ def process_stock_upsert_excel(file_path, form, upload_mode, brand_id, target_st
         if df.empty: return 0, 0, "유효한 데이터 없음", "warning"
 
         pn_list = df['product_number_cleaned'].unique().tolist()
-        products_in_db = Product.query.filter(Product.brand_id==brand_id, Product.product_number_cleaned.in_(pn_list)).options(selectinload(Product.variants)).all()
+        
+        # [성능 개선] products_in_db 조회 시 selectinload에 stock_levels도 체이닝하여 N+1 문제 해결
+        products_in_db = Product.query.filter(
+            Product.brand_id == brand_id, 
+            Product.product_number_cleaned.in_(pn_list)
+        ).options(
+            selectinload(Product.variants).selectinload(Variant.stock_levels)
+        ).all()
+        
         product_map = {p.product_number_cleaned: p for p in products_in_db}
         
         variant_map = {} 
@@ -529,15 +539,18 @@ def _process_stock_update_excel(file, form, upload_mode, brand_id, target_store_
 
 def export_db_to_excel(brand_id):
     try:
+        # [최적화] 1. 쿼리 객체 생성 (실행은 나중에 yield_per로 함)
         query = db.session.query(
             Product.product_number, Product.product_name, Product.release_year, Product.item_category, Product.is_favorite,
             Variant.barcode, Variant.color, Variant.size, Variant.original_price, Variant.sale_price, Variant.hq_quantity,
         ).join(Variant, Product.id == Variant.product_id).filter(Product.brand_id == brand_id)
         
+        # [최적화] 2. write_only=True 로 메모리 절약 모드 사용
         wb = openpyxl.Workbook(write_only=True)
         ws = wb.create_sheet()
         ws.append(["품번", "품명", "연도", "카테고리", "바코드", "컬러", "사이즈", "정상가", "판매가", "본사재고", "즐겨찾기"])
         
+        # [최적화] 3. yield_per(1000)을 사용하여 데이터를 스트리밍 방식으로 처리 (DB -> App Server)
         for row in query.yield_per(1000):
             ws.append(list(row))
             
