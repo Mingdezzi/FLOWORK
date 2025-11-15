@@ -1,7 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     
     // [수정] CSRF 토큰 가져오기
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    const csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
+    const csrfToken = csrfTokenMeta ? csrfTokenMeta.getAttribute('content') : '';
 
     const bodyData = document.body.dataset;
     const updateStockUrl = bodyData.updateStockUrl;
@@ -27,23 +28,25 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderStockTable(selectedStoreId) {
         if (!variantsTbody || !rowTemplate || !window.allVariants || !window.hqStockData) {
             console.error("테이블 렌더링에 필요한 요소가 없습니다.");
-            variantsTbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger p-4">테이블 렌더링 오류. (콘솔 확인)</td></tr>';
+            if(variantsTbody) variantsTbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger p-4">테이블 렌더링 오류. (콘솔 확인)</td></tr>';
             return;
         }
 
-        variantsTbody.innerHTML = ''; // 테이블 비우기
+        variantsTbody.innerHTML = ''; // 테이블 비우기 (기존 "매장을 선택하세요" 문구 삭제됨)
         
         // (요청) A/B/C 권한 확인: 선택한 매장이 '내 매장'인가?
         const isMyStore = (selectedStoreId === myStoreID);
         
         // '실사재고' 버튼 표시/숨기기 (내 매장일때만)
-        if (isMyStore) {
-            toggleActualStockBtn.style.display = 'inline-block';
-        } else {
-            toggleActualStockBtn.style.display = 'none';
-            // 다른 매장 선택 시, 실사 모드 강제 종료
-            if (isActualStockEnabled) {
-                toggleActualStockMode(false); // 실사 모드 끄기
+        if (toggleActualStockBtn) {
+            if (isMyStore) {
+                toggleActualStockBtn.style.display = 'inline-block';
+            } else {
+                toggleActualStockBtn.style.display = 'none';
+                // 다른 매장 선택 시, 실사 모드 강제 종료
+                if (isActualStockEnabled) {
+                    toggleActualStockMode(false); // 실사 모드 끄기
+                }
             }
         }
         
@@ -93,9 +96,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // '수정 모드'일 경우, '행 추가' 버튼 추가
         if (document.body.classList.contains('edit-mode') && addRowTemplate) {
-            // (6단계) '내 매장'이 아니더라도 상품 자체는 수정 가능해야 함 (본사 계정)
-            // (수정) 상품 수정은 '본사 계정'만 가능하도록 템플릿에서 막았음.
-            // (수정) edit-mode 진입은 본사만 가능하므로, storeID 체크 불필요
             variantsTbody.insertAdjacentHTML('beforeend', addRowTemplate.innerHTML);
         }
         
@@ -122,7 +122,9 @@ document.addEventListener('DOMContentLoaded', () => {
                  const changeText = change === 1 ? "증가" : "감소";
                  
                  // (수정) (6단계) '내 매장'일 때만 작동 (A/B/C 권한)
-                 if (parseInt(storeSelector.value, 10) !== myStoreID) {
+                 const currentSelectedStoreId = storeSelector ? (parseInt(storeSelector.value, 10) || 0) : myStoreID;
+                 
+                 if (currentSelectedStoreId !== myStoreID) {
                      alert('재고 수정은 \'내 매장\'이 선택된 경우에만 가능합니다.');
                      return;
                  }
@@ -175,8 +177,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const editProductBtn = document.getElementById('edit-product-btn');
     const saveProductBtn = document.getElementById('save-product-btn');
     const cancelEditBtn = document.getElementById('cancel-edit-btn');
-    // const addVariantBtn = document.getElementById('btn-add-variant'); // (6단계) 동적 생성으로 변경
-    // const addVariantRow = document.getElementById('add-variant-row'); // (6단계) 동적 생성으로 변경
 
     // (추가) 상품 삭제 버튼
     const deleteProductBtn = document.getElementById('delete-product-btn');
@@ -186,13 +186,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (deleteProductBtn && deleteProductForm) {
         deleteProductBtn.addEventListener('click', () => {
             if (confirm(`🚨🚨🚨 최종 경고 🚨🚨🚨\n\n'${productName}' (품번: ${currentProductID}) 상품을(를) DB에서 완전히 삭제합니다.\n\n이 상품에 연결된 모든 옵션(Variant), 모든 매장의 재고(StoreStock) 데이터가 영구적으로 삭제되며 복구할 수 없습니다.\n\n정말로 삭제하시겠습니까?`)) {
-                // (추가) 삭제 진행 시 버튼 비활성화
                 deleteProductBtn.disabled = true;
                 deleteProductBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 삭제 중...';
-                
-                // [주의] standard form submit은 JS에서 헤더를 추가하기 어려우므로,
-                // 템플릿(_header.html)에서 meta 태그를 사용하거나 form 내부에 hidden input으로 csrf_token을 포함해야 합니다.
-                // 여기서는 기존 form submit 방식을 유지합니다.
                 deleteProductForm.submit();
             }
         });
@@ -203,7 +198,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (confirm('✏️ 상품 정보 수정 모드로 전환합니다.\n수정 후에는 반드시 [수정 완료] 버튼을 눌러 저장해주세요.')) {
                 document.body.classList.add('edit-mode');
                 // (6단계) 수정 모드 진입 시 테이블 다시 그리기 ('행 추가' 버튼 표시)
-                renderStockTable(parseInt(storeSelector.value, 10) || 0);
+                const currentStoreId = storeSelector ? (parseInt(storeSelector.value, 10) || 0) : myStoreID;
+                renderStockTable(currentStoreId);
             }
         });
     }
@@ -213,7 +209,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (confirm('⚠️ 수정 중인 내용을 취소하고 원래 상태로 되돌립니다.\n계속하시겠습니까?')) {
                 document.body.classList.remove('edit-mode');
                 // (6단계) 취소 시 테이블 다시 그리기 (원본 상태 복원)
-                renderStockTable(parseInt(storeSelector.value, 10) || 0);
+                const currentStoreId = storeSelector ? (parseInt(storeSelector.value, 10) || 0) : myStoreID;
+                renderStockTable(currentStoreId);
             }
         });
     }
@@ -255,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
          const newRow = document.createElement('tr');
          newRow.dataset.action = 'add'; // 신규 행임을 표시
          
-         // (6단계) 템플릿 대신 수동 생성 (템플릿 사용 시 복잡도 증가)
+         // (6단계) 템플릿 대신 수동 생성
          newRow.innerHTML = `
              <td class="variant-edit-cell"><input type="text" class="form-control form-control-sm variant-edit-input" data-field="color" value="${color}"></td>
              <td class="variant-edit-cell"><input type="text" class="form-control form-control-sm variant-edit-input" data-field="size" value="${size}"></td>
@@ -382,7 +379,9 @@ document.addEventListener('DOMContentLoaded', () => {
          saveActualStockBtns.forEach(button => { button.disabled = true; }); // (저장 버튼은 항상 비활성화로 시작)
          
          // '내 매장'이 아니면 리스너 등록 안함 (A/B/C 권한)
-         if (parseInt(storeSelector.value, 10) !== myStoreID) {
+         const currentSelectedStoreId = storeSelector ? (parseInt(storeSelector.value, 10) || 0) : myStoreID;
+         
+         if (currentSelectedStoreId !== myStoreID) {
              return;
          }
          
@@ -452,8 +451,6 @@ document.addEventListener('DOMContentLoaded', () => {
      }
      
     // --- (기존) 서버 통신 함수들 (수정 없음) ---
-    // (참고: API가 current_user.store_id를 사용하므로
-    //  본사 계정이 이 버튼을 누르면 403 오류가 발생하는 것이 맞습니다.)
     
     function updateStockOnServer(barcode, change, buttons) {
         fetch(updateStockUrl, { 
@@ -554,7 +551,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // [신규] (6단계) 페이지 로드 시, 기본 선택된 매장(내 매장 또는 '선택') 기준으로 테이블 첫 렌더링
-    const initialStoreId = parseInt(storeSelector.value, 10) || 0;
+    // [수정] 페이지 로드 시 매장 ID 결정 (드롭다운 없으면 내 매장 ID 사용)
+    // 이 부분이 '매장을 선택하세요' 문제를 해결하는 핵심입니다.
+    let initialStoreId = 0;
+    if (storeSelector) {
+        initialStoreId = parseInt(storeSelector.value, 10) || 0;
+    } else if (myStoreID) {
+        initialStoreId = myStoreID;
+    }
+
     renderStockTable(initialStoreId);
 });

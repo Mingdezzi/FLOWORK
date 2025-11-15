@@ -357,6 +357,7 @@ def process_stock_upsert_excel(file_path, form, upload_mode, brand_id, target_st
         for p in products_in_db:
             for v in p.variants: variant_map[v.barcode_cleaned] = v
         
+        # [수정] 매장 재고 조회 시 selectinload 대신 직접 조회 (동적 생성 대응을 위해 맵핑 방식 유지)
         store_stock_map = {}
         if upload_mode == 'store':
             v_ids = [v.id for v in variant_map.values()]
@@ -432,16 +433,36 @@ def process_stock_upsert_excel(file_path, form, upload_mode, brand_id, target_st
                 if upload_mode == 'hq' and 'hq_stock' in item:
                     var.hq_quantity = item['hq_stock']
                     cnt_update += 1
+                
                 elif upload_mode == 'store' and 'store_stock' in item:
                     qty = item['store_stock']
-                    if var.id: 
-                        stk = store_stock_map.get(var.id)
-                        if stk: stk.quantity = qty
-                        else: 
-                            stk = StoreStock(store_id=target_store_id, variant_id=var.id, quantity=qty)
-                            db.session.add(stk)
-                            store_stock_map[var.id] = stk
+                    
+                    # [수정] 기존 변수(var.id) 체크 대신, 메모리 상의 관계 또는 맵 확인
+                    # 1. 기존에 ID가 있고 맵에 있는 경우 (가장 빠름)
+                    if var.id and var.id in store_stock_map:
+                        store_stock_map[var.id].quantity = qty
                         cnt_update += 1
+                    else:
+                        # 2. 신규 Variant이거나, 기존 Variant지만 StoreStock이 없는 경우
+                        # 관계(stock_levels)를 통해 이미 로드된/추가된 객체가 있는지 확인
+                        found_stock = None
+                        # var.stock_levels가 로드되어 있다면 순회 확인
+                        if hasattr(var, 'stock_levels'):
+                            for s in var.stock_levels:
+                                if s.store_id == target_store_id:
+                                    found_stock = s
+                                    break
+                        
+                        if found_stock:
+                            found_stock.quantity = qty
+                            cnt_update += 1
+                        else:
+                            # 3. 아예 없으면 새로 생성하여 관계에 추가 (ID 없어도 됨)
+                            new_stk = StoreStock(store_id=target_store_id, quantity=qty)
+                            var.stock_levels.append(new_stk)
+                            # (주의) store_stock_map에는 ID가 없으므로 추가 불가, 하지만 세션에는 들어감
+                            cnt_update += 1
+
             except: continue
 
         if new_prods: db.session.add_all(new_prods)
