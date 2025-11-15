@@ -1,4 +1,5 @@
-import openpyxl
+import pandas as pd
+import numpy as np
 from openpyxl.utils import column_index_from_string
 from flowork.models import db, Product, Variant, StoreStock, Setting, Store
 from flowork.utils import clean_string_upper, get_choseong, generate_barcode
@@ -8,12 +9,12 @@ import traceback
 import json
 import io
 from datetime import datetime
+import openpyxl
 
 try:
     from flowork.services.transformer import transform_horizontal_to_vertical
 except ImportError:
     transform_horizontal_to_vertical = None
-
 
 def _get_column_indices_from_form(form, field_map, strict=True):
     column_map_indices = {}
@@ -38,41 +39,84 @@ def _get_column_indices_from_form(form, field_map, strict=True):
             
     return column_map_indices
 
+def _read_excel_data_to_df(file_stream, column_map_indices):
+    try:
+        if hasattr(file_stream, 'seek'):
+            file_stream.seek(0)
+        df = pd.read_excel(file_stream, header=0)
+    except Exception:
+        if hasattr(file_stream, 'seek'):
+            file_stream.seek(0)
+        try:
+            df = pd.read_csv(file_stream)
+        except:
+            return pd.DataFrame()
 
-def _read_excel_data_by_indices(ws, column_map_indices):
-    data = []
-    valid_indices = [idx for idx in column_map_indices.values() if idx is not None]
-    if not valid_indices:
-        return []
-        
-    max_col_idx = max(valid_indices) + 1
+    if df.empty:
+        return pd.DataFrame()
+
+    selected_cols = {}
+    total_cols = df.shape[1]
+    for field_name, col_idx in column_map_indices.items():
+        if col_idx is not None and 0 <= col_idx < total_cols:
+            original_col_name = df.columns[col_idx]
+            selected_cols[original_col_name] = field_name
     
-    for i, row in enumerate(ws.iter_rows(min_row=2, max_col=max_col_idx, values_only=True)):
-        item = {'_row_index': i + 2} 
-        has_data = False
-        
-        for key, col_idx in column_map_indices.items():
-            if col_idx is not None and col_idx < len(row):
-                cell_value = row[col_idx]
-                item[key] = cell_value
-                if cell_value is not None and str(cell_value).strip() != "":
-                    has_data = True
-            else:
-                item[key] = None
-        
-        if has_data:
-            data.append(item)
-            
-    return data
+    if not selected_cols:
+        return pd.DataFrame()
 
+    df_subset = df[list(selected_cols.keys())].rename(columns=selected_cols)
+    
+    for field in column_map_indices.keys():
+        if field not in df_subset.columns:
+            df_subset[field] = np.nan
+            
+    return df_subset
+
+def _optimize_dataframe(df, brand_settings, upload_mode):
+    if df.empty: return df
+
+    required = ['product_number', 'color', 'size']
+    df = df.dropna(subset=required)
+    
+    str_cols = ['product_number', 'product_name', 'color', 'size', 'item_category']
+    for col in str_cols:
+        if col in df.columns:
+            df[col] = df[col].astype(str).str.strip().replace({'nan': None, 'None': None})
+
+    num_cols = ['original_price', 'sale_price', 'release_year', 'hq_stock', 'store_stock']
+    for col in num_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
+
+    if 'original_price' in df.columns and 'sale_price' in df.columns:
+        op = df['original_price']
+        sp = df['sale_price']
+        df['sale_price'] = np.where((op > 0) & (sp == 0), op, sp)
+        df['original_price'] = np.where((sp > 0) & (op == 0), sp, op)
+
+    if 'barcode' not in df.columns: df['barcode'] = None
+    
+    mask_no_barcode = df['barcode'].isna() | (df['barcode'] == '')
+    if mask_no_barcode.any():
+        df.loc[mask_no_barcode, 'barcode'] = df[mask_no_barcode].apply(
+            lambda row: generate_barcode(row.to_dict(), brand_settings), axis=1
+        )
+
+    df = df.dropna(subset=['barcode'])
+    
+    df['product_number_cleaned'] = df['product_number'].apply(clean_string_upper)
+    df['barcode_cleaned'] = df['barcode'].apply(clean_string_upper)
+    
+    if 'product_name' in df.columns:
+        df['product_name_cleaned'] = df['product_name'].apply(clean_string_upper)
+        df['product_name_choseong'] = df['product_name'].apply(get_choseong)
+    
+    df = df.drop_duplicates(subset=['barcode_cleaned'], keep='last')
+
+    return df
 
 def verify_stock_excel(file_path, form, upload_mode):
-    try:
-        wb = openpyxl.load_workbook(file_path, data_only=True)
-        ws = wb.active
-    except Exception as e:
-        return {'status': 'error', 'message': f'파일 읽기 오류: {e}'}
-
     field_map = {}
     if upload_mode == 'db':
         field_map = {'product_number': ('col_pn', True)}
@@ -83,30 +127,39 @@ def verify_stock_excel(file_path, form, upload_mode):
 
     try:
         column_map_indices = _get_column_indices_from_form(form, field_map, strict=False)
-        raw_data = _read_excel_data_by_indices(ws, column_map_indices)
         
+        with open(file_path, 'rb') as f:
+            df = _read_excel_data_to_df(f, column_map_indices)
+        
+        if df.empty:
+            return {'status': 'success', 'suspicious_rows': []}
+
+        df['_row_index'] = df.index + 2
         suspicious_rows = []
-        for item in raw_data:
-            row_idx = item['_row_index']
-            pn = item.get('product_number')
-            if not pn or str(pn).strip() == "":
-                suspicious_rows.append({'row_index': row_idx, 'preview': '(품번없음)', 'reasons': '품번 누락'})
+        
+        for _, row in df.iterrows():
+            pn = row.get('product_number')
+            if pd.isna(pn) or str(pn).strip() == "":
+                suspicious_rows.append({
+                    'row_index': int(row['_row_index']), 
+                    'preview': '(품번없음)', 
+                    'reasons': '품번 누락'
+                })
                 
-        return {'status': 'success', 'suspicious_rows': suspicious_rows}
+        return {'status': 'success', 'suspicious_rows': suspicious_rows[:100]}
 
     except Exception as e:
         return {'status': 'error', 'message': f"검증 중 오류: {e}"}
 
-
 def import_excel_file(file, form, brand_id, progress_callback=None):
     if not file: return False, '파일이 없습니다.', 'error'
-    BATCH_SIZE = 500
+    BATCH_SIZE = 1000
     
     try:
         settings_query = Setting.query.filter_by(brand_id=brand_id).all()
         brand_settings = {s.key: s.value for s in settings_query}
-        import_strategy = brand_settings.get('IMPORT_STRATEGY')
         
+        import_strategy = brand_settings.get('IMPORT_STRATEGY')
         has_size_column = bool(form.get('col_size'))
         
         if has_size_column:
@@ -127,7 +180,6 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
         
         column_map_indices = _get_column_indices_from_form(form, field_map, strict=False)
 
-        data = []
         if import_strategy == 'horizontal_matrix':
             if transform_horizontal_to_vertical is None:
                 return False, 'pandas 라이브러리가 필요합니다.', 'error'
@@ -137,54 +189,18 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
                 category_mapping_config = json.loads(brand_settings.get('CATEGORY_MAPPING_RULE', '{}'))
             except json.JSONDecodeError:
                 return False, '브랜드 설정 형식이 잘못되었습니다.', 'error'
-
-            data = transform_horizontal_to_vertical(
-                file, size_mapping_config, category_mapping_config, column_map_indices
-            )
+            
+            with open(file, 'rb') as f:
+                df = transform_horizontal_to_vertical(f, size_mapping_config, category_mapping_config, column_map_indices)
         else:
-            wb = openpyxl.load_workbook(file, data_only=True)
-            ws = wb.active
-            data = _read_excel_data_by_indices(ws, column_map_indices)
+            with open(file, 'rb') as f:
+                df = _read_excel_data_to_df(f, column_map_indices)
 
-        validated_data = []
-        seen_barcodes = set()
-
-        for i, item in enumerate(data):
-            try:
-                if not item.get('product_number') or not item.get('color') or not item.get('size'):
-                    continue
-                
-                item['product_number'] = str(item['product_number']).strip()
-                item['color'] = str(item['color']).strip()
-                item['size'] = str(item['size']).strip()
-                item['product_name'] = str(item.get('product_name') or item['product_number']).strip()
-                
-                if not item.get('barcode'):
-                    item['barcode'] = generate_barcode(item, brand_settings)
-                
-                if not item.get('barcode'): continue
-                item['barcode_cleaned'] = clean_string_upper(item['barcode'])
-                
-                item['original_price'] = int(float(item.get('original_price') or 0))
-                item['sale_price'] = int(float(item.get('sale_price') or item['original_price']))
-                
-                if item.get('release_year'): item['release_year'] = int(float(item['release_year']))
-                item['item_category'] = str(item.get('item_category', '')).strip() or None
-                item['is_favorite'] = 1 if item.get('is_favorite') in [1, '1', True, 'Y'] else 0
-                
-                item['product_number_cleaned'] = clean_string_upper(item['product_number'])
-                item['product_name_cleaned'] = clean_string_upper(item['product_name'])
-                item['product_name_choseong'] = get_choseong(item['product_name'])
-                item['color_cleaned'] = clean_string_upper(item['color'])
-                item['size_cleaned'] = clean_string_upper(item['size'])
-
-                if item['barcode_cleaned'] in seen_barcodes: continue
-                seen_barcodes.add(item['barcode_cleaned'])
-                validated_data.append(item)
-                
-            except Exception:
-                continue
-
+        df = _optimize_dataframe(df, brand_settings, 'db')
+        
+        if df.empty:
+            return False, "유효한 데이터가 없습니다.", 'error'
+            
         store_ids = db.session.query(Store.id).filter_by(brand_id=brand_id)
         db.session.query(StoreStock).filter(StoreStock.store_id.in_(store_ids)).delete(synchronize_session=False)
         product_ids = db.session.query(Product.id).filter_by(brand_id=brand_id)
@@ -196,9 +212,12 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
         total_products = 0
         total_variants = 0
         
-        for i in range(0, len(validated_data), BATCH_SIZE):
-            if progress_callback: progress_callback(i, len(validated_data))
-            batch = validated_data[i:i+BATCH_SIZE]
+        records = df.to_dict('records')
+        total_items = len(records)
+
+        for i in range(0, total_items, BATCH_SIZE):
+            if progress_callback: progress_callback(i, total_items)
+            batch = records[i:i+BATCH_SIZE]
             products_to_add = []
             variants_to_add = []
             
@@ -209,8 +228,8 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
                         brand_id=brand_id,
                         product_number=item['product_number'],
                         product_name=item['product_name'],
-                        release_year=item.get('release_year'),
-                        item_category=item.get('item_category'),
+                        release_year=item['release_year'] if item['release_year'] > 0 else None,
+                        item_category=item['item_category'],
                         is_favorite=item['is_favorite'],
                         product_number_cleaned=pn,
                         product_name_cleaned=item['product_name_cleaned'],
@@ -235,8 +254,8 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
                         sale_price=item['sale_price'],
                         hq_quantity=item.get('hq_stock', 0), 
                         barcode_cleaned=item['barcode_cleaned'],
-                        color_cleaned=item['color_cleaned'],
-                        size_cleaned=item['size_cleaned']
+                        color_cleaned=clean_string_upper(item['color']),
+                        size_cleaned=clean_string_upper(item['size'])
                     )
                     variants_to_add.append(v)
             
@@ -246,7 +265,7 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
             
             db.session.commit()
             
-        if progress_callback: progress_callback(len(validated_data), len(validated_data))
+        if progress_callback: progress_callback(total_items, total_items)
         return True, f"초기화 완료: 상품 {total_products}개, 옵션 {total_variants}개", 'success'
         
     except Exception as e:
@@ -254,21 +273,18 @@ def import_excel_file(file, form, brand_id, progress_callback=None):
         traceback.print_exc()
         return False, f"오류: {e}", 'error'
 
-
 def process_stock_upsert_excel(file_path, form, upload_mode, brand_id, target_store_id=None, progress_callback=None, excluded_row_indices=None, allow_create=True):
     try:
         settings_query = Setting.query.filter_by(brand_id=brand_id).all()
         brand_settings = {s.key: s.value for s in settings_query}
         
-        wb = openpyxl.load_workbook(file_path, data_only=True)
-        
         import_strategy = brand_settings.get('IMPORT_STRATEGY')
         has_size_column = bool(form.get('col_size'))
+        
         if has_size_column:
             import_strategy = None
 
-        field_map = {}
-        base_fields = {
+        field_map = {
             'product_number': ('col_pn', True),
             'product_name': ('col_pname', False),
             'color': ('col_color', True),
@@ -282,44 +298,44 @@ def process_stock_upsert_excel(file_path, form, upload_mode, brand_id, target_st
         }
         
         if upload_mode == 'hq':
-            field_map = {**base_fields, 'hq_stock': ('col_hq_stock', True)}
+            field_map['hq_stock'] = ('col_hq_stock', True)
         elif upload_mode == 'store':
             if not target_store_id: return 0, 0, '매장 ID 누락', 'error'
-            field_map = {**base_fields, 'store_stock': ('col_store_stock', True)}
-        else:
-            field_map = base_fields
+            field_map['store_stock'] = ('col_store_stock', True)
             
         column_map_indices = _get_column_indices_from_form(form, field_map, strict=False)
 
-        items_to_process = []
-        if import_strategy == 'horizontal_matrix':
-            if transform_horizontal_to_vertical:
-                try:
-                    size_conf = json.loads(brand_settings.get('SIZE_MAPPING', '{}'))
-                    cat_conf = json.loads(brand_settings.get('CATEGORY_MAPPING_RULE', '{}'))
-                    
-                    with open(file_path, 'rb') as f:
-                        items_to_process = transform_horizontal_to_vertical(f, size_conf, cat_conf, column_map_indices)
-                except Exception as e:
-                    return 0, 0, f"매트릭스 변환 오류: {e}", 'error'
+        df = pd.DataFrame()
+        if import_strategy == 'horizontal_matrix' and transform_horizontal_to_vertical:
+            try:
+                size_conf = json.loads(brand_settings.get('SIZE_MAPPING', '{}'))
+                cat_conf = json.loads(brand_settings.get('CATEGORY_MAPPING_RULE', '{}'))
+                with open(file_path, 'rb') as f:
+                    df = transform_horizontal_to_vertical(f, size_conf, cat_conf, column_map_indices)
+            except Exception as e:
+                return 0, 0, f"매트릭스 변환 오류: {e}", 'error'
         else:
-            ws = wb.active
-            items_to_process = _read_excel_data_by_indices(ws, column_map_indices)
+            with open(file_path, 'rb') as f:
+                df = _read_excel_data_to_df(f, column_map_indices)
             
-        if not items_to_process:
+        if df.empty:
             return 0, 0, "처리할 데이터가 없습니다.", "warning"
             
         if excluded_row_indices:
-            ex_set = set(excluded_row_indices)
-            items_to_process = [it for it in items_to_process if it.get('_row_index') not in ex_set]
+            if '_row_index' in df.columns:
+                df = df[~df['_row_index'].isin(excluded_row_indices)]
 
-        pn_list = list(set(clean_string_upper(item['product_number']) for item in items_to_process if item.get('product_number')))
+        df = _optimize_dataframe(df, brand_settings, upload_mode)
+        
+        if df.empty: return 0, 0, "유효한 데이터 없음", "warning"
+
+        pn_list = df['product_number_cleaned'].unique().tolist()
         products_in_db = Product.query.filter(Product.brand_id==brand_id, Product.product_number_cleaned.in_(pn_list)).options(selectinload(Product.variants)).all()
         product_map = {p.product_number_cleaned: p for p in products_in_db}
+        
         variant_map = {} 
         for p in products_in_db:
-            for v in p.variants:
-                variant_map[v.barcode_cleaned] = v
+            for v in p.variants: variant_map[v.barcode_cleaned] = v
         
         store_stock_map = {}
         if upload_mode == 'store':
@@ -330,46 +346,58 @@ def process_stock_upsert_excel(file_path, form, upload_mode, brand_id, target_st
 
         cnt_prod = 0; cnt_var = 0; cnt_update = 0
         new_prods = []; new_vars = []
+        
+        records = df.to_dict('records')
+        total_items = len(records)
 
-        for idx, item in enumerate(items_to_process):
-            if progress_callback and idx % 50 == 0: progress_callback(idx, len(items_to_process))
+        for idx, item in enumerate(records):
+            if progress_callback and idx % 500 == 0: progress_callback(idx, total_items)
             
             try:
-                pn = str(item.get('product_number', '')).strip()
-                color = str(item.get('color', '')).strip()
-                size = str(item.get('size', '')).strip()
-                if not pn or not color or not size: continue
-                
-                barcode = item.get('barcode')
-                if not barcode: barcode = generate_barcode(item, brand_settings)
-                if not barcode: continue
-                
-                bc_clean = clean_string_upper(barcode)
-                pn_clean = clean_string_upper(pn)
-                
+                pn_clean = item['product_number_cleaned']
+                bc_clean = item['barcode_cleaned']
+
                 prod = product_map.get(pn_clean)
                 if not prod:
                     if not allow_create: continue
-                    pname = str(item.get('product_name') or pn).strip()
-                    prod = Product(brand_id=brand_id, product_number=pn, product_name=pname, product_number_cleaned=pn_clean, product_name_cleaned=clean_string_upper(pname), product_name_choseong=get_choseong(pname))
+                    pname = item.get('product_name') or item['product_number']
+                    prod = Product(
+                        brand_id=brand_id, 
+                        product_number=item['product_number'], 
+                        product_name=pname, 
+                        product_number_cleaned=pn_clean, 
+                        product_name_cleaned=item.get('product_name_cleaned', clean_string_upper(pname)), 
+                        product_name_choseong=item.get('product_name_choseong', get_choseong(pname))
+                    )
                     product_map[pn_clean] = prod
                     new_prods.append(prod)
                     cnt_prod += 1
                 
-                if item.get('release_year'): prod.release_year = int(float(item['release_year']))
-                if item.get('item_category'): prod.item_category = str(item['item_category']).strip()
-                if item.get('is_favorite') is not None: 
-                    prod.is_favorite = 1 if item['is_favorite'] in [1, '1', True, 'Y'] else 0
-
+                if item.get('release_year') and item['release_year'] > 0: 
+                    prod.release_year = item['release_year']
+                if item.get('item_category'): 
+                    prod.item_category = item['item_category']
+                if item.get('is_favorite') == 1:
+                    prod.is_favorite = 1
+                
                 var = variant_map.get(bc_clean)
-                op = int(float(item.get('original_price') or 0))
-                sp = int(float(item.get('sale_price') or 0))
-                if op > 0 and sp == 0: sp = op 
-                if sp > 0 and op == 0: op = sp
+                op = item['original_price']
+                sp = item['sale_price']
 
                 if not var:
                     if not allow_create: continue
-                    var = Variant(product=prod, barcode=barcode, color=color, size=size, original_price=op, sale_price=sp, hq_quantity=0, barcode_cleaned=bc_clean, color_cleaned=clean_string_upper(color), size_cleaned=clean_string_upper(size))
+                    var = Variant(
+                        product=prod, 
+                        barcode=item['barcode'], 
+                        color=item['color'], 
+                        size=item['size'], 
+                        original_price=op, 
+                        sale_price=sp, 
+                        hq_quantity=0, 
+                        barcode_cleaned=bc_clean,
+                        color_cleaned=clean_string_upper(item['color']),
+                        size_cleaned=clean_string_upper(item['size'])
+                    )
                     variant_map[bc_clean] = var
                     new_vars.append(var)
                     cnt_var += 1
@@ -377,11 +405,11 @@ def process_stock_upsert_excel(file_path, form, upload_mode, brand_id, target_st
                     if op > 0: var.original_price = op
                     if sp > 0: var.sale_price = sp
                 
-                if upload_mode == 'hq' and item.get('hq_stock') is not None:
-                    var.hq_quantity = int(float(item['hq_stock']))
+                if upload_mode == 'hq' and 'hq_stock' in item:
+                    var.hq_quantity = item['hq_stock']
                     cnt_update += 1
-                elif upload_mode == 'store' and item.get('store_stock') is not None:
-                    qty = int(float(item['store_stock']))
+                elif upload_mode == 'store' and 'store_stock' in item:
+                    qty = item['store_stock']
                     if var.id: 
                         stk = store_stock_map.get(var.id)
                         if stk: stk.quantity = qty
@@ -390,14 +418,13 @@ def process_stock_upsert_excel(file_path, form, upload_mode, brand_id, target_st
                             db.session.add(stk)
                             store_stock_map[var.id] = stk
                         cnt_update += 1
-
-            except Exception: continue
+            except: continue
 
         if new_prods: db.session.add_all(new_prods)
         if new_vars: db.session.add_all(new_vars)
         db.session.commit()
         
-        if progress_callback: progress_callback(len(items_to_process), len(items_to_process))
+        if progress_callback: progress_callback(total_items, total_items)
         return cnt_update, cnt_var, f"완료: 상품 {cnt_prod} / 옵션 {cnt_var} 생성, {cnt_update}건 업데이트", 'success'
 
     except Exception as e:
@@ -407,25 +434,21 @@ def process_stock_upsert_excel(file_path, form, upload_mode, brand_id, target_st
 
 def _process_stock_update_excel(file, form, upload_mode, brand_id, target_store_id):
     try:
-        wb = openpyxl.load_workbook(file, data_only=True)
-        ws = wb.active
-        
         field_map = {
             'barcode': ('barcode_col', True),
             'qty': ('qty_col', True)
         }
-        
         column_map_indices = _get_column_indices_from_form(form, field_map)
-        data = _read_excel_data_by_indices(ws, column_map_indices)
         
-        barcode_qty_map = {}
-        for item in data:
-            bc = clean_string_upper(item.get('barcode'))
-            qty = item.get('qty')
-            if bc and qty is not None:
-                try:
-                    barcode_qty_map[bc] = int(qty)
-                except: pass
+        with open(file, 'rb') as f:
+            df = _read_excel_data_to_df(f, column_map_indices)
+            
+        if df.empty: return 0, 0, "데이터 없음", "warning"
+
+        df['barcode_cleaned'] = df['barcode'].astype(str).apply(clean_string_upper)
+        df['qty'] = pd.to_numeric(df['qty'], errors='coerce').fillna(0).astype(int)
+        
+        barcode_qty_map = dict(zip(df['barcode_cleaned'], df['qty']))
         
         if not barcode_qty_map:
             return 0, 0, "유효한 데이터가 없습니다.", "warning"
@@ -465,7 +488,6 @@ def _process_stock_update_excel(file, form, upload_mode, brand_id, target_store_
         db.session.rollback()
         traceback.print_exc()
         return 0, 0, f"오류 발생: {e}", "error"
-
 
 def export_db_to_excel(brand_id):
     try:

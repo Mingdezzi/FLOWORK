@@ -3,6 +3,7 @@ import numpy as np
 from flowork.services.brand_logic import get_brand_logic
 
 def transform_horizontal_to_vertical(file_stream, size_mapping_config, category_mapping_config, column_map_indices):
+    # 1. 파일 읽기
     file_stream.seek(0)
     try:
         df_stock = pd.read_excel(file_stream)
@@ -16,6 +17,7 @@ def transform_horizontal_to_vertical(file_stream, size_mapping_config, category_
 
     df_stock.columns = df_stock.columns.astype(str).str.strip()
 
+    # 2. 컬럼 추출
     extracted_data = pd.DataFrame()
     field_to_col_idx = {
         'product_number': column_map_indices.get('product_number'),
@@ -34,18 +36,21 @@ def transform_horizontal_to_vertical(file_stream, size_mapping_config, category_
         else:
             extracted_data[field] = None
 
+    # 3. 사이즈 컬럼 식별
     size_cols = [col for col in df_stock.columns if col in [str(i) for i in range(30)]]
     if not size_cols:
-        return [] 
+        return pd.DataFrame() # 빈 DF 반환
 
     df_merged = pd.concat([extracted_data, df_stock[size_cols]], axis=1)
 
+    # 4. 브랜드 로직 적용
     logic_name = category_mapping_config.get('LOGIC', 'GENERIC')
     logic_module = get_brand_logic(logic_name)
 
     df_merged['DB_Category'] = df_merged.apply(lambda r: logic_module.get_db_item_category(r, category_mapping_config), axis=1)
     df_merged['Mapping_Key'] = df_merged.apply(logic_module.get_size_mapping_key, axis=1)
 
+    # 5. Melt (Unpivot)
     id_vars = ['product_number', 'product_name', 'color', 'original_price', 'sale_price', 'release_year', 'DB_Category', 'Mapping_Key']
     
     df_melted = df_merged.melt(
@@ -55,6 +60,7 @@ def transform_horizontal_to_vertical(file_stream, size_mapping_config, category_
         value_name='Quantity'
     )
 
+    # 6. 매핑 테이블 병합 (Merge)
     mapping_list = []
     for key, map_data in size_mapping_config.items():
         for code, real_size in map_data.items():
@@ -73,40 +79,21 @@ def transform_horizontal_to_vertical(file_stream, size_mapping_config, category_
         other_map_list = [{'Size_Code': str(code), 'Real_Size_Other': str(val)} 
                           for code, val in size_mapping_config['기타'].items()]
         df_other_map = pd.DataFrame(other_map_list)
-        
         df_final = df_final.merge(df_other_map, on='Size_Code', how='left')
         df_final['Real_Size'] = df_final['Real_Size'].fillna(df_final['Real_Size_Other'])
 
+    # 유효하지 않은 사이즈 제거
     df_final = df_final.dropna(subset=['Real_Size'])
 
-    df_final['hq_stock'] = pd.to_numeric(df_final['Quantity'], errors='coerce').fillna(0).astype(int)
-    
-    df_final['original_price'] = pd.to_numeric(df_final['original_price'], errors='coerce').fillna(0).astype(int)
-    df_final['sale_price'] = pd.to_numeric(df_final['sale_price'], errors='coerce').fillna(0).astype(int)
-    
-    condition_op_only = (df_final['original_price'] > 0) & (df_final['sale_price'] == 0)
-    condition_sp_only = (df_final['sale_price'] > 0) & (df_final['original_price'] == 0)
-    
-    df_final['sale_price'] = np.where(condition_op_only, df_final['original_price'], df_final['sale_price'])
-    df_final['original_price'] = np.where(condition_sp_only, df_final['sale_price'], df_final['original_price'])
-    
-    df_final['release_year'] = pd.to_numeric(df_final['release_year'], errors='coerce').fillna(0).astype(int)
-    
-    str_cols = ['product_number', 'product_name', 'color', 'Real_Size', 'DB_Category']
-    for col in str_cols:
-        df_final[col] = df_final[col].astype(str).str.strip()
+    # 수량 0인 데이터는 의미 없으므로 제거 (선택사항: 필요 시 주석 해제)
+    # df_final = df_final[pd.to_numeric(df_final['Quantity'], errors='coerce').fillna(0) > 0]
 
-    df_final['is_favorite'] = 0
-
+    # 7. 데이터 정제 및 반환 (DataFrame 그대로 반환)
     df_final = df_final.rename(columns={
         'Real_Size': 'size',
-        'DB_Category': 'item_category'
+        'DB_Category': 'item_category',
+        'Quantity': 'hq_stock' # 가로형은 보통 본사재고 기준
     })
-
-    final_cols = [
-        'product_number', 'product_name', 'color', 'size', 
-        'hq_stock', 'sale_price', 'original_price', 
-        'item_category', 'release_year', 'is_favorite'
-    ]
     
-    return df_final[final_cols].to_dict('records')
+    # 필요한 컬럼만 선택
+    return df_final
