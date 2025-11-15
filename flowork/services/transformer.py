@@ -3,29 +3,25 @@ import numpy as np
 from flowork.services.brand_logic import get_brand_logic
 
 def transform_horizontal_to_vertical(file_stream, size_mapping_config, category_mapping_config, column_map_indices):
-    # 1. 파일 읽기
     file_stream.seek(0)
     try:
-        df_stock = pd.read_excel(file_stream)
+        df_stock = pd.read_excel(file_stream, dtype=str)
     except:
         file_stream.seek(0)
         try:
-            df_stock = pd.read_csv(file_stream, encoding='utf-8')
+            df_stock = pd.read_csv(file_stream, encoding='utf-8', dtype=str)
         except UnicodeDecodeError:
             file_stream.seek(0)
-            df_stock = pd.read_csv(file_stream, encoding='cp949')
+            df_stock = pd.read_csv(file_stream, encoding='cp949', dtype=str)
 
-    # [핵심 수정] 헤더 정규화 (숫자형 헤더 호환성 확보)
-    # 0 -> "0", 0.0 -> "0", " 0 " -> "0"
     new_columns = []
     for col in df_stock.columns:
         str_col = str(col).strip()
-        if str_col.endswith('.0'): # 0.0 같은 실수형 처리
+        if str_col.endswith('.0'):
             str_col = str_col[:-2]
         new_columns.append(str_col)
     df_stock.columns = new_columns
 
-    # 2. 컬럼 추출
     extracted_data = pd.DataFrame()
     field_to_col_idx = {
         'product_number': column_map_indices.get('product_number'),
@@ -44,26 +40,21 @@ def transform_horizontal_to_vertical(file_stream, size_mapping_config, category_
         else:
             extracted_data[field] = None
 
-    # 3. 사이즈 컬럼 식별
-    # 정규화된 헤더에서 "0" ~ "29" 범위의 컬럼을 찾음
     target_size_headers = [str(i) for i in range(30)]
     size_cols = [col for col in df_stock.columns if col in target_size_headers]
     
     if not size_cols:
-        # 사이즈 컬럼을 못 찾으면 빈 DF 반환 (여기가 문제의 원인이었음)
         print("Warning: No size columns (0-29) found in Excel header.")
         return pd.DataFrame()
 
     df_merged = pd.concat([extracted_data, df_stock[size_cols]], axis=1)
 
-    # 4. 브랜드 로직 적용
     logic_name = category_mapping_config.get('LOGIC', 'GENERIC')
     logic_module = get_brand_logic(logic_name)
 
     df_merged['DB_Category'] = df_merged.apply(lambda r: logic_module.get_db_item_category(r, category_mapping_config), axis=1)
     df_merged['Mapping_Key'] = df_merged.apply(logic_module.get_size_mapping_key, axis=1)
 
-    # 5. Melt (Unpivot)
     id_vars = ['product_number', 'product_name', 'color', 'original_price', 'sale_price', 'release_year', 'DB_Category', 'Mapping_Key']
     
     df_melted = df_merged.melt(
@@ -73,7 +64,6 @@ def transform_horizontal_to_vertical(file_stream, size_mapping_config, category_
         value_name='Quantity'
     )
 
-    # 6. 매핑 테이블 병합
     mapping_list = []
     for key, map_data in size_mapping_config.items():
         for code, real_size in map_data.items():
@@ -97,7 +87,6 @@ def transform_horizontal_to_vertical(file_stream, size_mapping_config, category_
 
     df_final = df_final.dropna(subset=['Real_Size'])
 
-    # 7. 데이터 정제 및 반환
     df_final['hq_stock'] = pd.to_numeric(df_final['Quantity'], errors='coerce').fillna(0).astype(int)
     
     df_final['original_price'] = pd.to_numeric(df_final['original_price'], errors='coerce').fillna(0).astype(int)

@@ -20,7 +20,8 @@ class Order(db.Model):
     
     customer_name = db.Column(db.String, nullable=False)
     customer_phone = db.Column(db.String, nullable=False)
-    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow) 
+    # [수정] func.now() 대신 datetime.now를 사용하여 config.py의 Asia/Seoul 설정을 따르도록 변경
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.now) 
     completed_at = db.Column(db.DateTime(timezone=True), nullable=True) 
     
     reception_method = db.Column(db.String(50), nullable=False, default='방문수령') 
@@ -58,7 +59,8 @@ class Sale(db.Model):
     
     total_amount = db.Column(db.Integer, default=0)
     payment_method = db.Column(db.String(50), default='카드') 
-    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
+    # [수정] func.now() 대신 datetime.now를 사용하여 config.py의 Asia/Seoul 설정을 따르도록 변경
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.now)
     
     items = db.relationship('SaleItem', backref='sale', lazy='dynamic', cascade="all, delete-orphan")
     store = db.relationship('Store', back_populates='sales')

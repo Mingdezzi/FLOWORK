@@ -8,9 +8,8 @@ class Brand(db.Model):
     __tablename__ = 'brands'
     id = db.Column(db.Integer, primary_key=True)
     brand_name = db.Column(db.String(100), nullable=False, unique=True)
-    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.now)
     
-    # Relationships
     stores = db.relationship('Store', back_populates='brand', lazy='dynamic', cascade="all, delete-orphan")
     users = db.relationship('User', back_populates='brand', lazy='dynamic', foreign_keys='User.brand_id', cascade="all, delete-orphan")
     settings = db.relationship('Setting', back_populates='brand', lazy='dynamic', cascade="all, delete-orphan")

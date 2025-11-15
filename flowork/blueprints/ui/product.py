@@ -17,7 +17,6 @@ def product_detail(product_id):
     if current_user.is_super_admin:
         abort(403, description="슈퍼 관리자는 상품 상세를 볼 수 없습니다.")
 
-    # [수정] Iframe 호출 시 헤더/네비게이션 숨김 처리를 위한 플래그
     is_partial = request.args.get('partial') == '1'
 
     try:
@@ -69,8 +68,6 @@ def product_detail(product_id):
                     }
 
         image_pn = product.product_number.split(' ')[0]
-        # 이미지 URL 생성 로직 (기존 processors.py 로직과 동일하게 맞추거나 호출해야 함. 여기서는 일단 하드코딩된 부분 유지)
-        # 실제 서비스에서는 processors.py 의 get_image_url 로직을 서비스 함수로 분리하여 호출하는 것이 좋습니다.
         image_url = f"https://files.ebizway.co.kr/files/10249/Style/{image_pn}.jpg"
         
         related_products = []
@@ -91,7 +88,7 @@ def product_detail(product_id):
             'my_store_id': my_store_id,
             'image_url': image_url,
             'related_products': related_products,
-            'is_partial': is_partial # [수정] 템플릿으로 변수 전달
+            'is_partial': is_partial
         }
         return render_template('detail.html', **context)
 
@@ -217,16 +214,13 @@ def list_page():
             
         showing_all = not any(v for v in search_params.values())
 
-        if showing_all:
-             pagination = None
-        else:
-            pagination = query.order_by(
-                Product.release_year.desc(), Product.product_name
-            ).paginate(page=page, per_page=per_page, error_out=False)
+        pagination = query.order_by(
+            Product.release_year.desc(), Product.product_name
+        ).paginate(page=page, per_page=per_page, error_out=False)
 
         context = {
             'active_page': 'list',
-            'products': pagination.items if pagination else [],
+            'products': pagination.items,
             'pagination': pagination,
             'filter_options': filter_options,
             'advanced_search_params': search_params,

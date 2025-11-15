@@ -39,25 +39,20 @@ document.addEventListener('DOMContentLoaded', (event) => {
     const keypadKor = document.getElementById('keypad-kor');
     const keypadEng = document.getElementById('keypad-eng');
 
-    // [수정] 상세 뷰 제어를 위한 요소 가져오기
     const productListUl = document.getElementById('product-list-ul');
     const listContainer = document.getElementById('product-list-view');
     const detailContainer = document.getElementById('product-detail-view');
     const detailIframe = document.getElementById('product-detail-iframe');
     const backButton = document.getElementById('btn-back-to-list');
 
-    // [수정] 1. 상품 클릭 이벤트 위임 (productListUl에 리스너 등록)
     if (productListUl) {
         productListUl.addEventListener('click', (e) => {
-            // 링크(.product-item) 또는 그 내부 요소를 클릭했는지 확인
             const link = e.target.closest('a.product-item');
             if (link) {
-                // PC 화면일 때만 Iframe으로 보여주기 (992px 기준)
                 if (window.innerWidth >= 992) {
-                    e.preventDefault(); // 기본 이동(페이지 전환) 막기
+                    e.preventDefault(); 
                     
                     const targetUrl = link.getAttribute('href');
-                    // partial=1 파라미터 추가 (헤더/네비게이션 숨김)
                     const detailUrl = targetUrl + (targetUrl.includes('?') ? '&' : '?') + 'partial=1';
                     
                     if (detailIframe) {
@@ -66,15 +61,13 @@ document.addEventListener('DOMContentLoaded', (event) => {
                     
                     if (listContainer && detailContainer) {
                         listContainer.style.display = 'none';
-                        detailContainer.style.display = 'flex'; // flex로 해야 내부 flex layout 적용됨
+                        detailContainer.style.display = 'flex'; 
                     }
                 }
-                // 모바일이면 기본 동작(href 이동) 유지
             }
         });
     }
 
-    // [수정] 2. 뒤로가기 버튼 이벤트
     if (backButton) {
         backButton.addEventListener('click', () => {
             if (listContainer && detailContainer) {
@@ -82,7 +75,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
                 detailContainer.style.display = 'none';
             }
             if (detailIframe) {
-                detailIframe.src = 'about:blank'; // 리소스 해제
+                detailIframe.src = 'about:blank'; 
             }
         });
     }
@@ -232,6 +225,14 @@ document.addEventListener('DOMContentLoaded', (event) => {
             const data = await response.json();
             
             if (data.status === 'success') {
+                if (listContainer && detailContainer) {
+                    listContainer.style.display = 'flex';
+                    detailContainer.style.display = 'none';
+                }
+                if (detailIframe) {
+                    detailIframe.src = 'about:blank';
+                }
+
                 renderResults(data.products, data.showing_favorites, data.selected_category);
                 renderPagination(data.total_pages, data.current_page);
             } else { 

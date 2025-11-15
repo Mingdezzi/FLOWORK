@@ -77,7 +77,8 @@ def search_page():
         
         buttons = [{'label': '전체', 'value': '전체'}]
         
-        for cat in db_categories[:14]:
+        # [수정] 버튼 개수 제한을 14개에서 24개로 확장 (전체 포함 25개 = 5x5)
+        for cat in db_categories[:24]:
             buttons.append({'label': cat, 'value': cat})
             
         category_config = {

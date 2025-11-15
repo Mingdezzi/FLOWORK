@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FLOWORK</title>
+    <title>FLOWORK - 설정</title>
     
     <link rel="icon" href="{{ url_for('static', filename='symbol.png') }}">
     
@@ -370,298 +370,259 @@
             </div>
             {% endif %}
 
-
             <hr class="my-4">
-            <h2 class="section-title"><i class="bi bi-database-gear me-2"></i>DB 관리 (백업/복구)</h2>
-
-            {% if current_user.is_admin and current_user.brand_id and not current_user.store_id %}
-            <div class="card mb-3 management-section">
-                <div class="card-header">
-                    <h3 class="mb-0"><i class="bi bi-database-fill-up me-2"></i>상품 데이터 백업 (브랜드 공통)</h3>
-                </div>
-                <div class="card-body">
-                     <div class="card-description">
-                        <strong>현재 브랜드의 상품 데이터(STOCK_INFO) 를 엑셀로 백업합니다.</strong>
-                        <span>(상품, 품목, 가격, **본사 재고**, **즐겨찾기** 포함) (매장 재고는 포함되지 않습니다.)</span>
-                    </div>
-                    <a href="{{ url_for('api.export_db_excel') }}" class="btn btn-success"><i class="bi bi-download me-1"></i>엑셀 다운로드</a>
-                </div>
-            </div>
+            <h2 class="section-title"><i class="bi bi-database-gear me-2"></i>DB 관리</h2>
 
             <div class="card mb-3 management-section">
                 <div class="card-header">
-                    <h3 class="mb-0"><i class="bi bi-database-fill-down me-2"></i>상품 데이터 전체 업로드 (DB 초기화)</h3>
+                    <ul class="nav nav-tabs card-header-tabs" id="dbManageTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="tab-orders-tab" data-bs-toggle="tab" data-bs-target="#tab-orders" type="button" role="tab">1. 주문(Orders)</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab-announcements-tab" data-bs-toggle="tab" data-bs-target="#tab-announcements" type="button" role="tab">2. 공지사항(Notice)</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab-products-tab" data-bs-toggle="tab" data-bs-target="#tab-products" type="button" role="tab">3. 상품/재고(Product)</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab-system-tab" data-bs-toggle="tab" data-bs-target="#tab-system" type="button" role="tab">4. 시스템(System)</button>
+                        </li>
+                    </ul>
                 </div>
-                <div class="card-body">
-                    <div class="card-description">
-                        <strong>(요청) 엑셀 파일로 상품 데이터(STOCK_INFO)를 재설정합니다. (열 문자 선택)</strong>
-                        <span>(경고) 현재 브랜드의 기존 상품/옵션/재고 DB가 **모두 삭제**되고 엑셀 내용으로 덮어씁니다.</span>
-                    </div>
-                    <form action="{{ url_for('api.inventory_upsert') }}" method="POST" enctype="multipart/form-data" 
-                          class="update-stock-form" id="form-import-db"
-                          onsubmit="return confirm('🚨 경고! DB를 덮어씁니다.\n현재 브랜드의 모든 상품, 옵션, 재고 데이터가 영구 삭제됩니다.\n\n정말로 계속하시겠습니까?');">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <input type="hidden" name="upload_mode" value="db"/>
-                        <input type="hidden" name="is_full_import" value="true"/>
-                        
-                        <div class="mb-3">
-                            <label for="db_excel_file" class="form-label file-upload-wrapper" id="wrapper-db-file">
-                                <i class="bi bi-file-earmark-excel-fill fs-4"></i>
-                                <div>파일 선택 (상품 DB)</div>
-                                <div class="file-status-text" id="status-db-file">엑셀 파일을 선택하세요.</div>
-                            </label>
-                            <input type="file" name="excel_file" class="form-control" accept=".xlsx, .xls" required id="db_excel_file">
-                        </div>
-
-                        <div class="column-mapping-grid mb-3" id="grid-import-db">
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_pn_db">품번*</label>
-                                <select id="col_pn_db" name="col_pn" class="form-select form-select-sm" required disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_pn_db"></div>
-                            </div></div>
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_pname_db">품명*</label>
-                                <select id="col_pname_db" name="col_pname" class="form-select form-select-sm" required disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_pname_db"></div>
-                            </div></div>
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_color_db">컬러*</label>
-                                <select id="col_color_db" name="col_color" class="form-select form-select-sm" required disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_color_db"></div>
-                            </div></div>
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_size_db">사이즈 (자동)</label>
-                                <select id="col_size_db" name="col_size" class="form-select form-select-sm" disabled><option value="">-- 열 (없으면 자동) --</option></select>
-                                <div class="col-preview" id="preview_col_size_db"></div>
-                            </div></div>
-                            
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_year_db">출시년도</label>
-                                <select id="col_year_db" name="col_year" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_year_db"></div>
-                            </div></div>
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_category_db">품목</label>
-                                <select id="col_category_db" name="col_category" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_category_db"></div>
-                            </div></div>
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_oprice_db">최초가</label>
-                                <select id="col_oprice_db" name="col_oprice" class="form-select form-select-sm" disabled><option value="">-- 열 (없으면 0) --</option></select>
-                                <div class="col-preview" id="preview_col_oprice_db"></div>
-                            </div></div>
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_sprice_db">판매가</label>
-                                <select id="col_sprice_db" name="col_sprice" class="form-select form-select-sm" disabled><option value="">-- 열 (없으면 최초가) --</option></select>
-                                <div class="col-preview" id="preview_col_sprice_db"></div>
-                            </div></div>
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_favorite_db">즐겨찾기</label>
-                                <select id="col_favorite_db" name="col_favorite" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_favorite_db"></div>
-                            </div></div>
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_barcode_db">바코드 (자동생성)</label>
-                                <select id="col_barcode_db" name="col_barcode" class="form-select form-select-sm" disabled><option value="">-- 선택(기본자동) --</option></select>
-                                <div class="col-preview" id="preview_col_barcode_db"></div>
-                            </div></div>
-                        </div>
-
-                        <div class="progress-wrapper mb-3" style="display:none;">
-                            <div class="progress">
-                                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">0%</div>
-                            </div>
-                            <div class="progress-status text-center mt-1 text-muted small">처리 중...</div>
-                        </div>
-
-                        <button type="submit" class="btn btn-danger"><i class="bi bi-upload me-1"></i>상품 DB 전체 업로드</button>
-                    </form>
-                </div>
-            </div>
-
-            <div class="card mb-3 management-section">
-                <div class="card-header">
-                    <h3 class="mb-0"><i class="bi bi-arrow-repeat me-2"></i>누락 DB 자동 동기화</h3>
-                </div>
-                <div class="card-body">
-                     <div class="card-description">
-                        <strong>DB 의 누락된 데이터를 자동으로 동기화 합니다.</strong>
-                        <span>하단의 '데이터 동기화 실행' 버튼을 누르면, <br>DB 의 누락 된 부분을 자동으로 동기화 합니다.</span>
-                    </div>
-                    <form action="{{ url_for('api.sync_missing_data') }}" method="POST" onsubmit="return confirm('데이터 동기화를 실행합니다.\n비어있는 품목/년도/가격 정보가 자동으로 채워집니다.\n계속하시겠습니까?');">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <button type="submit" class="btn btn-info"><i class="bi bi-check2-circle me-1"></i>데이터 동기화 실행</button>
-                    </form>
-                </div>
-            </div>
-
-            <div class="card mb-3 management-section">
-                <div class="card-header">
-                    <h3 class="mb-0"><i class="bi bi-building-gear me-2"></i>본사재고 UPSERT (추가/수정)</h3>
-                </div>
-                <div class="card-body">
-                    <div class="card-description">
-                        <strong>(STOCK_HQ) 엑셀 파일로 '본사 재고' 및 '상품 정보'를 (추가/수정)합니다.</strong>
-                        <span>(품번/컬러/사이즈/본사재고 필수)</span>
-                    </div>
+                <div class="card-body tab-content" id="dbManageTabContent">
                     
-                    <form id="form-update-hq-full" class="update-stock-form" action="{{ url_for('api.inventory_upsert') }}" method="POST" enctype="multipart/form-data" onsubmit="return confirm('엑셀 파일 검증을 시작합니다.\n검증 후 문제가 없는 행만 업로드됩니다.\n계속하시겠습니까?');">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <input type="hidden" name="upload_mode" value="hq"/>
+                    <div class="tab-pane fade show active" id="tab-orders" role="tabpanel">
+                        <h5 class="card-title mb-3">주문 데이터 관리</h5>
                         
+                        {% if not current_user.store_id %} <div class="alert alert-info py-2 mb-3">
+                            <i class="bi bi-info-circle me-2"></i>본사 관리자 권한으로 전체 또는 특정 매장의 주문을 관리합니다.
+                        </div>
                         <div class="mb-3">
-                             <label for="hq_stock_excel_file_full" class="form-label file-upload-wrapper" id="wrapper-hq-file-full">
-                                <i class="bi bi-file-earmark-excel-fill fs-4"></i>
-                                <div>파일 선택 (본사재고)</div>
-                                <div class="file-status-text" id="status-hq-file-full">엑셀 파일을 선택하세요.</div>
-                            </label>
-                            <input type="file" name="excel_file" class="form-control" accept=".xlsx, .xls" required id="hq_stock_excel_file_full">
+                            <label class="form-label fw-bold">대상 매장 선택</label>
+                            <select class="form-select" id="orders_target_store">
+                                <option value="">전체 매장 (All Stores)</option>
+                                {% for store in all_stores %}
+                                <option value="{{ store.id }}">{{ store.store_name }}</option>
+                                {% endfor %}
+                            </select>
                         </div>
+                        {% endif %}
 
-                        <div class="column-mapping-grid mb-3" id="grid-update-hq-full">
-                             <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_pn_hq_full">품번*</label>
-                                <select id="col_pn_hq_full" name="col_pn" class="form-select form-select-sm" required disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_pn_hq_full"></div>
-                            </div></div>
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_color_hq_full">컬러*</label>
-                                <select id="col_color_hq_full" name="col_color" class="form-select form-select-sm" required disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_color_hq_full"></div>
-                            </div></div>
-                             <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_size_hq_full">사이즈 (자동)</label>
-                                <select id="col_size_hq_full" name="col_size" class="form-select form-select-sm" disabled><option value="">-- 열 (없으면 자동) --</option></select>
-                                <div class="col-preview" id="preview_col_size_hq_full"></div>
-                            </div></div>
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_stock_hq_full">본사재고*</label>
-                                <select id="col_stock_hq_full" name="col_hq_stock" class="form-select form-select-sm" required disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_stock_hq_full"></div>
-                            </div></div>
-                            
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_pname_hq_full">품명</label>
-                                <select id="col_pname_hq_full" name="col_pname" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_pname_hq_full"></div>
-                            </div></div>
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_year_hq_full">출시년도</label>
-                                <select id="col_year_hq_full" name="col_year" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_year_hq_full"></div>
-                            </div></div>
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_category_hq_full">품목</label>
-                                <select id="col_category_hq_full" name="col_category" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_category_hq_full"></div>
-                            </div></div>
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_oprice_hq_full">최초가</label>
-                                <select id="col_oprice_hq_full" name="col_oprice" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_oprice_hq_full"></div>
-                            </div></div>
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_sprice_hq_full">판매가</label>
-                                <select id="col_sprice_hq_full" name="col_sprice" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_sprice_hq_full"></div>
-                            </div></div>
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_barcode_hq_full">바코드</label>
-                                <select id="col_barcode_hq_full" name="col_barcode" class="form-select form-select-sm" disabled><option value="">-- 선택 --</option></select>
-                                <div class="col-preview" id="preview_col_barcode_hq_full"></div>
-                            </div></div>
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_favorite_hq_full">즐겨찾기</label>
-                                <select id="col_favorite_hq_full" name="col_favorite" class="form-select form-select-sm" disabled><option value="">-- 선택 --</option></select>
-                                <div class="col-preview" id="preview_col_favorite_hq_full"></div>
-                            </div></div>
-                        </div>
-                        
-                        <div class="progress-wrapper mb-3" style="display:none;">
-                            <div class="progress">
-                                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">0%</div>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="d-grid">
+                                    <button type="button" class="btn btn-outline-primary" onclick="downloadOrdersExcel()">
+                                        <i class="bi bi-download me-2"></i>주문 내역 백업 (엑셀)
+                                    </button>
+                                </div>
                             </div>
-                            <div class="progress-status text-center mt-1 text-muted small">처리 중...</div>
+                            <div class="col-md-4">
+                                <form action="{{ url_for('api.import_orders_excel') }}" method="POST" enctype="multipart/form-data" class="input-group" id="form-import-orders">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="hidden" name="target_store_id" class="target-store-id-input">
+                                    <input type="file" name="excel_file" class="form-control" required>
+                                    <button type="submit" class="btn btn-outline-success">
+                                        <i class="bi bi-upload"></i> 복구
+                                    </button>
+                                </form>
+                            </div>
+                            <div class="col-md-4">
+                                <form action="{{ url_for('api.reset_orders_db') }}" method="POST" id="form-reset-orders" onsubmit="return confirmReset('주문 내역');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="hidden" name="target_store_id" class="target-store-id-input">
+                                    <button type="submit" class="btn btn-outline-danger w-100">
+                                        <i class="bi bi-trash3 me-2"></i>주문 내역 초기화
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-announcements" role="tabpanel">
+                        <h5 class="card-title mb-3">공지사항 데이터 관리</h5>
+                        {% if not current_user.store_id %} <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="d-grid">
+                                    <a href="{{ url_for('api.export_announcements_excel') }}" class="btn btn-outline-primary">
+                                        <i class="bi bi-download me-2"></i>공지사항 백업 (엑셀)
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <form action="{{ url_for('api.import_announcements_excel') }}" method="POST" enctype="multipart/form-data" class="input-group">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="file" name="excel_file" class="form-control" required>
+                                    <button type="submit" class="btn btn-outline-success">
+                                        <i class="bi bi-upload"></i> 복구
+                                    </button>
+                                </form>
+                            </div>
+                            <div class="col-md-4">
+                                <form action="{{ url_for('api.reset_announcements_db') }}" method="POST" onsubmit="return confirmReset('공지사항');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button type="submit" class="btn btn-outline-danger w-100">
+                                        <i class="bi bi-trash3 me-2"></i>공지사항 초기화
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        {% else %}
+                        <p class="text-muted text-center py-3">공지사항 관리는 본사 관리자 권한입니다.</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-products" role="tabpanel">
+                        <h5 class="card-title mb-3">상품 및 재고 데이터 관리</h5>
+                        
+                        {% if not current_user.store_id %} <div class="mb-4">
+                            <label class="form-label fw-bold">대상 매장 선택 (매장 재고 관리용)</label>
+                            <select class="form-select" id="stock_target_store">
+                                <option value="">전체 매장 (All Stores)</option>
+                                {% for store in all_stores %}
+                                <option value="{{ store.id }}">{{ store.store_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+
+                        <div class="row g-3 mb-4 border-bottom pb-4">
+                            <div class="col-12"><h6 class="text-muted small">매장별 재고 관리</h6></div>
+                            <div class="col-md-4">
+                                <div class="d-grid">
+                                    <button type="button" class="btn btn-outline-primary" onclick="downloadStockExcel()">
+                                        <i class="bi bi-download me-2"></i>재고 내역 백업
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <form action="{{ url_for('api.update_store_stock_excel') }}" method="POST" enctype="multipart/form-data" class="input-group">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="hidden" name="target_store_id" class="target-store-id-input">
+                                    <input type="file" name="excel_file" class="form-control" required>
+                                    <button type="submit" class="btn btn-outline-success">
+                                        <i class="bi bi-upload"></i> 복구
+                                    </button>
+                                </form>
+                            </div>
+                            <div class="col-md-4">
+                                <form action="{{ url_for('api.reset_actual_stock') }}" method="POST" onsubmit="return confirmReset('재고 내역');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="hidden" name="target_store_id" class="target-store-id-input">
+                                    <button type="submit" class="btn btn-outline-danger w-100">
+                                        <i class="bi bi-trash3 me-2"></i>재고 내역 초기화
+                                    </button>
+                                </form>
+                            </div>
                         </div>
 
-                        <button type="submit" class="btn btn-primary"><i class="bi bi-arrow-clockwise me-1"></i>본사재고 업로드</button>
-                    </form>
-                </div>
-            </div>
-            
-            <div class="card mb-3 management-section border-danger">
-                 <div class="card-header bg-danger text-white">
-                     <h3 class="mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>상품 데이터 초기화 (현재 브랜드)</h3>
-                </div>
-                <div class="card-body">
-                    <div class="card-description text-danger">
-                        <strong>(요청) 현재 브랜드의 '상품/옵션/재고' 데이터만 삭제합니다.</strong>
-                        <span>(경고) '주문/공지/설정/계정'은 유지되지만, 현재 브랜드의 모든 '상품(Product)', '옵션(Variant)', '매장재고(StoreStock)' 기록이 영구적으로 삭제됩니다.</span>
+                        {% if not current_user.store_id %} <div class="row g-3">
+                            <div class="col-12"><h6 class="text-muted small">본사 DB 관리 (브랜드 공통)</h6></div>
+                            <div class="col-md-4">
+                                <div class="d-grid">
+                                    <a href="{{ url_for('api.export_db_excel') }}" class="btn btn-primary">
+                                        <i class="bi bi-database-down me-2"></i>본사 DB 백업
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <form action="{{ url_for('api.inventory_upsert') }}" method="POST" enctype="multipart/form-data" class="input-group">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="hidden" name="upload_mode" value="db"/>
+                                    <input type="hidden" name="is_full_import" value="true"/>
+                                    <input type="file" name="excel_file" class="form-control" required>
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="bi bi-database-up"></i> DB 복구(초기화)
+                                    </button>
+                                </form>
+                            </div>
+                            <div class="col-md-4">
+                                <form action="{{ url_for('api.reset_database_completely') }}" method="POST" onsubmit="return confirmReset('본사 상품 DB 전체');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button type="submit" class="btn btn-danger w-100">
+                                        <i class="bi bi-exclamation-triangle-fill me-2"></i>본사 DB 초기화
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
-                    <form action="{{ url_for('api.reset_database_completely') }}" method="POST" onsubmit="return confirm('🚨🚨🚨 최종 경고! 🚨🚨🚨\n\n데이터베이스의 모든 상품, 옵션, 재고 정보가 영구적으로 삭제됩니다.\n\n정말로 계속 진행하시겠습니까?');">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <button type="submit" class="btn btn-danger"><i class="bi bi-trash3-fill me-1"></i>상품 데이터 초기화</button>
-                    </form>
-                </div>
-            </div>
-            {% endif %}
 
-            {% if current_user.is_admin and current_user.store_id %}
-            <div class="card mb-3 management-section border-warning">
-                 <div class="card-header bg-warning text-dark">
-                     <h3 class="mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>주문(Orders) DB 초기화 (현재 매장)</h3>
-                </div>
-                <div class="card-body">
-                    <div class="card-description text-danger">
-                        <strong>현재 매장의 '주문 내역'만 삭제하고 초기화합니다.</strong>
-                        <span>(경고) '상품/공지/설정'은 유지되지만, 현재 로그인한 매장의 '주문(Order)' 기록, '상품 처리' 내역이 영구적으로 삭제됩니다.</span>
+                    <div class="tab-pane fade" id="tab-system" role="tabpanel">
+                        <h5 class="card-title mb-3">시스템 관리</h5>
+                        
+                        {% if current_user.store_id %}
+                        <div class="card border-danger mb-3">
+                            <div class="card-body">
+                                <h6 class="text-danger">계정 초기화 및 삭제</h6>
+                                <p class="small text-muted">현재 로그인된 매장 계정의 모든 데이터를 삭제하고 계정을 초기화합니다.</p>
+                                <form action="{{ url_for('api.delete_store', store_id=current_user.store_id) }}" method="POST" onsubmit="return confirm('정말로 계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button type="submit" class="btn btn-danger">계정 삭제</button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if current_user.is_admin and not current_user.store_id %}
+                        <div class="row g-3 mb-4">
+                            <div class="col-12"><h6 class="text-muted small">매장/계정 관리</h6></div>
+                            <div class="col-md-4">
+                                <div class="d-grid">
+                                    <a href="{{ url_for('api.export_stores_excel') }}" class="btn btn-outline-primary">
+                                        <i class="bi bi-download me-2"></i>매장/계정 백업
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <form action="{{ url_for('api.import_stores_excel') }}" method="POST" enctype="multipart/form-data" class="input-group">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="file" name="excel_file" class="form-control" required>
+                                    <button type="submit" class="btn btn-outline-success">
+                                        <i class="bi bi-upload"></i> 복구
+                                    </button>
+                                </form>
+                            </div>
+                            <div class="col-md-4">
+                                <form action="{{ url_for('api.reset_store_db') }}" method="POST" onsubmit="return confirm('🚨 브랜드 내 모든 매장과 계정이 삭제됩니다. 진행하시겠습니까?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button type="submit" class="btn btn-outline-danger w-100">
+                                        <i class="bi bi-trash3 me-2"></i>브랜드 전체 초기화
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if current_user.is_super_admin %}
+                        <div class="card border-danger">
+                            <div class="card-header bg-danger text-white">슈퍼 관리자 전용 기능</div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <a href="{{ url_for('api.export_stores_excel') }}" class="btn btn-outline-dark w-100">브랜드 계정 백업</a>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <button class="btn btn-outline-dark w-100" disabled>브랜드 계정 복구</button>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <button class="btn btn-outline-dark w-100" disabled>브랜드 계정 삭제</button>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <form action="{{ url_for('api.reset_store_db') }}" method="POST" onsubmit="return confirm('🚨 모든 시스템 데이터가 초기화됩니다. 정말 진행하시겠습니까?');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <button type="submit" class="btn btn-danger w-100">모든 시스템 초기화</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
                     </div>
-                    <form action="{{ url_for('api.reset_orders_db') }}" method="POST" 
-                          onsubmit="return confirm('🚨🚨🚨 경고! 🚨🚨🚨\n\n[상품/재고 DB]는 유지됩니다.\n하지만 [현재 매장의 모든 주문 내역]이 영구적으로 삭제됩니다.\n\n정말로 계속 진행하시겠습니까?');">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <button type="submit" class="btn btn-warning"><i class="bi bi-trash3-fill me-1"></i>주문 DB 전체 초기화 (현재 매장)</button>
-                    </form>
+
                 </div>
             </div>
-            {% endif %}
-            
-            {% if current_user.is_admin and current_user.brand_id and not current_user.store_id %}
-            <div class="card mb-3 management-section border-info">
-                 <div class="card-header bg-info text-dark">
-                     <h3 class="mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>공지사항(Announcements) DB 초기화 (현재 브랜드)</h3>
-                </div>
-                <div class="card-body">
-                    <div class="card-description text-info">
-                        <strong>현재 브랜드의 '공지사항'만 삭제하고 초기화합니다.</strong>
-                        <span>(경고) '상품/주문/설정'은 유지되지만, 현재 브랜드의 '공지사항' 기록이 영구적으로 삭제됩니다.</span>
-                    </div>
-                    <form action="{{ url_for('api.reset_announcements_db') }}" method="POST" 
-                          onsubmit="return confirm('🚨 경고!\n\n[현재 브랜드의 모든 공지사항]이 영구적으로 삭제됩니다.\n\n정말로 계속 진행하시겠습니까?');">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <button type="submit" class="btn btn-info"><i class="bi bi-trash3-fill me-1"></i>공지사항 DB 전체 초기화</button>
-                    </form>
-                </div>
-            </div>
-            {% endif %}
-            
-            {% if current_user.is_super_admin %}
-            <div class="card mb-3 management-section border-danger">
-                 <div class="card-header bg-danger text-white">
-                     <h3 class="mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>전체 시스템 초기화 (계정 삭제)</h3>
-                </div>
-                <div class="card-body">
-                    <div class="card-description text-danger">
-                        <strong>모든 '브랜드/매장/유저/설정'을 삭제하고 초기화합니다.</strong>
-                        <span>(경고) 이 버튼을 누르면 이 시스템의 모든 계정 정보가 삭제됩니다. 실행 후 즉시 로그아웃되며, /register를 통해 최초 계정을 다시 생성해야 합니다.</span>
-                    </div>
-                    <form action="{{ url_for('api.reset_store_db') }}" method="POST" 
-                          onsubmit="return confirm('🚨🚨🚨 최종 경고! 🚨🚨🚨\n\n[모든 브랜드, 매장, 사용자 계정, 설정]이 영구적으로 삭제됩니다.\n\n정말로 계속 진행하시겠습니까?');">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <button type="submit" class="btn btn-danger"><i class="bi bi-trash3-fill me-1"></i>전체 계정 시스템 초기화</button>
-                    </form>
-                </div>
-            </div>
-            {% endif %}
 
         </div>
 
@@ -777,17 +738,38 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     
     <script src="{{ url_for('static', filename='js/setting.js') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/stock.js') }}" defer></script>
     
     <script>
         window.initialCategoryConfig = {{ category_config | tojson | safe if category_config else 'null' }};
         
-        // 설정 파일 로드 버튼 핸들러
+        // 드롭다운 선택 시 히든 인풋 업데이트 (본사 관리자용)
+        function updateHiddenStoreIds(selectId, inputClass) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            const val = select.value;
+            document.querySelectorAll('.' + inputClass).forEach(input => {
+                input.value = val;
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+            // 초기화 및 변경 이벤트 등록
+            const ordersSelect = document.getElementById('orders_target_store');
+            if(ordersSelect) {
+                ordersSelect.addEventListener('change', () => updateHiddenStoreIds('orders_target_store', 'target-store-id-input'));
+                updateHiddenStoreIds('orders_target_store', 'target-store-id-input'); // 초기값
+            }
+
+            const stockSelect = document.getElementById('stock_target_store');
+            if(stockSelect) {
+                stockSelect.addEventListener('change', () => updateHiddenStoreIds('stock_target_store', 'target-store-id-input'));
+                updateHiddenStoreIds('stock_target_store', 'target-store-id-input'); // 초기값
+            }
+
+            // 기존 로직 유지
             const loadSettingsBtn = document.getElementById('btn-load-settings');
             const loadSettingsStatus = document.getElementById('load-settings-status');
             const loadSettingsUrl = document.body.dataset.apiLoadSettingsUrl;
-            
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
             if (loadSettingsBtn) {
@@ -795,23 +777,15 @@
                     if (!confirm('서버에 저장된 브랜드 설정 파일을 로드하여 DB에 적용하시겠습니까?\n(기존 설정이 덮어씌워질 수 있습니다.)')) {
                         return;
                     }
-
                     loadSettingsBtn.disabled = true;
                     loadSettingsStatus.innerHTML = '<div class="alert alert-info">로딩 중...</div>';
-
                     try {
                         const response = await fetch(loadSettingsUrl, {
                             method: 'POST',
-                            headers: {
-                                'X-CSRFToken': csrfToken
-                            }
+                            headers: { 'X-CSRFToken': csrfToken }
                         });
                         const data = await response.json();
-
-                        if (!response.ok) {
-                            throw new Error(data.message || '설정 로드 실패');
-                        }
-
+                        if (!response.ok) throw new Error(data.message || '설정 로드 실패');
                         loadSettingsStatus.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
                         setTimeout(() => window.location.reload(), 1000);
                     } catch (error) {
@@ -823,6 +797,22 @@
                 });
             }
         });
+
+        function confirmReset(targetName) {
+            return confirm(`🚨 경고: [${targetName}] 데이터가 영구적으로 삭제됩니다.\n이 작업은 되돌릴 수 없습니다. 정말 진행하시겠습니까?`);
+        }
+
+        function downloadOrdersExcel() {
+            const storeId = document.getElementById('orders_target_store')?.value || '';
+            // 실제 구현 시 API 경로에 파라미터 추가 필요
+            window.location.href = "{{ url_for('api.export_orders_excel') }}?target_store_id=" + storeId;
+        }
+        
+        function downloadStockExcel() {
+            const storeId = document.getElementById('stock_target_store')?.value || '';
+             // 실제 구현 시 API 경로에 파라미터 추가 필요 (임시 경로)
+            window.location.href = "{{ url_for('api.export_stock_check') }}?target_store_id=" + storeId;
+        }
     </script>
 
 </body>

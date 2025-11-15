@@ -58,7 +58,6 @@ def _get_order_sources_for_template():
     if not current_user.store_id:
         return []
     try:
-        # [수정] 현재 로그인한 매장 제외하고 활성화된 매장만 조회
         query = Store.query.filter(
             Store.brand_id == current_user.current_brand_id,
             Store.id != current_user.store_id, 
@@ -67,22 +66,18 @@ def _get_order_sources_for_template():
         
         stores = query.order_by(Store.store_name).all()
         
-        # [수정] 본사(HQ) 매장 식별 및 최상단 배치 로직
         hq_store = None
         normal_stores = []
         
-        # HQ_STORE_ID 설정 확인
         hq_setting = Setting.query.filter_by(brand_id=current_user.current_brand_id, key='HQ_STORE_ID').first()
         hq_id = int(hq_setting.value) if hq_setting and hq_setting.value else None
         
         for s in stores:
-            # 설정된 HQ ID이거나 이름이 '본사'인 경우
             if (hq_id and s.id == hq_id) or s.store_name == '본사':
                 hq_store = s
             else:
                 normal_stores.append(s)
         
-        # 본사를 리스트 맨 앞에 추가
         if hq_store:
             other_stores = [hq_store] + normal_stores
         else:
@@ -133,19 +128,23 @@ def order_list():
         abort(403, description="고객 주문 관리는 매장 계정만 사용할 수 있습니다.")
 
     try:
-        # [수정] datetime.now() 사용 (KST 적용됨)
         today = datetime.now()
         selected_year = request.args.get('year', today.year, type=int)
         selected_month = request.args.get('month', today.month, type=int)
         
         brand_name = _get_brand_name_for_sms(current_user.current_brand_id)
         
-        pending_orders = db.session.query(Order).filter(
+        base_query = db.session.query(Order).options(
+            selectinload(Order.product_ref),
+            selectinload(Order.store)
+        )
+
+        pending_orders = base_query.filter(
             Order.store_id == current_user.store_id, 
             Order.order_status.not_in([OrderStatus.COMPLETED, OrderStatus.ETC])
         ).order_by(Order.created_at.desc(), Order.id.desc()).all()
         
-        monthly_orders = db.session.query(Order).filter(
+        monthly_orders = base_query.filter(
             Order.store_id == current_user.store_id, 
             extract('year', Order.created_at) == selected_year,
             extract('month', Order.created_at) == selected_month

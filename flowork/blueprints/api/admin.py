@@ -2,7 +2,7 @@ import json
 import os
 import traceback
 from flask import request, jsonify, current_app, flash, redirect, url_for, abort
-from flask_login import login_required, current_user
+from flask_login import login_required, current_user, logout_user
 from sqlalchemy import func, exc
 
 from flowork.models import db, Brand, Store, Setting, User, Staff, Announcement, Sale, StockHistory
@@ -301,27 +301,55 @@ def update_store(store_id):
         return jsonify({'status': 'error', 'message': f'서버 오류: {e}'}), 500
 
 
-@api_bp.route('/api/stores/<int:store_id>', methods=['DELETE'])
-@admin_required
+@api_bp.route('/api/stores/<int:store_id>', methods=['DELETE', 'POST'])
+@login_required
 def delete_store(store_id):
-    if not current_user.brand_id or current_user.store_id:
-        abort(403, description="매장 삭제는 본사 관리자만 가능합니다.")
+    # [수정] 매장 관리자가 본인 매장을 삭제(계정 초기화)할 수 있도록 권한 로직 변경
+    is_hq_admin = current_user.brand_id and not current_user.store_id
+    is_store_self_delete = current_user.store_id and current_user.store_id == store_id
+    is_super_admin = current_user.is_super_admin
+
+    if not (is_hq_admin or is_store_self_delete or is_super_admin):
+        abort(403, description="삭제 권한이 없습니다.")
 
     try:
-        store = Store.query.filter_by(
-            id=store_id, 
-            brand_id=current_user.current_brand_id
-        ).first()
+        # 본인 매장 삭제 시 (안전 장치)
+        if is_store_self_delete:
+            store = Store.query.filter_by(id=store_id, brand_id=current_user.brand_id).first()
+        else:
+            # 본사 관리자는 자기 브랜드 소속 매장만
+            if is_hq_admin:
+                store = Store.query.filter_by(id=store_id, brand_id=current_user.current_brand_id).first()
+            else: # 슈퍼관리자
+                store = db.session.get(Store, store_id)
         
         if not store:
+            if request.method == 'POST':
+                flash('삭제할 매장을 찾을 수 없습니다.', 'error')
+                return redirect(url_for('ui.setting_page'))
             return jsonify({'status': 'error', 'message': '삭제할 매장을 찾을 수 없습니다.'}), 404
         
-        if store.is_registered:
-            return jsonify({'status': 'error', 'message': f"'{store.store_name}'(은)는 매장 사용자가 등록 신청한 내역이 있어 삭제할 수 없습니다. '등록 초기화'를 먼저 실행하세요."}), 403
+        # [조건] 매장 사용자가 등록 신청한 상태에서 본사 관리자가 삭제하려는 경우 (등록 초기화 유도)
+        if is_hq_admin and store.is_registered:
+            msg = f"'{store.store_name}'(은)는 가입된 매장입니다. 계정 삭제는 '등록 초기화' 기능을 사용하세요."
+            if request.method == 'POST':
+                flash(msg, 'error')
+                return redirect(url_for('ui.setting_page'))
+            return jsonify({'status': 'error', 'message': msg}), 403
 
         name = store.store_name
         db.session.delete(store)
         db.session.commit()
+        
+        # [처리] 매장 관리자가 스스로 삭제한 경우 -> 로그아웃
+        if is_store_self_delete:
+            logout_user()
+            flash(f"매장 계정({name})이 삭제되었습니다.", 'info')
+            return redirect(url_for('auth.login'))
+
+        if request.method == 'POST':
+            flash(f"'{name}' 매장이 삭제되었습니다.", 'success')
+            return redirect(url_for('ui.setting_page'))
         
         return jsonify({
             'status': 'success',
@@ -330,10 +358,17 @@ def delete_store(store_id):
         
     except exc.IntegrityError:
         db.session.rollback()
-        return jsonify({'status': 'error', 'message': f"'{name}'(은)는 현재 주문/재고 내역에서 사용 중이므로 삭제할 수 없습니다."}), 409
+        msg = f"'{name}'(은)는 현재 주문/재고 내역에서 사용 중이므로 삭제할 수 없습니다."
+        if request.method == 'POST':
+            flash(msg, 'error')
+            return redirect(url_for('ui.setting_page'))
+        return jsonify({'status': 'error', 'message': msg}), 409
     except Exception as e:
         db.session.rollback()
         print(f"Error deleting store: {e}")
+        if request.method == 'POST':
+            flash(f"서버 오류: {e}", 'error')
+            return redirect(url_for('ui.setting_page'))
         return jsonify({'status': 'error', 'message': f'서버 오류: {e}'}), 500
 
 @api_bp.route('/api/stores/approve/<int:store_id>', methods=['POST'])

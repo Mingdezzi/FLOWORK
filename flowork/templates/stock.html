@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FLOWORK</title>
+    <title>FLOWORK - 재고관리</title>
     <link rel="icon" href="{{ url_for('static', filename='symbol.png') }}">
     <link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/journal/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -28,7 +28,119 @@
         <div class="mb-4">
              <h2 class="section-title"><i class="bi bi-database-gear me-2"></i>재고 데이터 관리</h2>
              
+             {% if not current_user.store_id %}
              <div class="card mb-3 management-section">
+                <div class="card-header">
+                    <h3 class="mb-0"><i class="bi bi-database-fill-up me-2"></i>상품 데이터 백업 (브랜드 공통)</h3>
+                </div>
+                <div class="card-body">
+                     <div class="card-description">
+                        <strong>현재 브랜드의 상품 데이터(STOCK_INFO) 를 엑셀로 백업합니다.</strong>
+                        <span>(상품, 품목, 가격, **본사 재고**, **즐겨찾기** 포함) (매장 재고는 포함되지 않습니다.)</span>
+                    </div>
+                    <a href="{{ url_for('api.export_db_excel') }}" class="btn btn-success"><i class="bi bi-download me-1"></i>엑셀 다운로드</a>
+                </div>
+            </div>
+
+            <div class="card mb-3 management-section">
+                <div class="card-header">
+                    <h3 class="mb-0"><i class="bi bi-database-fill-down me-2"></i>상품 데이터 전체 업로드 (DB 초기화)</h3>
+                </div>
+                <div class="card-body">
+                    <div class="card-description">
+                        <strong>(요청) 엑셀 파일로 상품 데이터(STOCK_INFO)를 재설정합니다.</strong>
+                        <span>(경고) 현재 브랜드의 기존 상품/옵션/재고 DB가 **모두 삭제**되고 엑셀 내용으로 덮어씁니다.</span>
+                    </div>
+                    <form action="{{ url_for('api.inventory_upsert') }}" method="POST" enctype="multipart/form-data" 
+                          class="update-stock-form" id="form-import-db"
+                          onsubmit="return confirm('🚨 경고! DB를 덮어씁니다.\n계속하시겠습니까?');">
+                        
+                        <input type="hidden" name="upload_mode" value="db"/>
+                        <input type="hidden" name="is_full_import" value="true"/>
+
+                        <div class="mb-3">
+                            <label for="db_excel_file" class="form-label file-upload-wrapper" id="wrapper-db-file">
+                                <i class="bi bi-file-earmark-excel-fill fs-4"></i>
+                                <div>파일 선택 (상품 DB)</div>
+                                <div class="file-status-text" id="status-db-file">엑셀 파일을 선택하세요.</div>
+                            </label>
+                            <input type="file" name="excel_file" class="form-control" accept=".xlsx, .xls" required id="db_excel_file">
+                        </div>
+
+                        <div class="column-mapping-grid mb-3" id="grid-import-db">
+                            <div class="mapping-item-wrapper"><div class="mapping-item">
+                                <label for="col_pn_db">품번*</label>
+                                <select id="col_pn_db" name="col_pn" class="form-select form-select-sm" required disabled><option value="">-- 열 --</option></select>
+                                <div class="col-preview" id="preview_col_pn_db"></div>
+                            </div></div>
+                            <div class="mapping-item-wrapper"><div class="mapping-item">
+                                <label for="col_pname_db">품명*</label>
+                                <select id="col_pname_db" name="col_pname" class="form-select form-select-sm" required disabled><option value="">-- 열 --</option></select>
+                                <div class="col-preview" id="preview_col_pname_db"></div>
+                            </div></div>
+                            <div class="mapping-item-wrapper"><div class="mapping-item">
+                                <label for="col_year_db">출시년도</label>
+                                <select id="col_year_db" name="col_year" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
+                                <div class="col-preview" id="preview_col_year_db"></div>
+                            </div></div>
+                            <div class="mapping-item-wrapper"><div class="mapping-item">
+                                <label for="col_category_db">품목</label>
+                                <select id="col_category_db" name="col_category" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
+                                <div class="col-preview" id="preview_col_category_db"></div>
+                            </div></div>
+                            <div class="mapping-item-wrapper"><div class="mapping-item">
+                                <label for="col_color_db">컬러*</label>
+                                <select id="col_color_db" name="col_color" class="form-select form-select-sm" required disabled><option value="">-- 열 --</option></select>
+                                <div class="col-preview" id="preview_col_color_db"></div>
+                            </div></div>
+                            
+                            <div class="mapping-item-wrapper"><div class="mapping-item">
+                                <label for="col_size_db">사이즈 (자동)</label>
+                                <select id="col_size_db" name="col_size" class="form-select form-select-sm" disabled>
+                                    <option value="">-- 자동 인식 --</option>
+                                </select>
+                                <div class="col-preview" id="preview_col_size_db"></div>
+                            </div></div>
+                            
+                            <div class="mapping-item-wrapper"><div class="mapping-item">
+                                <label for="col_oprice_db">최초가</label>
+                                <select id="col_oprice_db" name="col_oprice" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
+                                <div class="col-preview" id="preview_col_oprice_db"></div>
+                            </div></div>
+                            <div class="mapping-item-wrapper"><div class="mapping-item">
+                                <label for="col_sprice_db">판매가</label>
+                                <select id="col_sprice_db" name="col_sprice" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
+                                <div class="col-preview" id="preview_col_sprice_db"></div>
+                            </div></div>
+                            <div class="mapping-item-wrapper"><div class="mapping-item">
+                                <label for="col_favorite_db">즐겨찾기</label>
+                                <select id="col_favorite_db" name="col_favorite" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
+                                <div class="col-preview" id="preview_col_favorite_db"></div>
+                            </div></div>
+                            
+                            <div class="mapping-item-wrapper"><div class="mapping-item">
+                                <label for="col_hq_stock_db">본사재고 (자동)</label>
+                                <select id="col_hq_stock_db" name="col_hq_stock" class="form-select form-select-sm" disabled>
+                                    <option value="">-- 자동 인식 --</option>
+                                </select>
+                                <div class="col-preview" id="preview_col_hq_stock_db"></div>
+                            </div></div>
+                        </div>
+
+                        <div class="progress-wrapper mb-3" style="display:none;">
+                            <div class="progress">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">0%</div>
+                            </div>
+                            <div class="progress-status text-center mt-1 text-muted small">처리 중...</div>
+                        </div>
+
+                        <button type="submit" class="btn btn-danger"><i class="bi bi-upload me-1"></i>상품 DB 전체 업로드</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="card mb-3 management-section">
                 <div class="card-header">
                     <h3 class="mb-0"><i class="bi bi-house-gear me-2"></i>매장재고 UPSERT (추가/수정)</h3>
                 </div>
@@ -151,89 +263,86 @@
             {% if not current_user.store_id %}
             <div class="card mb-3 management-section">
                 <div class="card-header">
-                    <h3 class="mb-0"><i class="bi bi-database-fill-down me-2"></i>상품 데이터 전체 업로드 (DB 초기화)</h3>
+                    <h3 class="mb-0"><i class="bi bi-building-gear me-2"></i>본사재고 UPSERT (추가/수정)</h3>
                 </div>
                 <div class="card-body">
                     <div class="card-description">
-                        <strong>(요청) 엑셀 파일로 상품 데이터(STOCK_INFO)를 재설정합니다.</strong>
-                        <span>(경고) 현재 브랜드의 기존 상품/옵션/재고 DB가 **모두 삭제**되고 엑셀 내용으로 덮어씁니다.</span>
+                        <strong>(STOCK_HQ) 엑셀 파일로 '본사 재고' 및 '상품 정보'를 (추가/수정)합니다.</strong>
+                        <span>(품번/컬러/사이즈/본사재고 필수)</span>
                     </div>
-                    <form action="{{ url_for('api.inventory_upsert') }}" method="POST" enctype="multipart/form-data" 
-                          class="update-stock-form" id="form-import-db"
-                          onsubmit="return confirm('🚨 경고! DB를 덮어씁니다.\n계속하시겠습니까?');">
+                    
+                    <form id="form-update-hq-full" class="update-stock-form" action="{{ url_for('api.inventory_upsert') }}" method="POST" enctype="multipart/form-data" onsubmit="return confirm('엑셀 파일 검증을 시작합니다.\n검증 후 문제가 없는 행만 업로드됩니다.\n계속하시겠습니까?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <input type="hidden" name="upload_mode" value="hq"/>
                         
-                        <input type="hidden" name="upload_mode" value="db"/>
-                        <input type="hidden" name="is_full_import" value="true"/>
-
                         <div class="mb-3">
-                            <label for="db_excel_file" class="form-label file-upload-wrapper" id="wrapper-db-file">
+                             <label for="hq_stock_excel_file_full" class="form-label file-upload-wrapper" id="wrapper-hq-file-full">
                                 <i class="bi bi-file-earmark-excel-fill fs-4"></i>
-                                <div>파일 선택 (상품 DB)</div>
-                                <div class="file-status-text" id="status-db-file">엑셀 파일을 선택하세요.</div>
+                                <div>파일 선택 (본사재고)</div>
+                                <div class="file-status-text" id="status-hq-file-full">엑셀 파일을 선택하세요.</div>
                             </label>
-                            <input type="file" name="excel_file" class="form-control" accept=".xlsx, .xls" required id="db_excel_file">
+                            <input type="file" name="excel_file" class="form-control" accept=".xlsx, .xls" required id="hq_stock_excel_file_full">
                         </div>
 
-                        <div class="column-mapping-grid mb-3" id="grid-import-db">
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_pn_db">품번*</label>
-                                <select id="col_pn_db" name="col_pn" class="form-select form-select-sm" required disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_pn_db"></div>
+                        <div class="column-mapping-grid mb-3" id="grid-update-hq-full">
+                             <div class="mapping-item-wrapper"><div class="mapping-item">
+                                <label for="col_pn_hq_full">품번*</label>
+                                <select id="col_pn_hq_full" name="col_pn" class="form-select form-select-sm" required disabled><option value="">-- 열 --</option></select>
+                                <div class="col-preview" id="preview_col_pn_hq_full"></div>
                             </div></div>
                             <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_pname_db">품명*</label>
-                                <select id="col_pname_db" name="col_pname" class="form-select form-select-sm" required disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_pname_db"></div>
+                                <label for="col_color_hq_full">컬러*</label>
+                                <select id="col_color_hq_full" name="col_color" class="form-select form-select-sm" required disabled><option value="">-- 열 --</option></select>
+                                <div class="col-preview" id="preview_col_color_hq_full"></div>
+                            </div></div>
+                             <div class="mapping-item-wrapper"><div class="mapping-item">
+                                <label for="col_size_hq_full">사이즈 (자동)</label>
+                                <select id="col_size_hq_full" name="col_size" class="form-select form-select-sm" disabled><option value="">-- 열 (없으면 자동) --</option></select>
+                                <div class="col-preview" id="preview_col_size_hq_full"></div>
                             </div></div>
                             <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_year_db">출시년도</label>
-                                <select id="col_year_db" name="col_year" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_year_db"></div>
-                            </div></div>
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_category_db">품목</label>
-                                <select id="col_category_db" name="col_category" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_category_db"></div>
-                            </div></div>
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_color_db">컬러*</label>
-                                <select id="col_color_db" name="col_color" class="form-select form-select-sm" required disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_color_db"></div>
+                                <label for="col_stock_hq_full">본사재고*</label>
+                                <select id="col_stock_hq_full" name="col_hq_stock" class="form-select form-select-sm" required disabled><option value="">-- 열 --</option></select>
+                                <div class="col-preview" id="preview_col_stock_hq_full"></div>
                             </div></div>
                             
                             <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_size_db">사이즈 (자동)</label>
-                                <select id="col_size_db" name="col_size" class="form-select form-select-sm" disabled>
-                                    <option value="">-- 자동 인식 --</option>
-                                </select>
-                                <div class="col-preview" id="preview_col_size_db"></div>
-                            </div></div>
-                            
-                            <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_oprice_db">최초가</label>
-                                <select id="col_oprice_db" name="col_oprice" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_oprice_db"></div>
+                                <label for="col_pname_hq_full">품명</label>
+                                <select id="col_pname_hq_full" name="col_pname" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
+                                <div class="col-preview" id="preview_col_pname_hq_full"></div>
                             </div></div>
                             <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_sprice_db">판매가</label>
-                                <select id="col_sprice_db" name="col_sprice" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_sprice_db"></div>
+                                <label for="col_year_hq_full">출시년도</label>
+                                <select id="col_year_hq_full" name="col_year" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
+                                <div class="col-preview" id="preview_col_year_hq_full"></div>
                             </div></div>
                             <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_favorite_db">즐겨찾기</label>
-                                <select id="col_favorite_db" name="col_favorite" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
-                                <div class="col-preview" id="preview_col_favorite_db"></div>
+                                <label for="col_category_hq_full">품목</label>
+                                <select id="col_category_hq_full" name="col_category" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
+                                <div class="col-preview" id="preview_col_category_hq_full"></div>
                             </div></div>
-                            
                             <div class="mapping-item-wrapper"><div class="mapping-item">
-                                <label for="col_hq_stock_db">본사재고 (자동)</label>
-                                <select id="col_hq_stock_db" name="col_hq_stock" class="form-select form-select-sm" disabled>
-                                    <option value="">-- 자동 인식 --</option>
-                                </select>
-                                <div class="col-preview" id="preview_col_hq_stock_db"></div>
+                                <label for="col_oprice_hq_full">최초가</label>
+                                <select id="col_oprice_hq_full" name="col_oprice" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
+                                <div class="col-preview" id="preview_col_oprice_hq_full"></div>
+                            </div></div>
+                            <div class="mapping-item-wrapper"><div class="mapping-item">
+                                <label for="col_sprice_hq_full">판매가</label>
+                                <select id="col_sprice_hq_full" name="col_sprice" class="form-select form-select-sm" disabled><option value="">-- 열 --</option></select>
+                                <div class="col-preview" id="preview_col_sprice_hq_full"></div>
+                            </div></div>
+                            <div class="mapping-item-wrapper"><div class="mapping-item">
+                                <label for="col_barcode_hq_full">바코드</label>
+                                <select id="col_barcode_hq_full" name="col_barcode" class="form-select form-select-sm" disabled><option value="">-- 선택 --</option></select>
+                                <div class="col-preview" id="preview_col_barcode_hq_full"></div>
+                            </div></div>
+                            <div class="mapping-item-wrapper"><div class="mapping-item">
+                                <label for="col_favorite_hq_full">즐겨찾기</label>
+                                <select id="col_favorite_hq_full" name="col_favorite" class="form-select form-select-sm" disabled><option value="">-- 선택 --</option></select>
+                                <div class="col-preview" id="preview_col_favorite_hq_full"></div>
                             </div></div>
                         </div>
-
+                        
                         <div class="progress-wrapper mb-3" style="display:none;">
                             <div class="progress">
                                 <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">0%</div>
@@ -241,7 +350,23 @@
                             <div class="progress-status text-center mt-1 text-muted small">처리 중...</div>
                         </div>
 
-                        <button type="submit" class="btn btn-danger"><i class="bi bi-upload me-1"></i>상품 DB 전체 업로드</button>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-arrow-clockwise me-1"></i>본사재고 업로드</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mb-3 management-section">
+                <div class="card-header">
+                    <h3 class="mb-0"><i class="bi bi-arrow-repeat me-2"></i>누락 DB 자동 동기화</h3>
+                </div>
+                <div class="card-body">
+                     <div class="card-description">
+                        <strong>DB 의 누락된 데이터를 자동으로 동기화 합니다.</strong>
+                        <span>하단의 '데이터 동기화 실행' 버튼을 누르면, <br>DB 의 누락 된 부분을 자동으로 동기화 합니다.</span>
+                    </div>
+                    <form action="{{ url_for('api.sync_missing_data') }}" method="POST" onsubmit="return confirm('데이터 동기화를 실행합니다.\n비어있는 품목/년도/가격 정보가 자동으로 채워집니다.\n계속하시겠습니까?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" class="btn btn-info"><i class="bi bi-check2-circle me-1"></i>데이터 동기화 실행</button>
                     </form>
                 </div>
             </div>
@@ -306,9 +431,7 @@
                     </form>
                 </div>
             </div>
-            {% endif %}
-            
-            {% if not current_user.store_id %}
+
             <div class="card mb-3 management-section border-danger">
                  <div class="card-header bg-danger text-white">
                      <h3 class="mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>상품 데이터 초기화 (현재 브랜드)</h3>
@@ -319,6 +442,7 @@
                         <span>(경고) '주문/공지/설정/계정'은 유지되지만, 현재 브랜드의 모든 '상품(Product)', '옵션(Variant)', '매장재고(StoreStock)' 기록이 영구적으로 삭제됩니다.</span>
                     </div>
                     <form action="{{ url_for('api.reset_database_completely') }}" method="POST" onsubmit="return confirm('🚨🚨🚨 최종 경고! 🚨🚨🚨\n\n데이터베이스의 모든 상품, 옵션, 재고 정보가 영구적으로 삭제됩니다.\n\n정말로 계속 진행하시겠습니까?');">
+                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <button type="submit" class="btn btn-danger"><i class="bi bi-trash3-fill me-1"></i>상품 데이터 초기화</button>
                     </form>
                 </div>

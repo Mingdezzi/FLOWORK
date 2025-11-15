@@ -35,7 +35,7 @@ class Staff(db.Model):
     position = db.Column(db.String(100), nullable=True) 
     contact = db.Column(db.String(50), nullable=True) 
     is_active = db.Column(db.Boolean, default=True) 
-    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.now)
     schedules = db.relationship('ScheduleEvent', backref='staff', lazy='dynamic', foreign_keys='ScheduleEvent.staff_id')
 
 class ScheduleEvent(db.Model):
@@ -50,7 +50,7 @@ class ScheduleEvent(db.Model):
     end_time = db.Column(db.DateTime(timezone=True), nullable=True) 
     all_day = db.Column(db.Boolean, default=True) 
     color = db.Column(db.String(20), nullable=True) 
-    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.now)
 
 class Setting(db.Model):
     __tablename__ = 'settings'
@@ -67,7 +67,7 @@ class Announcement(db.Model):
     brand_id = db.Column(db.Integer, db.ForeignKey('brands.id'), nullable=False, index=True)
     title = db.Column(db.String(255), nullable=False)
     content = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.now)
     
     comments = db.relationship('Comment', backref='announcement', lazy='dynamic', cascade="all, delete-orphan")
 
@@ -77,6 +77,6 @@ class Comment(db.Model):
     announcement_id = db.Column(db.Integer, db.ForeignKey('announcements.id'), nullable=False, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     content = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow)
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.now)
     
     user = db.relationship('User', backref='comments')

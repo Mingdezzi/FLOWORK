@@ -1,19 +1,16 @@
 document.addEventListener('DOMContentLoaded', () => {
     
-    // [수정] CSRF 토큰 가져오기
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
     const urls = JSON.parse(document.body.dataset.apiUrls);
     
-    // State
-    let currentMode = 'sales'; // 'sales' or 'refund'
+    let currentMode = 'sales';
     let cart = []; 
-    let heldCart = null; // 보류된 카트 데이터
+    let heldCart = null;
     let isOnline = false;
     let currentRefundSaleId = null;
-    let salesConfig = { amount_discounts: [] }; // 판매 설정
+    let salesConfig = { amount_discounts: [] };
 
-    // DOM Elements
     const dom = {
         leftPanel: document.getElementById('sales-left-panel'),
         dateAreaSales: document.getElementById('date-area-sales'),
@@ -45,7 +42,6 @@ document.addEventListener('DOMContentLoaded', () => {
         btnToggleOnline: document.getElementById('btn-toggle-online'),
         btnClearCart: document.getElementById('btn-clear-cart'),
         
-        // [신규] 복구된 버튼들
         btnHoldSale: document.getElementById('btn-hold-sale'),
         btnApplyDiscount: document.getElementById('btn-apply-discount'),
 
@@ -60,7 +56,6 @@ document.addEventListener('DOMContentLoaded', () => {
         settingsModal: new bootstrap.Modal(document.getElementById('settings-modal')),
     };
 
-    // Init Dates
     const today = new Date();
     const oneMonthAgo = new Date();
     oneMonthAgo.setMonth(today.getMonth() - 1);
@@ -69,10 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.refundEnd.valueAsDate = today;
     dom.refundStart.valueAsDate = oneMonthAgo;
     
-    // Load Settings
     loadSettings();
 
-    // Event Listeners
     dom.modeSales.addEventListener('change', () => setMode('sales'));
     dom.modeRefund.addEventListener('change', () => setMode('refund'));
     
@@ -92,7 +85,6 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.btnSubmitRefund.addEventListener('click', submitRefund);
     dom.btnCancelRefund.addEventListener('click', resetRefund);
     
-    // [신규] 버튼 리스너 추가
     dom.btnHoldSale.addEventListener('click', toggleHoldSale);
     dom.btnApplyDiscount.addEventListener('click', applyAutoDiscount);
     
@@ -101,14 +93,11 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.settingsModal.hide();
     });
 
-    // [수정] 모달 닫힘 시 포커스 이동 (aria-hidden 오류 방지)
-    // 모달이 닫힐 때 포커스가 모달 내부 요소에 남아있으면 브라우저가 접근성 오류를 발생시킴
     const modals = ['detail-modal', 'records-modal', 'settings-modal'];
     modals.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             el.addEventListener('hidden.bs.modal', () => {
-                // 모달이 닫히면 검색창으로 포커스 이동 (안전한 외부 요소)
                 if (dom.searchInput) dom.searchInput.focus();
             });
         }
@@ -116,8 +105,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setMode(mode) {
         currentMode = mode;
-        cart = []; renderCart(); // 모드 변경 시 카트 초기화
-        dom.leftTbody.innerHTML = ''; // 검색 결과 초기화
+        cart = []; renderCart();
+        dom.leftTbody.innerHTML = '';
         dom.searchInput.value = '';
 
         if (mode === 'sales') {
@@ -160,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                    'X-CSRFToken': csrfToken
                 },
                 body: JSON.stringify(payload)
             });
@@ -203,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST', 
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                    'X-CSRFToken': csrfToken
                 },
                 body: JSON.stringify({ query: item.product_number, mode: 'detail_stock' })
             });
@@ -238,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                    'X-CSRFToken': csrfToken
                 },
                 body: JSON.stringify({
                     product_number: item.product_number,
@@ -385,10 +374,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // [신규] 판매보류 기능
     function toggleHoldSale() {
         if (heldCart) {
-            // 복원
             if (confirm('보류된 판매 목록을 복원하시겠습니까? (현재 작성 중인 내용은 사라집니다.)')) {
                 cart = JSON.parse(heldCart);
                 heldCart = null;
@@ -398,7 +385,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderCart();
             }
         } else {
-            // 보류
             if (cart.length === 0) return alert('보류할 상품이 없습니다.');
             heldCart = JSON.stringify(cart);
             cart = [];
@@ -409,7 +395,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // [신규] 자동 할인 적용 기능 (규칙 기반)
     function applyAutoDiscount() {
         if (cart.length === 0) return alert('상품이 없습니다.');
         
@@ -417,7 +402,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let appliedRule = null;
         
         if (salesConfig.amount_discounts) {
-            // 할인 금액이 큰 순서대로 정렬
             const rules = salesConfig.amount_discounts.sort((a, b) => b.limit - a.limit);
             for (const rule of rules) {
                 if (currentTotal >= rule.limit) {
@@ -429,8 +413,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (appliedRule) {
             alert(`${appliedRule.limit.toLocaleString()}원 이상 구매: ${appliedRule.discount.toLocaleString()}원 할인이 적용됩니다.`);
-            // 첫 번째 상품에 몰아서 할인 적용 (단순화)
-            // 실제로는 분배 로직이 더 좋을 수 있으나, 기존 로직을 따름
             cart[0].discount_amount += appliedRule.discount;
             renderCart();
         } else {
@@ -466,7 +448,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                    'X-CSRFToken': csrfToken
                 },
                 body: JSON.stringify(payload)
             });
@@ -488,7 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(urls.refund.replace('999999', currentRefundSaleId), {
                 method: 'POST',
                 headers: {
-                    'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                    'X-CSRFToken': csrfToken
                 }
             });
             const data = await res.json();
