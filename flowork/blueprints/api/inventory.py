@@ -15,7 +15,8 @@ from flowork.services.excel import (
     export_db_to_excel,
     export_stock_check_excel,
     verify_stock_excel,
-    _process_stock_update_excel
+    _process_stock_update_excel,
+    import_excel_file
 )
 
 from . import api_bp
@@ -45,18 +46,10 @@ def verify_excel_upload():
 @api_bp.route('/api/inventory/upsert', methods=['POST'])
 @login_required
 def inventory_upsert():
-    """
-    [상세/신규 등록] 엑셀 파일을 통해 상품 및 재고 정보를 상세하게 업로드합니다.
-    Mode: 
-      - 'db': 전체 상품 DB (재고 제외, 본사 관리자 전용)
-      - 'hq': 본사 재고 포함 (본사 관리자 전용)
-      - 'store': 매장 재고 포함 (매장 관리자 또는 타겟 매장 지정된 본사 관리자)
-    """
     upload_mode = request.form.get('upload_mode')
     if upload_mode not in ['db', 'hq', 'store']:
         return jsonify({'status': 'error', 'message': '잘못된 업로드 모드입니다.'}), 400
 
-    # 권한 체크
     if upload_mode in ['db', 'hq'] and (not current_user.brand_id or current_user.store_id):
         return jsonify({'status': 'error', 'message': '본사 관리자만 접근 가능합니다.'}), 403
     
@@ -64,7 +57,7 @@ def inventory_upsert():
     if upload_mode == 'store':
         if current_user.store_id:
             target_store_id = current_user.store_id
-        elif current_user.is_admin: # 본사 관리자가 매장 재고 업로드 시
+        elif current_user.is_admin: 
             target_store_id = request.form.get('target_store_id', type=int)
             
         if not target_store_id:
@@ -76,7 +69,6 @@ def inventory_upsert():
 
     current_brand_id = current_user.current_brand_id
     
-    # 검증 모달에서 제외된 행 인덱스
     excluded_str = request.form.get('excluded_row_indices', '')
     excluded_indices = [int(x) for x in excluded_str.split(',')] if excluded_str else []
 
@@ -86,7 +78,6 @@ def inventory_upsert():
     temp_filename = f"/tmp/upsert_{upload_mode}_{task_id}.xlsx"
     file.save(temp_filename)
     
-    # DB 모드(전체 덮어쓰기/초기화 Import)와 일반 Upsert 분기
     if upload_mode == 'db' and request.form.get('is_full_import') == 'true':
         thread = threading.Thread(
             target=run_async_import_db,
@@ -110,7 +101,7 @@ def inventory_upsert():
                 current_brand_id, 
                 target_store_id,
                 excluded_indices,
-                True # allow_create (신규 생성 허용)
+                True 
             )
         )
     
@@ -121,15 +112,10 @@ def inventory_upsert():
 @api_bp.route('/api/inventory/update_stock_excel', methods=['POST'])
 @login_required
 def inventory_update_stock_excel():
-    """
-    [단순/기존 수정] 엑셀 파일을 통해 바코드와 수량만으로 재고를 빠르게 수정합니다.
-    Mode: 'hq', 'store'
-    """
     upload_mode = request.form.get('upload_mode')
     if upload_mode not in ['hq', 'store']:
         return jsonify({'status': 'error', 'message': '잘못된 업로드 모드입니다.'}), 400
 
-    # 권한 체크
     if upload_mode == 'hq' and (not current_user.brand_id or current_user.store_id):
         return jsonify({'status': 'error', 'message': '본사 관리자만 접근 가능합니다.'}), 403
 
@@ -162,6 +148,72 @@ def inventory_update_stock_excel():
     except Exception as e:
         traceback.print_exc()
         return jsonify({'status': 'error', 'message': f'오류: {e}'}), 500
+
+@api_bp.route('/update_store_stock_excel', methods=['POST'])
+@login_required
+def update_store_stock_excel():
+    if not current_user.store_id and not (current_user.is_admin and not current_user.store_id):
+         abort(403, description="매장 재고 업데이트는 매장 관리자 또는 본사 관리자만 사용할 수 있습니다.")
+    
+    target_store_id = None
+    if current_user.store_id:
+        target_store_id = current_user.store_id
+    elif 'target_store_id' in request.form:
+        try:
+            target_store_id = int(request.form.get('target_store_id'))
+        except (ValueError, TypeError):
+            pass
+    
+    if not target_store_id:
+        return jsonify({'status': 'error', 'message': '재고를 업데이트할 대상 매장을 확인할 수 없습니다.'}), 400
+
+    file = request.files.get('excel_file')
+    if not file:
+        return jsonify({'status': 'error', 'message': '파일이 없습니다.'}), 400
+
+    current_brand_id = current_user.current_brand_id
+    
+    if 'col_pn' in request.form:
+        task_id = str(uuid.uuid4())
+        TASKS[task_id] = {'status': 'processing', 'current': 0, 'total': 0, 'percent': 0}
+        
+        temp_filename = f"/tmp/store_upsert_{task_id}.xlsx"
+        file.save(temp_filename)
+        
+        excluded_str = request.form.get('excluded_row_indices', '')
+        excluded_indices = [int(x) for x in excluded_str.split(',')] if excluded_str else []
+        
+        thread = threading.Thread(
+            target=run_async_stock_upsert,
+            args=(
+                current_app._get_current_object(), 
+                task_id, 
+                temp_filename, 
+                request.form, 
+                'store', 
+                current_brand_id, 
+                target_store_id,
+                excluded_indices,
+                True 
+            )
+        )
+        thread.start()
+        return jsonify({'status': 'success', 'task_id': task_id, 'message': '업데이트 작업을 시작했습니다.'})
+
+    elif 'barcode_col' in request.form:
+        try:
+            processed, created, message, category = _process_stock_update_excel(
+                file, request.form, 'store', 
+                current_brand_id, 
+                target_store_id
+            )
+            flash(message, category)
+            return jsonify({'status': 'success', 'message': message})
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': f'오류: {e}'}), 500
+            
+    else:
+        return jsonify({'status': 'error', 'message': '알 수 없는 폼 형식입니다. (열 선택 확인 필요)'}), 400
 
 @api_bp.route('/export_db_excel')
 @login_required
@@ -500,7 +552,7 @@ def update_stock():
     if current_user.store_id:
         target_store_id = current_user.store_id
     elif current_user.is_admin:
-        target_store_id = request.json.get('target_store_id') # 어드민이 특정 매장 재고 수정 시
+        target_store_id = request.json.get('target_store_id')
 
     if not target_store_id:
         return jsonify({'status': 'error', 'message': '매장 권한 오류.'}), 403
@@ -726,7 +778,7 @@ def api_update_product_details():
     except ValueError as ve:
         db.session.rollback()
         return jsonify({'status': 'error', 'message': f'입력 값 오류: {ve}'}), 400
-    except Exception as ie: # IntegrityError etc
+    except Exception as ie: 
          db.session.rollback()
          return jsonify({'status': 'error', 'message': f'데이터베이스 오류: {str(ie)}'}), 400
     except Exception as e:
