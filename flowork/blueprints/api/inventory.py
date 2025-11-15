@@ -306,7 +306,11 @@ def live_search():
         if category_param and category_param != '전체':
             base_query = base_query.filter(Product.item_category == category_param)
 
-        final_query = base_query.order_by(Product.release_year.desc(), Product.product_name)
+        final_query = base_query.order_by(
+            Product.release_year.asc(),
+            Product.item_category.asc(),
+            Product.product_number.asc()
+        )
     else:
         showing_favorites = True
         final_query = base_query.filter(Product.is_favorite == 1).order_by(Product.item_category, Product.product_name)
