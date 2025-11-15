@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FLOWORK</title>
+    <title>FLOWORK - 상세 검색</title>
     
     <link rel="icon" href="{{ url_for('static', filename='symbol.png') }}">
     
@@ -32,22 +32,25 @@
         {% endwith %}
 
         <div class="card mb-3">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h2 class="mb-0"><i class="bi bi-sliders me-2"></i>상세 조건 검색</h2>
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#advancedSearchFields" aria-expanded="true" aria-controls="advancedSearchFields">
+                    <i class="bi bi-chevron-expand"></i> 접기/열기
+                </button>
             </div>
             <div class="card-body">
                 <form action="{{ url_for('ui.list_page') }}" method="GET" id="advanced-search-form" class="advanced-search-form">
                     
                     <div class="row g-2 mb-2">
-                        <div class="col-md-4">
+                        <div class="col-12 col-md-4">
                             <label for="adv-product-name" class="form-label">품명</label>
                             <input type="text" id="adv-product-name" name="product_name" class="form-control form-control-sm" value="{{ advanced_search_params.get('product_name', '') }}">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-12 col-md-4">
                             <label for="adv-product-number" class="form-label">품번</label>
                             <input type="text" id="adv-product-number" name="product_number" class="form-control form-control-sm" value="{{ advanced_search_params.get('product_number', '') }}">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-12 col-md-4">
                             <label for="adv-item-category" class="form-label">품목</label>
                             <select id="adv-item-category" name="item_category" class="form-select form-select-sm">
                                 <option value="">-- 전체 품목 --</option>
@@ -60,68 +63,72 @@
                         </div>
                     </div>
                     
-                    <div class="row g-2 mb-2">
-                        <div class="col-md-4">
-                            <label for="adv-release-year" class="form-label">출시년도</label>
-                            <select id="adv-release-year" name="release_year" class="form-select form-select-sm">
-                                <option value="">-- 전체 년도 --</option>
-                                {% for year in filter_options.years %}
-                                <option value="{{ year }}" {{ 'selected' if advanced_search_params.get('release_year')|string == year|string else '' }}>
-                                    {{ year }}
-                                </option>
-                                {% endfor %}
-                            </select>
+                    <div class="collapse show" id="advancedSearchFields">
+                        <hr class="my-2">
+                        
+                        <div class="row g-2 mb-2">
+                            <div class="col-12 col-md-4">
+                                <label for="adv-release-year" class="form-label">출시년도</label>
+                                <select id="adv-release-year" name="release_year" class="form-select form-select-sm">
+                                    <option value="">-- 전체 년도 --</option>
+                                    {% for year in filter_options.years %}
+                                    <option value="{{ year }}" {{ 'selected' if advanced_search_params.get('release_year')|string == year|string else '' }}>
+                                        {{ year }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label for="adv-color" class="form-label">색상</label>
+                                <select id="adv-color" name="color" class="form-select form-select-sm">
+                                    <option value="">-- 전체 색상 --</option>
+                                    {% for color in filter_options.colors %}
+                                    <option value="{{ color }}" {{ 'selected' if advanced_search_params.get('color') == color else '' }}>
+                                        {{ color }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label for="adv-size" class="form-label">사이즈</label>
+                                <select id="adv-size" name="size" class="form-select form-select-sm">
+                                    <option value="">-- 전체 사이즈 --</option>
+                                    {% for size in filter_options.sizes %}
+                                    <option value="{{ size }}" {{ 'selected' if advanced_search_params.get('size') == size else '' }}>
+                                        {{ size }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
                         </div>
-                        <div class="col-md-4">
-                            <label for="adv-color" class="form-label">색상</label>
-                            <select id="adv-color" name="color" class="form-select form-select-sm">
-                                <option value="">-- 전체 색상 --</option>
-                                {% for color in filter_options.colors %}
-                                <option value="{{ color }}" {{ 'selected' if advanced_search_params.get('color') == color else '' }}>
-                                    {{ color }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label for="adv-size" class="form-label">사이즈</label>
-                            <select id="adv-size" name="size" class="form-select form-select-sm">
-                                <option value="">-- 전체 사이즈 --</option>
-                                {% for size in filter_options.sizes %}
-                                <option value="{{ size }}" {{ 'selected' if advanced_search_params.get('size') == size else '' }}>
-                                    {{ size }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
 
-                    <div class="row g-2 mb-3">
-                        <div class="col-md-4">
-                            <label for="adv-original-price" class="form-label">최초가</label>
-                            <select id="adv-original-price" name="original_price" class="form-select form-select-sm">
-                                <option value="">-- 전체 가격 --</option>
-                                {% for price in filter_options.original_prices %}
-                                <option value="{{ price }}" {{ 'selected' if advanced_search_params.get('original_price')|string == price|string else '' }}>
-                                    {{ "{:,d}".format(price) }}원
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label for="adv-sale-price" class="form-label">판매가</label>
-                            <select id="adv-sale-price" name="sale_price" class="form-select form-select-sm">
-                                <option value="">-- 전체 가격 --</option>
-                                {% for price in filter_options.sale_prices %}
-                                <option value="{{ price }}" {{ 'selected' if advanced_search_params.get('sale_price')|string == price|string else '' }}>
-                                    {{ "{:,d}".format(price) }}원
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label for="adv-min-discount" class="form-label">최소 할인율 (%)</label>
-                            <input type="number" id="adv-min-discount" name="min_discount" class="form-control form-control-sm" placeholder="예: 30 (30% 이상)" value="{{ advanced_search_params.get('min_discount', '') }}">
+                        <div class="row g-2 mb-3">
+                            <div class="col-12 col-md-4">
+                                <label for="adv-original-price" class="form-label">최초가</label>
+                                <select id="adv-original-price" name="original_price" class="form-select form-select-sm">
+                                    <option value="">-- 전체 가격 --</option>
+                                    {% for price in filter_options.original_prices %}
+                                    <option value="{{ price }}" {{ 'selected' if advanced_search_params.get('original_price')|string == price|string else '' }}>
+                                        {{ "{:,d}".format(price) }}원
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label for="adv-sale-price" class="form-label">판매가</label>
+                                <select id="adv-sale-price" name="sale_price" class="form-select form-select-sm">
+                                    <option value="">-- 전체 가격 --</option>
+                                    {% for price in filter_options.sale_prices %}
+                                    <option value="{{ price }}" {{ 'selected' if advanced_search_params.get('sale_price')|string == price|string else '' }}>
+                                        {{ "{:,d}".format(price) }}원
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label for="adv-min-discount" class="form-label">최소 할인율 (%)</label>
+                                <input type="number" id="adv-min-discount" name="min_discount" class="form-control form-control-sm" placeholder="예: 30 (30% 이상)" value="{{ advanced_search_params.get('min_discount', '') }}">
+                            </div>
                         </div>
                     </div>
                     
@@ -130,7 +137,7 @@
                         <a href="{{ url_for('ui.list_page') }}" class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-arrow-counterclockwise me-1"></i>초기화
                         </a>
-                        <button type="submit" class="btn btn-sm btn-primary">
+                        <button type="submit" class="btn btn-sm btn-primary w-25">
                             <i class="bi bi-search me-1"></i>검색
                         </button>
                     </div>
@@ -142,14 +149,13 @@
         <div class="card mb-3">
             <div class="card-header">
                 {% if showing_all %} <h2 class="mb-0"><i class="bi bi-grid-3x3-gap-fill me-2"></i>전체 목록</h2>
-                {% else %} <h2 class="mb-0"><i class="bi bi-funnel-fill me-2"></i>상세 검색 결과</h2> {% endif %}
+                {% else %} <h2 class="mb-0"><i class="bi bi-funnel-fill me-2"></i>상세 검색 결과 ({{ pagination.total }}건)</h2> {% endif %}
             </div>
             <ul class="list-group list-group-flush product-list">
                 {% for product in products %}
                 <li class="list-group-item">
                     <a href="{{ url_for('ui.product_detail', product_id=product.id) }}" class="product-item d-flex align-items-center text-decoration-none text-body">
-                        {% set image_pn = product.product_number.split(' ')[0] %}
-                        <img src="{{ IMAGE_URL_PREFIX }}{{ image_pn }}.jpg" alt="{{ product.product_name }}" class="item-image rounded border flex-shrink-0" onerror="this.style.visibility='hidden'">
+                        <img src="{{ get_image_url(product) }}" alt="{{ product.product_name }}" class="item-image rounded border flex-shrink-0" onerror="imgFallback(this)">
                         <div class="item-details flex-grow-1 ms-3">
                             <div class="product-name fw-bold">{{ product.product_name }}</div>
                             <div class="product-meta small text-muted">
@@ -160,7 +166,7 @@
                                     {% set first_variant = product.variants[0] if product.variants else None %}
                                     {% if first_variant %}
                                     <span class="meta-item me-2 fw-bold text-dark">{{ "{:,d}".format(first_variant.sale_price) }}원</span>
-                                    {% if first_variant.original_price and first_variant.original_price > 0 %}
+                                    {% if first_variant.original_price and first_variant.original_price > 0 and first_variant.original_price != first_variant.sale_price %}
                                         <span class="meta-item discount text-danger">
                                             {{ ((1 - (first_variant.sale_price / first_variant.original_price)) * 100) | int }}%
                                         </span>
@@ -223,6 +229,16 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha84-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <script>
+        function imgFallback(img) {
+            const src = img.src;
+            if (src.includes('_DF_01.jpg')) {
+                img.src = src.replace('_DF_01.jpg', '_DM_01.jpg');
+            } else if (src.includes('_DM_01.jpg')) {
+                img.src = src.replace('_DM_01.jpg', '_DG_01.jpg');
+            } else {
+                img.style.visibility = 'hidden';
+            }
+        }
     </script>
 </body>
 </html>

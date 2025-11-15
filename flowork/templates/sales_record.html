@@ -8,9 +8,6 @@
     <link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/journal/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <style>
-        /* 커스텀 스타일 */
-    </style>
 </head>
 <body>
     
@@ -18,22 +15,87 @@
         {% include '_header.html' %}
         {% include '_navigation.html' %}
 
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h3 class="mb-0"><i class="bi bi-clock-history me-2"></i>판매 현황 (전체)</h3>
-                <div class="text-end">
-                    <a href="{{ url_for('api.export_daily_sales', date=today_date if today_date else '') }}" class="btn btn-success btn-sm" id="btn-export-excel">
-                        <i class="bi bi-file-earmark-excel-fill me-1"></i>오늘 판매 엑셀 다운로드
-                    </a>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert {{ 'alert-success' if category == 'success' else 'alert-danger' }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="card mb-3">
+            <div class="card-header">
+                <h3 class="mb-0"><i class="bi bi-calendar-range me-2"></i>기간별 판매 조회</h3>
+            </div>
+            <div class="card-body bg-light">
+                <form method="GET" action="{{ url_for('ui.sales_record') }}" class="row g-2 align-items-center">
+                    <div class="col-auto">
+                        <label class="fw-bold">기간:</label>
+                    </div>
+                    <div class="col-auto">
+                        <input type="date" class="form-control" name="start_date" value="{{ start_date }}">
+                    </div>
+                    <div class="col-auto">
+                        <span>~</span>
+                    </div>
+                    <div class="col-auto">
+                        <input type="date" class="form-control" name="end_date" value="{{ end_date }}">
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-search me-1"></i>조회
+                        </button>
+                    </div>
+                    <div class="col-auto ms-auto">
+                        <a href="{{ url_for('api.export_daily_sales', date=end_date) }}" class="btn btn-success btn-sm">
+                            <i class="bi bi-file-earmark-excel-fill me-1"></i>엑셀 다운로드
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <div class="card text-white bg-primary h-100">
+                    <div class="card-body text-center">
+                        <h5 class="card-title"><i class="bi bi-currency-dollar me-1"></i>총 판매 금액</h5>
+                        <p class="card-text fs-4 fw-bold mb-0">{{ "{:,d}".format(total_summary.total_amount) }}원</p>
+                    </div>
                 </div>
             </div>
-            <div class="card-body">
+            <div class="col-md-4">
+                <div class="card text-white bg-info h-100">
+                    <div class="card-body text-center">
+                        <h5 class="card-title"><i class="bi bi-tags-fill me-1"></i>총 할인 금액</h5>
+                        <p class="card-text fs-4 fw-bold mb-0">{{ "{:,d}".format(total_summary.total_discount) }}원</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-success h-100">
+                    <div class="card-body text-center">
+                        <h5 class="card-title"><i class="bi bi-receipt me-1"></i>총 영수 건수 (고객수)</h5>
+                        <p class="card-text fs-4 fw-bold mb-0">{{ "{:,d}".format(total_summary.total_count) }}건</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0 fs-5"><i class="bi bi-list-ul me-2"></i>판매 내역 목록</h4>
+            </div>
+            <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-hover table-striped text-center align-middle">
+                    <table class="table table-hover table-striped text-center align-middle mb-0">
                         <thead class="table-dark">
                             <tr>
                                 <th>판매일시</th>
-                                <th>영수증번호</th>
+                                <th>영수번호</th>
                                 <th>결제수단</th>
                                 <th>총 금액</th>
                                 <th>구분</th>
@@ -70,7 +132,7 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="7" class="text-center text-muted py-4">판매 내역이 없습니다.</td>
+                                <td colspan="7" class="text-center text-muted py-4">해당 기간에 판매 내역이 없습니다.</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -78,42 +140,32 @@
                 </div>
 
                 {% if pagination.pages > 1 %}
-                <nav aria-label="Page navigation" class="mt-4">
-                    <ul class="pagination justify-content-center">
-                        <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
-                            <a class="page-link" href="{{ url_for('ui.sales_record', page=pagination.prev_num) }}">이전</a>
-                        </li>
-                        {% for page_num in pagination.iter_pages() %}
-                            {% if page_num %}
-                                <li class="page-item {{ 'active' if page_num == pagination.page }}">
-                                    <a class="page-link" href="{{ url_for('ui.sales_record', page=page_num) }}">{{ page_num }}</a>
-                                </li>
-                            {% else %}
-                                <li class="page-item disabled"><span class="page-link">...</span></li>
-                            {% endif %}
-                        {% endfor %}
-                        <li class="page-item {{ 'disabled' if not pagination.has_next }}">
-                            <a class="page-link" href="{{ url_for('ui.sales_record', page=pagination.next_num) }}">다음</a>
-                        </li>
-                    </ul>
-                </nav>
+                <div class="p-3">
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination justify-content-center mb-0">
+                            <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
+                                <a class="page-link" href="{{ url_for('ui.sales_record', page=pagination.prev_num, start_date=start_date, end_date=end_date) }}">이전</a>
+                            </li>
+                            {% for page_num in pagination.iter_pages() %}
+                                {% if page_num %}
+                                    <li class="page-item {{ 'active' if page_num == pagination.page }}">
+                                        <a class="page-link" href="{{ url_for('ui.sales_record', page=page_num, start_date=start_date, end_date=end_date) }}">{{ page_num }}</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                                {% endif %}
+                            {% endfor %}
+                            <li class="page-item {{ 'disabled' if not pagination.has_next }}">
+                                <a class="page-link" href="{{ url_for('ui.sales_record', page=pagination.next_num, start_date=start_date, end_date=end_date) }}">다음</a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
                 {% endif %}
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        document.getElementById('btn-export-excel').addEventListener('click', (e) => {
-            // 오늘 날짜 자동 계산하여 링크 수정 (템플릿에서 처리되지 않았을 경우 대비)
-            const url = new URL(e.target.href);
-            if (!url.searchParams.get('date')) {
-                e.preventDefault();
-                const today = new Date().toISOString().split('T')[0];
-                url.searchParams.set('date', today);
-                window.location.href = url.toString();
-            }
-        });
-    </script>
 </body>
 </html>

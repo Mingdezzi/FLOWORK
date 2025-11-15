@@ -18,8 +18,10 @@
         #calendar {
             max-width: 100%;
             margin: 0 auto;
+            height: calc(100vh - 180px);
+            min-height: 500px;
         }
-        /* FullCalendar 버튼을 Bootstrap 테마에 맞게 조정 */
+
         .fc .fc-button-primary {
             background-color: #eb6864;
             border-color: #eb6864;
@@ -41,12 +43,37 @@
             font-size: 0.85em;
             padding: 2px 5px;
         }
-        /* 이벤트 색상 정의 (요청사항 기반) */
         .fc-event[data-type="휴무"] { background-color: #dc3545; border-color: #dc3545; }
         .fc-event[data-type="연차"] { background-color: #fd7e14; border-color: #fd7e14; }
         .fc-event[data-type="반차"] { background-color: #ffc107; border-color: #ffc107; color: #333; }
         .fc-event[data-type="병가"] { background-color: #20c997; border-color: #20c997; }
         .fc-event[data-type="일정"] { background-color: #0d6efd; border-color: #0d6efd; }
+
+        @media (max-width: 768px) {
+            #calendar {
+                height: calc(100vh - 160px);
+                min-height: 400px;
+                font-size: 0.85rem;
+            }
+            
+            .fc .fc-toolbar-title {
+                font-size: 1.1rem !important;
+            }
+            
+            .fc .fc-button {
+                padding: 0.25rem 0.5rem !important;
+                font-size: 0.85rem !important;
+            }
+            
+            .fc-event {
+                font-size: 0.75rem !important;
+            }
+            
+            .fc-col-header-cell-cushion {
+                font-size: 0.9rem;
+                font-weight: normal;
+            }
+        }
     </style>
 </head>
 <body data-api-schedule-events-url="{{ url_for('api.get_schedule_events') }}"
@@ -75,7 +102,7 @@
             <div class="card-header">
                 <h2 class="mb-0"><i class="bi bi-calendar-week-fill me-2"></i>매장 일정</h2>
             </div>
-            <div class="card-body" style="min-height: 400px;">
+            <div class="card-body">
                 <div id='calendar'></div>
             </div>
         </div>

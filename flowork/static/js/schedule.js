@@ -1,6 +1,5 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     
-    // [수정] CSRF 토큰 가져오기
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
     // --- 1. DOM 요소 및 API URL 가져오기 ---
@@ -14,7 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const eventModal = new bootstrap.Modal(eventModalEl);
     const bodyData = document.body.dataset;
 
-    // API URL
     const apiUrls = {
         fetch: bodyData.apiScheduleEventsUrl,
         add: bodyData.apiScheduleAddUrl,
@@ -22,7 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
         deletePrefix: bodyData.apiScheduleDeleteUrlPrefix
     };
 
-    // 모달 내부 폼 요소
     const modalForm = document.getElementById('form-schedule-event');
     const modalTitle = document.getElementById('eventModalLabel');
     const eventIdInput = document.getElementById('event_id');
@@ -37,38 +34,79 @@ document.addEventListener('DOMContentLoaded', () => {
     const deleteButton = document.getElementById('btn-delete-event');
     const modalStatus = document.getElementById('event-modal-status');
 
+    // [수정] 서버 API에서 공휴일 정보 동적 로드
+    let HOLIDAYS = {};
+    try {
+        const response = await fetch('/api/holidays');
+        if (response.ok) {
+            HOLIDAYS = await response.json();
+        } else {
+            console.warn('Failed to fetch holidays');
+        }
+    } catch (error) {
+        console.error('Error fetching holidays:', error);
+    }
+
     // --- 2. FullCalendar 초기화 ---
     const calendar = new FullCalendar.Calendar(calendarEl, {
-        locale: 'ko', // 한국어
-        initialView: 'dayGridMonth', // 월간 뷰
+        locale: 'ko', 
+        initialView: 'dayGridMonth', 
         headerToolbar: {
             left: 'prev,next today',
             center: 'title',
-            right: 'dayGridMonth,timeGridWeek' // 월/주 보기
+            right: 'dayGridMonth,timeGridWeek'
         },
         buttonText: {
              today: '오늘',
              month: '월',
              week: '주',
         },
-        editable: true, // 드래그/리사이즈 (관리자만 가능하도록 API에서 막아야 함)
-        selectable: true, // 날짜 선택 가능
+        editable: true,
+        selectable: true,
         
-        // (A) 이벤트 데이터 로드
         events: apiUrls.fetch,
 
-        // (B) 날짜 클릭 시 (새 일정)
+        // 날짜 셀 렌더링 시 공휴일/주말 처리
+        dayCellDidMount: function(info) {
+            const dateStr = info.date.toISOString().split('T')[0];
+            const dayOfWeek = info.date.getDay(); // 0: 일, 6: 토
+            const holidayName = HOLIDAYS[dateStr];
+            
+            const dayNumberEl = info.el.querySelector('.fc-daygrid-day-number');
+            
+            // 주말(토,일) 또는 공휴일이면 텍스트 붉은색 처리
+            if (dayOfWeek === 0 || dayOfWeek === 6 || holidayName) {
+                if (dayNumberEl) {
+                    dayNumberEl.style.color = '#dc3545'; 
+                    dayNumberEl.style.fontWeight = 'bold';
+                }
+            }
+
+            // 공휴일 명칭 표시
+            if (holidayName) {
+                const holidayEl = document.createElement('div');
+                holidayEl.textContent = holidayName;
+                holidayEl.style.fontSize = '0.75em';
+                holidayEl.style.color = '#dc3545';
+                holidayEl.style.textAlign = 'left';
+                holidayEl.style.paddingLeft = '4px';
+                
+                const topEl = info.el.querySelector('.fc-daygrid-day-top');
+                if (topEl) {
+                    topEl.appendChild(holidayEl);
+                }
+            }
+        },
+
         dateClick: (info) => {
             resetModal();
             modalTitle.textContent = '새 일정 등록';
-            eventStartDateInput.value = info.dateStr; // 클릭한 날짜
+            eventStartDateInput.value = info.dateStr;
             eventAllDaySwitch.checked = true;
             toggleAllDayFields();
-            
             eventModal.show();
         },
         
-        // (C) 기존 일정 클릭 시 (수정/삭제)
         eventClick: (info) => {
             resetModal();
             modalTitle.textContent = '일정 수정';
@@ -81,11 +119,10 @@ document.addEventListener('DOMContentLoaded', () => {
             eventStartDateInput.value = event.startStr.split('T')[0];
             eventAllDaySwitch.checked = event.allDay;
             
-            // end 날짜 처리 (allDay 이벤트는 +1일 된 상태이므로 -1일 필요)
             if (event.end) {
                 if (event.allDay) {
                     let endDate = new Date(event.endStr);
-                    endDate.setDate(endDate.getDate() - 1); // 하루 빼기
+                    endDate.setDate(endDate.getDate() - 1);
                     eventEndDateInput.value = endDate.toISOString().split('T')[0];
                 } else {
                     eventEndDateInput.value = event.endStr.split('T')[0];
@@ -95,50 +132,42 @@ document.addEventListener('DOMContentLoaded', () => {
             eventStaffSelect.value = props.staff_id || "0";
             eventTypeSelect.value = props.event_type || "일정";
             
-            deleteButton.style.display = 'block'; // 삭제 버튼 표시
+            deleteButton.style.display = 'block';
             toggleAllDayFields();
 
             eventModal.show();
         }
     });
 
-    calendar.render(); // 캘린더 그리기
+    calendar.render();
 
     // --- 3. 모달 이벤트 핸들러 ---
 
-    // '하루 종일' 스위치 변경 시
     eventAllDaySwitch.addEventListener('change', toggleAllDayFields);
 
     function toggleAllDayFields() {
         if (eventAllDaySwitch.checked) {
-            // 하루 종일 (종료 날짜 필드 표시)
             eventEndDateWrapper.style.display = 'block';
         } else {
-            // 하루 종일 아님 (종료 날짜 필드 숨기기 - 시간 미구현)
             eventEndDateWrapper.style.display = 'none';
-            eventEndDateInput.value = ''; // 시간 입력 미구현으로 종료일 초기화
+            eventEndDateInput.value = '';
         }
     }
 
-    // '일정 종류' 변경 시 (제목 자동완성 및 색상 저장)
     eventTypeSelect.addEventListener('change', () => {
         const selectedOption = eventTypeSelect.options[eventTypeSelect.selectedIndex];
         const eventType = selectedOption.value;
         
-        // '일정'이 아닐 경우, 제목 자동 완성
         if (eventType !== '일정') {
             eventTitleInput.value = eventType;
         } else {
-            if (eventTitleInput.value === "휴무" || eventTitleInput.value === "연차" || 
-                eventTitleInput.value === "반차" || eventTitleInput.value === "병가") {
-                eventTitleInput.value = ''; // 기본값으로 복귀 시 제목 비우기
+            if (['휴무', '연차', '반차', '병가'].includes(eventTitleInput.value)) {
+                eventTitleInput.value = '';
             }
         }
     });
 
-    // '저장' 버튼 클릭
     saveButton.addEventListener('click', async () => {
-        // 유효성 검사
         if (!eventStartDateInput.value || !eventTitleInput.value || !eventTypeSelect.value) {
             showModalStatus('시작 날짜, 일정 종류, 일정 제목은 필수입니다.', 'danger');
             return;
@@ -147,7 +176,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedOption = eventTypeSelect.options[eventTypeSelect.selectedIndex];
         const eventColor = selectedOption.dataset.color || '#0d6efd';
 
-        // 서버로 보낼 데이터
         const eventData = {
             id: eventIdInput.value || null,
             staff_id: eventStaffSelect.value,
@@ -155,11 +183,10 @@ document.addEventListener('DOMContentLoaded', () => {
             title: eventTitleInput.value.trim(),
             start_time: eventStartDateInput.value,
             all_day: eventAllDaySwitch.checked,
-            end_time: eventEndDateInput.value || null, // 비어있으면 null
+            end_time: eventEndDateInput.value || null,
             color: eventColor
         };
         
-        // all_day가 true이고 end_time이 있으면 +1일 처리 (DB 저장을 위해)
         if (eventData.all_day && eventData.end_time) {
              let endDate = new Date(eventData.end_time);
              endDate.setDate(endDate.getDate() + 1);
@@ -176,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                    'X-CSRFToken': csrfToken
                 },
                 body: JSON.stringify(eventData)
             });
@@ -185,7 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error(data.message || '저장 실패');
 
             showModalStatus(data.message, 'success');
-            calendar.refetchEvents(); // 캘린더 새로고침
+            calendar.refetchEvents();
             
             setTimeout(() => {
                 eventModal.hide();
@@ -199,7 +226,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // '삭제' 버튼 클릭
     deleteButton.addEventListener('click', async () => {
         const eventId = eventIdInput.value;
         if (!eventId) return;
@@ -215,14 +241,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(url, { 
                 method: 'DELETE',
                 headers: {
-                    'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                    'X-CSRFToken': csrfToken
                 }
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || '삭제 실패');
 
             showModalStatus(data.message, 'success');
-            calendar.refetchEvents(); // 캘린더 새로고침
+            calendar.refetchEvents();
             
             setTimeout(() => {
                 eventModal.hide();
@@ -236,13 +262,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- 4. 유틸리티 함수 ---
-
-    // 모달 폼 초기화
     function resetModal() {
         modalForm.reset();
         eventIdInput.value = '';
-        eventStaffSelect.value = "0"; // '매장 전체'
+        eventStaffSelect.value = "0";
         eventTypeSelect.value = "일정";
         eventAllDaySwitch.checked = true;
         toggleAllDayFields();
@@ -251,12 +274,10 @@ document.addEventListener('DOMContentLoaded', () => {
         setModalLoading(false);
     }
 
-    // 모달 상태 메시지 표시
     function showModalStatus(message, type = 'info') {
         modalStatus.innerHTML = `<div class="alert alert-${type} mb-0">${message}</div>`;
     }
 
-    // 모달 로딩 상태 (버튼 비활성화)
     function setModalLoading(isLoading) {
         saveButton.disabled = isLoading;
         deleteButton.disabled = isLoading;
@@ -267,6 +288,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Bootstrap 모달이 닫힐 때 폼 초기화
     eventModalEl.addEventListener('hidden.bs.modal', resetModal);
 });

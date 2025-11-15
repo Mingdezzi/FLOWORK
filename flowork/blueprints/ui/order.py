@@ -7,11 +7,9 @@ from sqlalchemy import extract
 from sqlalchemy.orm import selectinload
 
 from flowork.models import db, Order, OrderProcessing, Product, Store, Setting, Brand
-# [수정 1-5] 상수 모듈 임포트
 from flowork.constants import OrderStatus, ReceptionMethod
 from . import ui_bp
 
-# [수정 1-5] 상수를 사용하여 리스트 정의
 ORDER_STATUSES_LIST = OrderStatus.ALL
 PENDING_STATUSES = OrderStatus.PENDING
 
@@ -60,9 +58,36 @@ def _get_order_sources_for_template():
     if not current_user.store_id:
         return []
     try:
-        other_stores = Store.query.filter(
-            Store.brand_id == current_user.current_brand_id
-        ).order_by(Store.store_name).all()
+        # [수정] 현재 로그인한 매장 제외하고 활성화된 매장만 조회
+        query = Store.query.filter(
+            Store.brand_id == current_user.current_brand_id,
+            Store.id != current_user.store_id, 
+            Store.is_active == True
+        )
+        
+        stores = query.order_by(Store.store_name).all()
+        
+        # [수정] 본사(HQ) 매장 식별 및 최상단 배치 로직
+        hq_store = None
+        normal_stores = []
+        
+        # HQ_STORE_ID 설정 확인
+        hq_setting = Setting.query.filter_by(brand_id=current_user.current_brand_id, key='HQ_STORE_ID').first()
+        hq_id = int(hq_setting.value) if hq_setting and hq_setting.value else None
+        
+        for s in stores:
+            # 설정된 HQ ID이거나 이름이 '본사'인 경우
+            if (hq_id and s.id == hq_id) or s.store_name == '본사':
+                hq_store = s
+            else:
+                normal_stores.append(s)
+        
+        # 본사를 리스트 맨 앞에 추가
+        if hq_store:
+            other_stores = [hq_store] + normal_stores
+        else:
+            other_stores = normal_stores
+            
     except Exception as e:
         print(f"Error fetching other stores: {e}")
         flash("주문처(매장) 목록을 불러오는 중 오류가 발생했습니다.", "error")
@@ -84,7 +109,6 @@ def _validate_order_form(form):
     if not color or not size: errors.append('상품 옵션(컬러, 사이즈)은 필수입니다.')
     if not reception_method: errors.append('수령 방법은 필수입니다.')
     
-    # [수정 1-5] 상수 사용
     if reception_method == ReceptionMethod.DELIVERY:
         if not form.get('address1') or not form.get('address2'):
             errors.append('택배수령 시 기본주소와 상세주소는 필수입니다.')
@@ -109,13 +133,13 @@ def order_list():
         abort(403, description="고객 주문 관리는 매장 계정만 사용할 수 있습니다.")
 
     try:
-        today = datetime.utcnow()
+        # [수정] datetime.now() 사용 (KST 적용됨)
+        today = datetime.now()
         selected_year = request.args.get('year', today.year, type=int)
         selected_month = request.args.get('month', today.month, type=int)
         
         brand_name = _get_brand_name_for_sms(current_user.current_brand_id)
         
-        # [수정 1-5] 상수 사용 (완료, 기타 제외한 진행중 주문 조회)
         pending_orders = db.session.query(Order).filter(
             Order.store_id == current_user.store_id, 
             Order.order_status.not_in([OrderStatus.COMPLETED, OrderStatus.ETC])
@@ -166,7 +190,7 @@ def new_order():
             return render_template(
                 'order_detail.html', active_page='order', order=None, 
                 order_sources=other_stores, order_statuses=ORDER_STATUSES_LIST,
-                default_created_at=datetime.utcnow(), form_data=request.form 
+                default_created_at=datetime.now(), form_data=request.form 
             )
 
         try:
@@ -177,7 +201,7 @@ def new_order():
                 store_id=current_user.store_id,
                 product_id=product_id,
                 reception_method=request.form.get('reception_method'),
-                created_at=created_at_date or datetime.utcnow(), 
+                created_at=created_at_date or datetime.now(), 
                 customer_name=request.form.get('customer_name').strip(),
                 customer_phone=request.form.get('customer_phone').strip(),
                 postcode=request.form.get('postcode'),
@@ -219,13 +243,13 @@ def new_order():
             return render_template(
                 'order_detail.html', active_page='order', order=None, 
                 order_sources=other_stores, order_statuses=ORDER_STATUSES_LIST,
-                default_created_at=datetime.utcnow(), form_data=request.form
+                default_created_at=datetime.now(), form_data=request.form
             )
 
     return render_template(
         'order_detail.html', active_page='order', order=None, 
         order_sources=other_stores, order_statuses=ORDER_STATUSES_LIST,
-        default_created_at=datetime.utcnow(), form_data=None 
+        default_created_at=datetime.now(), form_data=None 
     )
 
 @ui_bp.route('/order/<int:order_id>', methods=['GET', 'POST'])

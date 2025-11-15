@@ -11,17 +11,16 @@
     <script src="https://unpkg.com/hangul-js"></script>
     <style>
         .sales-container { display: flex; gap: 20px; height: calc(100vh - 160px); }
-        .sales-left { flex: 1.3; display: flex; flex-direction: column; transition: background-color 0.3s; padding: 15px; border-radius: 8px; }
-        .sales-right { flex: 1.4; display: flex; flex-direction: column; border-left: 1px solid #dee2e6; padding-left: 20px; }
+        .sales-left { flex: 1.3; display: flex; flex-direction: column; transition: background-color 0.3s; padding: 15px; border-radius: 8px; overflow: hidden; }
+        .sales-right { flex: 1.4; display: flex; flex-direction: column; border-left: 1px solid #dee2e6; padding-left: 20px; overflow: hidden; }
         
         .mode-sales-bg { background-color: #ffffff; }
         .mode-refund-bg { background-color: #fff0f0; }
 
         .cart-table-wrapper { flex-grow: 1; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; background: #fff; }
         
-        /* 좌측 테이블 스타일 및 너비 조정 */
         .left-table-wrapper { flex-grow: 1; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; background: #fff; margin-top: 10px; }
-        .left-table { font-size: 0.8rem; width: 100%; table-layout: fixed; } /* 폰트 사이즈 약간 축소, 레이아웃 고정 */
+        .left-table { font-size: 0.8rem; width: 100%; table-layout: fixed; } 
         .left-table th, .left-table td { 
             padding: 6px 4px; 
             vertical-align: middle; 
@@ -32,7 +31,6 @@
         .left-table tbody tr { cursor: pointer; }
         .left-table tbody tr:hover { background-color: #f8f9fa; }
 
-        /* 열 너비 강제 지정 (총합 100%) */
         .left-table th:nth-child(1), .left-table td:nth-child(1) { width: 27%; } 
         .left-table th:nth-child(2), .left-table td:nth-child(2) { width: 28%; }
         .left-table th:nth-child(3), .left-table td:nth-child(3) { width: 9%; }
@@ -42,6 +40,14 @@
         .left-table th:nth-child(7), .left-table td:nth-child(7) { width: 5%; text-align: center; }
 
         .cart-input { width: 70px; text-align: right; padding: 2px 5px; font-size: 0.9rem; }
+
+        @media (max-width: 768px) {
+            .sales-container { flex-direction: column; height: auto; }
+            .sales-left { flex: none; width: 100%; height: auto; max-height: 600px; border-bottom: 1px solid #dee2e6; margin-bottom: 10px; padding-bottom: 20px; }
+            .sales-right { flex: none; width: 100%; border-left: none; padding-left: 0; height: auto; }
+            .left-table-wrapper { max-height: 300px; }
+            .cart-table-wrapper { max-height: 400px; }
+        }
     </style>
 </head>
 <body data-api-urls='{

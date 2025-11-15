@@ -4,10 +4,9 @@ from flask_login import login_required, current_user
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload, joinedload
 
-from flowork.models import db, Product, Variant, Store
+from flowork.models import db, Product, Variant, Store, Setting
 from flowork.utils import clean_string_upper
 
-# [수정] services 패키지에서 import
 from flowork.services.db import get_filter_options_from_db
 
 from . import ui_bp
@@ -66,8 +65,33 @@ def product_detail(product_id):
                         'actual_stock': stock_level.actual_stock
                     }
 
-        image_pn = product.product_number.split(' ')[0]
-        image_url = f"https://files.ebizway.co.kr/files/10249/Style/{image_pn}.jpg"
+        image_url = ""
+        try:
+            setting_prefix = Setting.query.filter_by(brand_id=current_brand_id, key='IMAGE_URL_PREFIX').first()
+            setting_rule = Setting.query.filter_by(brand_id=current_brand_id, key='IMAGE_NAMING_RULE').first()
+            
+            prefix = setting_prefix.value if setting_prefix else "https://files.ebizway.co.kr/files/10249/Style/"
+            rule = setting_rule.value if setting_rule else "{product_number}"
+            
+            pn = product.product_number.split(' ')[0]
+            
+            year = str(product.release_year) if product.release_year else ""
+            if not year and len(pn) >= 5 and pn[3:5].isdigit():
+                 year = f"20{pn[3:5]}"
+            
+            color = "00"
+            if variants:
+                color = variants[0].color
+            
+            filename = rule.format(
+                product_number=pn,
+                color=color,
+                year=year
+            )
+            image_url = f"{prefix}{filename}"
+            
+        except Exception:
+            image_url = f"https://files.ebizway.co.kr/files/10249/Style/{product.product_number.split(' ')[0]}.jpg"
         
         related_products = []
         if product.item_category:
@@ -238,17 +262,18 @@ def list_page():
 @ui_bp.route('/check')
 @login_required
 def check_page():
+    all_stores = []
     if not current_user.store_id:
-        abort(403, description="재고 실사는 매장 계정만 사용할 수 있습니다.")
+        all_stores = Store.query.filter_by(
+            brand_id=current_user.current_brand_id,
+            is_active=True
+        ).order_by(Store.store_name).all()
         
-    return render_template('check.html', active_page='check')
+    return render_template('check.html', active_page='check', all_stores=all_stores)
 
 @ui_bp.route('/stock')
 @login_required
 def stock_management():
-    if not current_user.store_id:
-        abort(403, description="재고 관리는 매장 계정만 사용할 수 있습니다.")
-
     try:
         missing_data_products = Product.query.filter(
             Product.brand_id == current_user.current_brand_id, 
@@ -259,9 +284,17 @@ def stock_management():
             )
         ).order_by(Product.product_number).all()
         
+        all_stores = []
+        if not current_user.store_id:
+            all_stores = Store.query.filter_by(
+                brand_id=current_user.current_brand_id,
+                is_active=True
+            ).order_by(Store.store_name).all()
+        
         context = {
             'active_page': 'stock',
-            'missing_data_products': missing_data_products
+            'missing_data_products': missing_data_products,
+            'all_stores': all_stores
         }
         return render_template('stock.html', **context)
 

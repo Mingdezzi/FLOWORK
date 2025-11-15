@@ -1,3 +1,14 @@
+function imgFallback(img) {
+    const src = img.src;
+    if (src.includes('_DF_01.jpg')) {
+        img.src = src.replace('_DF_01.jpg', '_DM_01.jpg');
+    } else if (src.includes('_DM_01.jpg')) {
+        img.src = src.replace('_DM_01.jpg', '_DG_01.jpg');
+    } else {
+        img.style.visibility = 'hidden';
+    }
+}
+
 (function() {
     function isMobile() {
         const ua = navigator.userAgent;
@@ -14,7 +25,6 @@
 
 document.addEventListener('DOMContentLoaded', (event) => {
     
-    // [수정] CSRF 토큰 가져오기
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
     const searchInput = document.getElementById('search-query-input');
@@ -29,11 +39,59 @@ document.addEventListener('DOMContentLoaded', (event) => {
     const keypadKor = document.getElementById('keypad-kor');
     const keypadEng = document.getElementById('keypad-eng');
 
+    // [수정] 상세 뷰 제어를 위한 요소 가져오기
+    const productListUl = document.getElementById('product-list-ul');
+    const listContainer = document.getElementById('product-list-view');
+    const detailContainer = document.getElementById('product-detail-view');
+    const detailIframe = document.getElementById('product-detail-iframe');
+    const backButton = document.getElementById('btn-back-to-list');
+
+    // [수정] 1. 상품 클릭 이벤트 위임 (productListUl에 리스너 등록)
+    if (productListUl) {
+        productListUl.addEventListener('click', (e) => {
+            // 링크(.product-item) 또는 그 내부 요소를 클릭했는지 확인
+            const link = e.target.closest('a.product-item');
+            if (link) {
+                // PC 화면일 때만 Iframe으로 보여주기 (992px 기준)
+                if (window.innerWidth >= 992) {
+                    e.preventDefault(); // 기본 이동(페이지 전환) 막기
+                    
+                    const targetUrl = link.getAttribute('href');
+                    // partial=1 파라미터 추가 (헤더/네비게이션 숨김)
+                    const detailUrl = targetUrl + (targetUrl.includes('?') ? '&' : '?') + 'partial=1';
+                    
+                    if (detailIframe) {
+                        detailIframe.src = detailUrl;
+                    }
+                    
+                    if (listContainer && detailContainer) {
+                        listContainer.style.display = 'none';
+                        detailContainer.style.display = 'flex'; // flex로 해야 내부 flex layout 적용됨
+                    }
+                }
+                // 모바일이면 기본 동작(href 이동) 유지
+            }
+        });
+    }
+
+    // [수정] 2. 뒤로가기 버튼 이벤트
+    if (backButton) {
+        backButton.addEventListener('click', () => {
+            if (listContainer && detailContainer) {
+                listContainer.style.display = 'flex';
+                detailContainer.style.display = 'none';
+            }
+            if (detailIframe) {
+                detailIframe.src = 'about:blank'; // 리소스 해제
+            }
+        });
+    }
+
     let isKorShiftActive = false;
     
     const korKeyMap = {
         'ㅂ': 'ㅃ', 'ㅈ': 'ㅉ', 'ㄷ': 'ㄸ', 'ㄱ': 'ㄲ', 'ㅅ': 'ㅆ',
-        'ㅐ': 'de', 'ㅔ': 'ㅖ'
+        'ㅐ': 'ㅒ', 'ㅔ': 'ㅖ'
     };
     const korReverseKeyMap = {
         'ㅃ': 'ㅂ', 'ㅉ': 'ㅈ', 'ㄸ': 'ㄷ', 'ㄲ': 'ㄱ', 'ㅆ': 'ㅅ',
@@ -135,8 +193,8 @@ document.addEventListener('DOMContentLoaded', (event) => {
     }
 
 
-    const productListUL = document.getElementById('product-list-ul');
     const productListHeader = document.getElementById('product-list-header');
+    const paginationUL = document.getElementById('search-pagination');
     
     const liveSearchUrl = document.body.dataset.liveSearchUrl;
     const imageURLPrefix = document.body.dataset.imageUrlPrefix;
@@ -145,31 +203,43 @@ document.addEventListener('DOMContentLoaded', (event) => {
 
     function triggerSearch() {
         clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => { performSearch(); }, 300);
+        debounceTimer = setTimeout(() => { performSearch(1); }, 300);
     }
 
-    const performSearch = async () => {
+    const performSearch = async (page = 1) => {
         const query = searchInput.value;
         const category = hiddenCategoryInput.value;
-        productListUL.innerHTML = '<li class="list-group-item text-center text-muted p-4">검색 중...</li>';
+        const perPage = 10;
+
+        productListUl.innerHTML = '<li class="list-group-item text-center text-muted p-4">검색 중...</li>';
+        paginationUL.innerHTML = '';
 
         try {
             const response = await fetch(liveSearchUrl, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken // [수정] 헤더 추가
+                    'X-CSRFToken': csrfToken
                 },
-                body: JSON.stringify({ query: query, category: category })
+                body: JSON.stringify({ 
+                    query: query, 
+                    category: category,
+                    page: page,
+                    per_page: perPage
+                })
             });
             if (!response.ok) throw new Error('Network response was not ok');
             const data = await response.json();
+            
             if (data.status === 'success') {
                 renderResults(data.products, data.showing_favorites, data.selected_category);
-            } else { throw new Error(data.message || 'API error'); }
+                renderPagination(data.total_pages, data.current_page);
+            } else { 
+                throw new Error(data.message || 'API error'); 
+            }
         } catch (error) {
             console.error('실시간 검색 오류:', error);
-            productListUL.innerHTML = '<li class="list-group-item text-center text-danger p-4">검색 중 오류가 발생했습니다.</li>';
+            productListUl.innerHTML = '<li class="list-group-item text-center text-danger p-4">검색 중 오류가 발생했습니다.</li>';
         }
     };
     
@@ -183,17 +253,17 @@ document.addEventListener('DOMContentLoaded', (event) => {
             }
             productListHeader.innerHTML = `<i class="bi bi-card-list me-2"></i>상품 검색 결과 ${categoryBadge}`;
         }
-        productListUL.innerHTML = '';
+        productListUl.innerHTML = '';
         if (products.length === 0) {
             const message = showingFavorites ? '즐겨찾기 상품 없음.' : '검색된 상품 없음.';
-            productListUL.innerHTML = `<li class="list-group-item text-center text-muted p-4">${message}</li>`;
+            productListUl.innerHTML = `<li class="list-group-item text-center text-muted p-4">${message}</li>`;
             return;
         }
         products.forEach(product => {
             const productHtml = `
                 <li class="list-group-item">
                     <a href="/product/${product.product_id}" class="product-item d-flex align-items-center text-decoration-none text-body">
-                        <img src="${imageURLPrefix}${product.image_pn}.jpg" alt="${product.product_name}" class="item-image rounded border flex-shrink-0" onerror="this.style.visibility='hidden'">
+                        <img src="${imageURLPrefix}${product.image_pn}.jpg" alt="${product.product_name}" class="item-image rounded border flex-shrink-0" onerror="imgFallback(this)">
                         <div class="item-details flex-grow-1 ms-3">
                             <div class="product-name fw-bold">${product.product_name}</div>
                             <div class="product-meta small text-muted">
@@ -206,8 +276,49 @@ document.addEventListener('DOMContentLoaded', (event) => {
                     </a>
                 </li>
             `;
-            productListUL.insertAdjacentHTML('beforeend', productHtml);
+            productListUl.insertAdjacentHTML('beforeend', productHtml);
         });
+    };
+
+    const renderPagination = (totalPages, currentPage) => {
+        paginationUL.innerHTML = '';
+        if (totalPages <= 1) return;
+
+        const createPageItem = (pageNum, text, isActive = false, isDisabled = false) => {
+            const li = document.createElement('li');
+            li.className = `page-item ${isActive ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`;
+            
+            const a = document.createElement('a');
+            a.className = 'page-link';
+            a.href = '#';
+            a.textContent = text;
+            
+            if (!isDisabled && !isActive) {
+                a.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    performSearch(pageNum);
+                });
+            }
+            
+            li.appendChild(a);
+            return li;
+        };
+
+        paginationUL.appendChild(createPageItem(currentPage - 1, '«', false, currentPage === 1));
+
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, currentPage + 2);
+
+        if (endPage - startPage < 4) {
+            if (startPage === 1) endPage = Math.min(totalPages, startPage + 4);
+            else if (endPage === totalPages) startPage = Math.max(1, endPage - 4);
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            paginationUL.appendChild(createPageItem(i, i, i === currentPage));
+        }
+
+        paginationUL.appendChild(createPageItem(currentPage + 1, '»', false, currentPage === totalPages));
     };
 
     if (categoryBar) {
@@ -218,7 +329,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
             categoryButtons.forEach(btn => btn.classList.remove('active'));
             target.classList.add('active');
             hiddenCategoryInput.value = target.dataset.category;
-            triggerSearch();
+            performSearch(1); 
             searchInput.focus();
         });
     }
@@ -226,7 +337,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
     if (clearTopBtn) {
         clearTopBtn.addEventListener('click', () => {
             searchInput.value = '';
-            triggerSearch();
+            performSearch(1);
             searchInput.focus();
         });
     }
@@ -244,7 +355,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
             if (e.key === 'Backspace') {
             } else if (e.key === 'Enter') {
                  clearTimeout(debounceTimer);
-                 performSearch();
+                 performSearch(1);
              }
         });
     }
@@ -254,7 +365,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
         searchForm.addEventListener('submit', (e) => {
             e.preventDefault();
             clearTimeout(debounceTimer);
-            performSearch();
+            performSearch(1);
         });
     }
     
@@ -266,5 +377,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
             btn.classList.add('active');
         }
     });
+    
+    performSearch(1);
 
 });

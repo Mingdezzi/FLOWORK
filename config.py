@@ -1,6 +1,13 @@
 import os
+import time
 
 class Config:
+    os.environ['TZ'] = 'Asia/Seoul'
+    try:
+        time.tzset()
+    except AttributeError:
+        pass
+
     SECRET_KEY = os.environ.get('SECRET_KEY')
     if not SECRET_KEY:
         raise ValueError("SECRET_KEY 환경 변수가 설정되어야 합니다.")

@@ -1,4 +1,6 @@
 import traceback
+import holidays
+from datetime import date, datetime
 from flask import request, jsonify, abort
 from flask_login import login_required, current_user
 from sqlalchemy.orm import joinedload
@@ -6,6 +8,56 @@ from sqlalchemy.orm import joinedload
 from flowork.models import db, ScheduleEvent
 from . import api_bp
 from .utils import admin_required, _parse_iso_date_string
+
+# 공휴일 영문명 -> 한글 매핑
+HOLIDAY_NAME_MAP = {
+    "New Year's Day": "신정",
+    "Lunar New Year": "설날",
+    "The day preceding of Lunar New Year": "설날",
+    "The day second succeeding of Lunar New Year": "설날",
+    "Independence Movement Day": "삼일절",
+    "Children's Day": "어린이날",
+    "Birthday of the Buddha": "부처님오신날",
+    "Memorial Day": "현충일",
+    "Liberation Day": "광복절",
+    "Chuseok": "추석",
+    "The day preceding of Chuseok": "추석",
+    "The day succeeding of Chuseok": "추석",
+    "National Foundation Day": "개천절",
+    "Hangeul Day": "한글날",
+    "Christmas Day": "성탄절",
+    "Alternative holiday of Lunar New Year": "대체공휴일",
+    "Alternative holiday of Chuseok": "대체공휴일",
+    "Alternative holiday of Children's Day": "대체공휴일",
+    "Alternative holiday of Buddha's Birthday": "대체공휴일",
+    "Alternative holiday of Christmas Day": "대체공휴일"
+}
+
+@api_bp.route('/api/holidays', methods=['GET'])
+@login_required
+def get_holidays():
+    """
+    지정된 연도의 대한민국 공휴일 정보를 반환합니다.
+    기본값: 현재 연도 + 내년 (2년치)
+    """
+    try:
+        current_year = datetime.now().year
+        years = [current_year, current_year + 1] # 올해와 내년 데이터 조회
+        
+        kr_holidays = holidays.KR(years=years)
+        
+        result = {}
+        for date_obj, name in kr_holidays.items():
+            date_str = date_obj.strftime('%Y-%m-%d')
+            # 매핑된 한글 이름이 있으면 사용, 없으면 라이브러리 반환값 그대로 사용
+            kor_name = HOLIDAY_NAME_MAP.get(name, name)
+            result[date_str] = kor_name
+            
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"Error calculating holidays: {e}")
+        return jsonify({})
 
 @api_bp.route('/api/schedule/events', methods=['GET'])
 @login_required

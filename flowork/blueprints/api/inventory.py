@@ -22,7 +22,6 @@ from flowork.services.db import sync_missing_data_in_db
 
 from . import api_bp
 from .utils import admin_required, _get_or_create_store_stock
-# [수정] run_async_import_db 추가 임포트
 from .tasks import TASKS, run_async_stock_upsert, run_async_import_db
 
 @api_bp.route('/api/verify_excel', methods=['POST'])
@@ -55,7 +54,6 @@ def import_excel():
     if not file:
         return jsonify({'status': 'error', 'message': '파일이 없습니다.'}), 400
 
-    # [수정] 비동기 처리 로직으로 변경 (Timeout 방지)
     task_id = str(uuid.uuid4())
     TASKS[task_id] = {'status': 'processing', 'current': 0, 'total': 0, 'percent': 0}
     
@@ -64,7 +62,6 @@ def import_excel():
     
     current_brand_id = current_user.current_brand_id
     
-    # 백그라운드 스레드 실행
     thread = threading.Thread(
         target=run_async_import_db,
         args=(
@@ -270,6 +267,9 @@ def live_search():
     query_param = data.get('query', '')
     category_param = data.get('category', '전체')
     
+    page = data.get('page', 1)
+    per_page = data.get('per_page', 10)
+    
     base_query = Product.query.options(selectinload(Product.variants)).filter(
         Product.brand_id == current_user.current_brand_id
     )
@@ -292,30 +292,56 @@ def live_search():
         if category_param and category_param != '전체':
             base_query = base_query.filter(Product.item_category == category_param)
 
-        products = base_query.order_by(Product.release_year.desc(), Product.product_name).all()
+        final_query = base_query.order_by(Product.release_year.desc(), Product.product_name)
     else:
         showing_favorites = True
-        products = base_query.filter(Product.is_favorite == 1).order_by(Product.item_category, Product.product_name).all()
+        final_query = base_query.filter(Product.is_favorite == 1).order_by(Product.item_category, Product.product_name)
+
+    pagination = final_query.paginate(page=page, per_page=per_page, error_out=False)
+    products = pagination.items
+
+    setting_rule = Setting.query.filter_by(brand_id=current_user.current_brand_id, key='IMAGE_NAMING_RULE').first()
+    naming_rule = setting_rule.value if setting_rule else "{product_number}"
 
     results_list = []
     for product in products:
-        image_pn = product.product_number.split(' ')[0]
+        pn = product.product_number.split(' ')[0]
         colors = ""
         sale_price_f = "가격정보없음"
         original_price_f = 0
         discount_f = "-"
         product_variants = product.variants 
 
+        color = "00"
         if product_variants:
             colors_list = sorted(list(set(v.color for v in product_variants if v.color)))
             colors = ", ".join(colors_list)
             first_variant = product_variants[0]
+            color = first_variant.color
             sale_price_f = f"{first_variant.sale_price:,d}원"
             original_price_f = first_variant.original_price
             if original_price_f and original_price_f > 0 and original_price_f != sale_price_f:
                 discount_f = f"{int((1 - (first_variant.sale_price / original_price_f)) * 100)}%"
             else:
                 discount_f = "0%"
+
+        year = str(product.release_year) if product.release_year else ""
+        if not year and len(pn) >= 5 and pn[3:5].isdigit():
+             year = f"20{pn[3:5]}"
+
+        try:
+            filename = naming_rule.format(
+                product_number=pn,
+                color=color,
+                year=year
+            )
+        except:
+            filename = pn
+
+        if filename.lower().endswith('.jpg'):
+            image_pn = filename[:-4]
+        else:
+            image_pn = filename
 
         results_list.append({
             "product_id": product.id,
@@ -332,7 +358,12 @@ def live_search():
         "status": "success",
         "products": results_list,
         "showing_favorites": showing_favorites,
-        "selected_category": category_param
+        "selected_category": category_param,
+        "current_page": pagination.page,
+        "total_pages": pagination.pages,
+        "total_items": pagination.total,
+        "has_next": pagination.has_next,
+        "has_prev": pagination.has_prev
     })
 
 @api_bp.route('/reset_actual_stock', methods=['POST'])
@@ -895,6 +926,7 @@ def api_find_product_details():
                 'message': f"'{pn_query}'(으)로 시작하는 상품을 찾을 수 없습니다."
             }), 404
     except Exception as e:
+        print(f"Find product details error: {e}")
         return jsonify({'status': 'error', 'message': f'서버 오류: {e}'}), 500
 
 @api_bp.route('/api/order_product_search', methods=['POST'])

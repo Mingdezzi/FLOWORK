@@ -1,9 +1,10 @@
 import json
+import os
 import traceback
-from flask import render_template, request, redirect, url_for, flash, abort
+from flask import render_template, request, redirect, url_for, flash, abort, current_app
 from flask_login import login_required, current_user
 
-from flowork.models import db, Announcement, Setting, Brand, Store, Staff
+from flowork.models import db, Announcement, Setting, Brand, Store, Staff, Comment
 from . import ui_bp
 
 @ui_bp.route('/setting')
@@ -96,18 +97,21 @@ def announcement_detail(id):
 
     item = None
     current_brand_id = current_user.current_brand_id
+    
+    is_hq_admin = (current_user.brand_id is not None) and (current_user.store_id is None)
 
     if id == 'new':
-        if not current_user.is_admin and not current_user.is_super_admin:
-            abort(403, description="새 공지사항 작성 권한이 없습니다.")
+        if not is_hq_admin:
+            abort(403, description="공지사항 작성 권한이 없습니다. (본사 관리자 전용)")
         item = Announcement(title='', content='')
     else:
         item = Announcement.query.filter_by(id=int(id), brand_id=current_brand_id).first()
         if not item: abort(404, description="공지사항을 찾을 수 없거나 권한이 없습니다.")
 
     if request.method == 'POST':
-        if not current_user.is_admin and not current_user.is_super_admin:
-            abort(403, description="공지사항 수정 권한이 없습니다.")
+        if not is_hq_admin:
+            abort(403, description="공지사항 수정 권한이 없습니다. (본사 관리자 전용)")
+            
         try:
             item.title = request.form['title']
             item.content = request.form['content']
@@ -125,15 +129,25 @@ def announcement_detail(id):
             traceback.print_exc()
             flash(f"저장 중 오류 발생: {e}", "error")
 
-    return render_template('announcement_detail.html', active_page='announcements', item=item)
+    comments = []
+    if item and item.id:
+        comments = item.comments.order_by(Comment.created_at.asc()).all()
+
+    return render_template('announcement_detail.html', 
+                           active_page='announcements', 
+                           item=item, 
+                           is_hq_admin=is_hq_admin,
+                           comments=comments)
 
 @ui_bp.route('/announcement/delete/<int:id>', methods=['POST'])
 @login_required
 def delete_announcement(id):
-    if not current_user.is_admin and not current_user.is_super_admin:
-        abort(403, description="공지사항 삭제 권한이 없습니다.")
+    if current_user.store_id or not current_user.brand_id:
+        abort(403, description="공지사항 삭제 권한이 없습니다. (본사 관리자 전용)")
+        
     if current_user.is_super_admin:
         abort(403, description="슈퍼 관리자는 공지사항을 관리할 수 없습니다.")
+        
     try:
         item = Announcement.query.filter_by(id=int(id), brand_id=current_user.current_brand_id).first()
         if item:
@@ -147,3 +161,62 @@ def delete_announcement(id):
         print(f"Error deleting announcement {id}: {e}")
         flash(f"공지사항 삭제 중 오류 발생: {e}", "error")
     return redirect(url_for('ui.announcement_list'))
+
+@ui_bp.route('/announcement/<int:id>/comment', methods=['POST'])
+@login_required
+def add_comment(id):
+    content = request.form.get('content', '').strip()
+    if not content:
+        flash("댓글 내용을 입력해주세요.", "warning")
+        return redirect(url_for('ui.announcement_detail', id=id))
+        
+    try:
+        announcement = Announcement.query.filter_by(id=id, brand_id=current_user.current_brand_id).first()
+        if not announcement:
+            abort(404, description="공지사항을 찾을 수 없습니다.")
+            
+        comment = Comment(
+            announcement_id=id,
+            user_id=current_user.id,
+            content=content
+        )
+        db.session.add(comment)
+        db.session.commit()
+        flash("댓글이 등록되었습니다.", "success")
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error adding comment: {e}")
+        flash(f"댓글 등록 중 오류 발생: {e}", "error")
+        
+    return redirect(url_for('ui.announcement_detail', id=id))
+
+@ui_bp.route('/comment/delete/<int:comment_id>', methods=['POST'])
+@login_required
+def delete_comment(comment_id):
+    try:
+        comment = db.session.get(Comment, comment_id)
+        if not comment:
+            abort(404, description="댓글을 찾을 수 없습니다.")
+            
+        is_author = (comment.user_id == current_user.id)
+        is_hq_admin = (current_user.brand_id is not None) and (current_user.store_id is None)
+        
+        if comment.announcement.brand_id != current_user.current_brand_id:
+             abort(403, description="권한이 없습니다.")
+
+        if not is_author and not is_hq_admin:
+            abort(403, description="댓글 삭제 권한이 없습니다.")
+            
+        announcement_id = comment.announcement_id
+        db.session.delete(comment)
+        db.session.commit()
+        flash("댓글이 삭제되었습니다.", "success")
+        
+        return redirect(url_for('ui.announcement_detail', id=announcement_id))
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting comment: {e}")
+        flash(f"댓글 삭제 중 오류 발생: {e}", "error")
+        return redirect(url_for('ui.announcement_list'))
