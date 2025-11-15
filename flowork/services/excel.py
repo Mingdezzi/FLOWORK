@@ -333,6 +333,12 @@ def process_stock_upsert_excel(file_path, form, upload_mode, brand_id, target_st
                     size_conf = json.loads(brand_settings.get('SIZE_MAPPING', '{}'))
                     cat_conf = json.loads(brand_settings.get('CATEGORY_MAPPING_RULE', '{}'))
                     df = transform_horizontal_to_vertical(f, size_conf, cat_conf, column_map_indices)
+                    
+                    # [수정] 매트릭스 변환 후엔 항상 hq_stock이 나오므로, 
+                    # store 모드인 경우 컬럼명을 store_stock으로 변경
+                    if upload_mode == 'store' and 'hq_stock' in df.columns:
+                        df.rename(columns={'hq_stock': 'store_stock'}, inplace=True)
+                        
                 except Exception as e:
                     return 0, 0, f"매트릭스 변환 오류: {e}", 'error'
             else:
@@ -357,7 +363,6 @@ def process_stock_upsert_excel(file_path, form, upload_mode, brand_id, target_st
         for p in products_in_db:
             for v in p.variants: variant_map[v.barcode_cleaned] = v
         
-        # [수정] 매장 재고 조회 시 selectinload 대신 직접 조회 (동적 생성 대응을 위해 맵핑 방식 유지)
         store_stock_map = {}
         if upload_mode == 'store':
             v_ids = [v.id for v in variant_map.values()]
@@ -437,31 +442,27 @@ def process_stock_upsert_excel(file_path, form, upload_mode, brand_id, target_st
                 elif upload_mode == 'store' and 'store_stock' in item:
                     qty = item['store_stock']
                     
-                    # [수정] 기존 변수(var.id) 체크 대신, 메모리 상의 관계 또는 맵 확인
-                    # 1. 기존에 ID가 있고 맵에 있는 경우 (가장 빠름)
+                    # [수정] 매장 재고 업데이트 로직 강화
                     if var.id and var.id in store_stock_map:
                         store_stock_map[var.id].quantity = qty
                         cnt_update += 1
                     else:
-                        # 2. 신규 Variant이거나, 기존 Variant지만 StoreStock이 없는 경우
-                        # 관계(stock_levels)를 통해 이미 로드된/추가된 객체가 있는지 확인
-                        found_stock = None
-                        # var.stock_levels가 로드되어 있다면 순회 확인
+                        # 신규 생성된 Variant(ID 없음)이거나 StoreStock이 없는 경우 처리
+                        found = False
+                        # 메모리 상의 관계 확인 (이미 추가된 재고가 있는지)
                         if hasattr(var, 'stock_levels'):
                             for s in var.stock_levels:
                                 if s.store_id == target_store_id:
-                                    found_stock = s
+                                    s.quantity = qty
+                                    found = True
                                     break
                         
-                        if found_stock:
-                            found_stock.quantity = qty
-                            cnt_update += 1
-                        else:
-                            # 3. 아예 없으면 새로 생성하여 관계에 추가 (ID 없어도 됨)
+                        if not found:
                             new_stk = StoreStock(store_id=target_store_id, quantity=qty)
+                            # Variant와 관계 연결 (Variant ID가 없어도 flush 시 자동 연결)
                             var.stock_levels.append(new_stk)
-                            # (주의) store_stock_map에는 ID가 없으므로 추가 불가, 하지만 세션에는 들어감
-                            cnt_update += 1
+                        
+                        cnt_update += 1
 
             except: continue
 

@@ -46,18 +46,10 @@ def verify_excel_upload():
 @api_bp.route('/api/inventory/upsert', methods=['POST'])
 @login_required
 def inventory_upsert():
-    """
-    [상세/신규 등록] 엑셀 파일을 통해 상품 및 재고 정보를 상세하게 업로드합니다.
-    Mode: 
-      - 'db': 전체 상품 DB (재고 제외, 본사 관리자 전용)
-      - 'hq': 본사 재고 포함 (본사 관리자 전용)
-      - 'store': 매장 재고 포함 (매장 관리자 또는 타겟 매장 지정된 본사 관리자)
-    """
     upload_mode = request.form.get('upload_mode')
     if upload_mode not in ['db', 'hq', 'store']:
         return jsonify({'status': 'error', 'message': '잘못된 업로드 모드입니다.'}), 400
 
-    # 권한 체크
     if upload_mode in ['db', 'hq'] and (not current_user.brand_id or current_user.store_id):
         return jsonify({'status': 'error', 'message': '본사 관리자만 접근 가능합니다.'}), 403
     
@@ -65,7 +57,7 @@ def inventory_upsert():
     if upload_mode == 'store':
         if current_user.store_id:
             target_store_id = current_user.store_id
-        elif current_user.is_admin: # 본사 관리자가 매장 재고 업로드 시
+        elif current_user.is_admin: 
             target_store_id = request.form.get('target_store_id', type=int)
             
         if not target_store_id:
@@ -77,7 +69,6 @@ def inventory_upsert():
 
     current_brand_id = current_user.current_brand_id
     
-    # 검증 모달에서 제외된 행 인덱스
     excluded_str = request.form.get('excluded_row_indices', '')
     excluded_indices = [int(x) for x in excluded_str.split(',')] if excluded_str else []
 
@@ -87,7 +78,6 @@ def inventory_upsert():
     temp_filename = f"/tmp/upsert_{upload_mode}_{task_id}.xlsx"
     file.save(temp_filename)
     
-    # DB 모드(전체 덮어쓰기/초기화 Import)와 일반 Upsert 분기
     if upload_mode == 'db' and request.form.get('is_full_import') == 'true':
         thread = threading.Thread(
             target=run_async_import_db,
@@ -111,7 +101,7 @@ def inventory_upsert():
                 current_brand_id, 
                 target_store_id,
                 excluded_indices,
-                True # allow_create (신규 생성 허용)
+                True 
             )
         )
     
@@ -122,15 +112,10 @@ def inventory_upsert():
 @api_bp.route('/api/inventory/update_stock_excel', methods=['POST'])
 @login_required
 def inventory_update_stock_excel():
-    """
-    [단순/기존 수정] 엑셀 파일을 통해 바코드와 수량만으로 재고를 빠르게 수정합니다.
-    Mode: 'hq', 'store'
-    """
     upload_mode = request.form.get('upload_mode')
     if upload_mode not in ['hq', 'store']:
         return jsonify({'status': 'error', 'message': '잘못된 업로드 모드입니다.'}), 400
 
-    # 권한 체크
     if upload_mode == 'hq' and (not current_user.brand_id or current_user.store_id):
         return jsonify({'status': 'error', 'message': '본사 관리자만 접근 가능합니다.'}), 403
 
@@ -361,56 +346,6 @@ def live_search():
         "has_next": pagination.has_next,
         "has_prev": pagination.has_prev
     })
-
-@api_bp.route('/api/analyze_excel', methods=['POST'])
-@login_required
-def analyze_excel():
-    if 'excel_file' not in request.files:
-        return jsonify({'status': 'error', 'message': '파일이 없습니다.'}), 400
-    
-    file = request.files.get('excel_file')
-    if file.filename == '':
-        return jsonify({'status': 'error', 'message': '파일이 선택되지 않았습니다.'}), 400
-
-    if not (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')):
-        return jsonify({'status': 'error', 'message': '엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.'}), 400
-
-    try:
-        file_bytes = file.read()
-        import openpyxl
-        from openpyxl.utils import get_column_letter, column_index_from_string
-        
-        wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
-        ws = wb.active
-        
-        max_col_index = ws.max_column
-        if max_col_index > 26: max_col_index = 26 
-        column_letters = [get_column_letter(i) for i in range(1, max_col_index + 1)]
-        
-        preview_data = {}
-        max_row_preview = min(6, ws.max_row + 1) 
-        
-        if max_row_preview <= 1:
-             return jsonify({'status': 'error', 'message': '파일에 데이터가 없습니다.'}), 400
-
-        for col_letter in column_letters:
-            col_data = []
-            col_index = column_index_from_string(col_letter)
-            for i in range(1, max_row_preview):
-                cell_val = ws.cell(row=i, column=col_index).value
-                col_data.append(str(cell_val) if cell_val is not None else '')
-            preview_data[col_letter] = col_data
-            
-        return jsonify({
-            'status': 'success',
-            'column_letters': column_letters,
-            'preview_data': preview_data
-        })
-        
-    except Exception as e:
-        print(f"Excel analyze error: {e}")
-        traceback.print_exc()
-        return jsonify({'status': 'error', 'message': f'엑셀 파일 분석 중 오류 발생: {e}'}), 500
 
 @api_bp.route('/bulk_update_actual_stock', methods=['POST'])
 @login_required
