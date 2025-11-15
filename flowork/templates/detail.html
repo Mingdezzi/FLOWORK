@@ -134,7 +134,7 @@
         <div class="card mb-3">
              <div class="card-body">
                 <div class="product-image">
-                    <img src="{{ image_url }}" alt="{{ product.product_name }} 이미지" class="img-fluid rounded border p-2"
+                    <img src="{{ get_image_url(product) }}" alt="{{ product.product_name }} 이미지" class="img-fluid rounded border p-2"
                          onerror="imgFallback(this)">
                     <p class="error-text mt-3 text-center">(이미지를 불러올 수 없습니다.)</p>
                 </div>
@@ -188,8 +188,7 @@
                 {% for rel_prod in related_products %}
                 <li class="list-group-item">
                     <a href="{{ url_for('ui.product_detail', product_id=rel_prod.id, partial=1 if is_partial else None) }}" class="product-item d-flex align-items-center text-decoration-none text-body">
-                        {% set image_pn = rel_prod.product_number.split(' ')[0] %}
-                        <img src="{{ IMAGE_URL_PREFIX }}{{ image_pn }}.jpg" alt="{{ rel_prod.product_name }}" class="item-image rounded border flex-shrink-0" onerror="imgFallback(this)">
+                        <img src="{{ get_image_url(rel_prod) }}" alt="{{ rel_prod.product_name }}" class="item-image rounded border flex-shrink-0" onerror="imgFallback(this)">
                         <div class="item-details flex-grow-1 ms-3">
                             <div class="product-name fw-bold">{{ rel_prod.product_name }}</div>
                             <div class="product-meta small text-muted">

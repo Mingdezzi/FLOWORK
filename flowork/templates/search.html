@@ -182,8 +182,7 @@
                                 {% for product in products %}
                                 <li class="list-group-item">
                                     <a href="{{ url_for('ui.product_detail', product_id=product.id) }}" class="product-item d-flex align-items-center text-decoration-none text-body">
-                                        {% set image_pn = product.product_number.split(' ')[0] %}
-                                        <img src="{{ IMAGE_URL_PREFIX }}{{ image_pn }}.jpg" alt="{{ product.product_name }}" class="item-image rounded border flex-shrink-0" onerror="imgFallback(this)">
+                                        <img src="{{ get_image_url(product) }}" alt="{{ product.product_name }}" class="item-image rounded border flex-shrink-0" onerror="imgFallback(this)">
                                         <div class="item-details flex-grow-1 ms-3">
                                             <div class="product-name fw-bold">{{ product.product_name }}</div>
                                             <div class="product-meta small text-muted">

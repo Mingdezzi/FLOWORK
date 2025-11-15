@@ -66,9 +66,6 @@ def product_detail(product_id):
                         'quantity': stock_level.quantity,
                         'actual_stock': stock_level.actual_stock
                     }
-
-        image_pn = product.product_number.split(' ')[0]
-        image_url = f"https://files.ebizway.co.kr/files/10249/Style/{image_pn}.jpg"
         
         related_products = []
         if product.item_category:
@@ -86,7 +83,6 @@ def product_detail(product_id):
             'stock_data_map': stock_data_map,
             'all_stores': all_stores,
             'my_store_id': my_store_id,
-            'image_url': image_url,
             'related_products': related_products,
             'is_partial': is_partial
         }
