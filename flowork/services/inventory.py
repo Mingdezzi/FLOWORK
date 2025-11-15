@@ -12,7 +12,6 @@ from flowork.models import db, Product, Variant, StoreStock, Setting, Store
 from flowork.utils import clean_string_upper, get_choseong, generate_barcode, get_sort_key
 
 from flowork.services.excel import (
-    import_excel_file,
     export_db_to_excel,
     export_stock_check_excel,
     verify_stock_excel,
@@ -101,7 +100,7 @@ def inventory_upsert():
                 current_brand_id, 
                 target_store_id,
                 excluded_indices,
-                True
+                True 
             )
         )
     
@@ -346,27 +345,6 @@ def live_search():
         "has_next": pagination.has_next,
         "has_prev": pagination.has_prev
     })
-
-@api_bp.route('/reset_actual_stock', methods=['POST'])
-@login_required
-def reset_actual_stock():
-    if not current_user.store_id:
-        abort(403, description="실사 재고 초기화는 매장 계정만 사용할 수 있습니다.")
-
-    try: 
-        store_stock_ids_query = db.session.query(StoreStock.id).filter_by(store_id=current_user.store_id)
-        
-        stmt = db.update(StoreStock).where(
-            StoreStock.id.in_(store_stock_ids_query)
-        ).values(actual_stock=None)
-        
-        result = db.session.execute(stmt)
-        db.session.commit()
-        flash(f'실사재고 {result.rowcount}건 초기화 완료.', 'success')
-    except Exception as e: 
-        db.session.rollback()
-        flash(f'초기화 오류: {e}', 'error')
-    return redirect(url_for('ui.check_page'))
 
 @api_bp.route('/api/analyze_excel', methods=['POST'])
 @login_required
