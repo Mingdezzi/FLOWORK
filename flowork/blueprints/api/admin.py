@@ -5,8 +5,7 @@ from flask import request, jsonify, current_app, flash, redirect, url_for, abort
 from flask_login import login_required, current_user
 from sqlalchemy import func, exc
 
-# Sale, SaleItem, StockHistory 모델 임포트 확인
-from flowork.models import db, Brand, Store, Setting, User, Staff, Order, OrderProcessing, Announcement, ScheduleEvent, Variant, Product, StoreStock, Sale, SaleItem, StockHistory
+from flowork.models import db, Brand, Store, Setting, User, Staff, Announcement, Sale, StockHistory
 from . import api_bp
 from .utils import admin_required
 
@@ -407,13 +406,10 @@ def reset_store_registration(store_id):
 
         users_to_delete = User.query.filter_by(store_id=store.id).all()
         
-        # [수정] 사용자 삭제 전 참조 데이터 연결 해제 (NULL 처리)
         user_ids = [u.id for u in users_to_delete]
         if user_ids:
-            # 1. 판매 기록의 user_id를 NULL로 변경
             db.session.query(Sale).filter(Sale.user_id.in_(user_ids)).update({Sale.user_id: None}, synchronize_session=False)
             
-            # 2. 재고 이력의 user_id를 NULL로 변경 (StockHistory 테이블 존재 여부 확인은 생략, create_all()로 생성됨을 가정)
             db.session.query(StockHistory).filter(StockHistory.user_id.in_(user_ids)).update({StockHistory.user_id: None}, synchronize_session=False)
 
         user_count = len(users_to_delete)
@@ -553,131 +549,3 @@ def delete_staff(staff_id):
         db.session.rollback()
         print(f"Error deleting staff: {e}")
         return jsonify({'status': 'error', 'message': f'서버 오류: {e}'}), 500
-
-@api_bp.route('/api/reset-orders-db', methods=['POST'])
-@admin_required
-def reset_orders_db():
-    if not current_user.store_id:
-        abort(403, description="주문 DB 초기화는 매장 관리자만 가능합니다.")
-
-    try:
-        engine = db.get_engine(bind=None)
-        if engine is None:
-            raise Exception("Default bind engine not found.")
-
-        print("Deleting 'orders' bind tables...")
-        
-        tables_to_drop = [
-            OrderProcessing.__table__, 
-            Order.__table__,
-        ]
-        
-        db.Model.metadata.drop_all(bind=engine, tables=tables_to_drop, checkfirst=True)
-        db.Model.metadata.create_all(bind=engine, tables=tables_to_drop, checkfirst=True)
-        
-        flash("✅ '주문(Orders)' 테이블이 성공적으로 초기화되었습니다.", "success")
-
-    except Exception as e:
-        db.session.rollback()
-        print(f"Orders DB Reset Error: {e}")
-        traceback.print_exc()
-        flash(f"🚨 주문 DB 초기화 중 오류 발생: {e}", "error")
-    
-    return redirect(url_for('ui.setting_page'))
-
-@api_bp.route('/api/reset-announcements-db', methods=['POST'])
-@admin_required
-def reset_announcements_db():
-    if not current_user.brand_id or current_user.store_id:
-        abort(403, description="공지사항 DB 초기화는 본사 관리자만 가능합니다.")
-
-    try:
-        engine = db.get_engine(bind=None)
-        if engine is None:
-            raise Exception("Default bind engine not found.")
-
-        print("Deleting 'announcements' bind table...")
-        
-        tables_to_drop = [Announcement.__table__]
-        
-        db.Model.metadata.drop_all(bind=engine, tables=tables_to_drop, checkfirst=True)
-        db.Model.metadata.create_all(bind=engine, tables=tables_to_drop, checkfirst=True)
-        
-        flash("✅ '공지사항(Announcements)' 테이블이 성공적으로 초기화되었습니다.", "success")
-
-    except Exception as e:
-        db.session.rollback()
-        print(f"Announcements DB Reset Error: {e}")
-        traceback.print_exc()
-        flash(f"🚨 공지사항 DB 초기화 중 오류 발생: {e}", "error")
-    
-    return redirect(url_for('ui.setting_page'))
-
-@api_bp.route('/api/reset-store-db', methods=['POST'])
-@admin_required
-def reset_store_db():
-    if not current_user.is_super_admin:
-        abort(403, description="전체 시스템 초기화는 슈퍼 관리자만 가능합니다.")
-
-    try:
-        engine = db.get_engine(bind=None)
-        if engine is None:
-            raise Exception("Default bind engine not found.")
-
-        print("Deleting 'store_info' bind table...")
-        
-        tables_to_drop = [
-            ScheduleEvent.__table__, 
-            Staff.__table__,
-            Setting.__table__, 
-            User.__table__, 
-            Store.__table__, 
-            Brand.__table__
-        ]
-        
-        db.Model.metadata.drop_all(bind=engine, tables=tables_to_drop, checkfirst=True)
-        db.Model.metadata.create_all(bind=engine, tables=tables_to_drop, checkfirst=True)
-        
-        flash("✅ '계정/매장/설정/직원/일정' 테이블이 성공적으로 초기화되었습니다. (모든 계정 삭제됨)", "success")
-
-    except Exception as e:
-        db.session.rollback()
-        print(f"Store Info DB Reset Error: {e}")
-        traceback.print_exc()
-        flash(f"🚨 계정/매장 DB 초기화 중 오류 발생: {e}", "error")
-    
-    return redirect(url_for('ui.setting_page'))
-
-@api_bp.route('/reset_database_completely', methods=['POST'])
-@admin_required
-def reset_database_completely():
-    if not current_user.brand_id or current_user.store_id:
-        abort(403, description="상품 데이터 초기화는 본사 관리자만 가능합니다.")
-        
-    try:
-        print("Resetting Product/Variant/StoreStock/Sales data...")
-        
-        # [수정] 1. 주문(Order) 테이블에서 상품 참조 해제 (주문 내역 보존)
-        db.session.query(Order).update({Order.product_id: None})
-        
-        # [수정] 2. 테이블 데이터 삭제 (DROP 대신 DELETE 사용하여 외래키 제약 조건 우회 및 순차 삭제)
-        # StockHistory -> SaleItem -> Sale -> StoreStock -> Variant -> Product 순서로 삭제
-        db.session.query(StockHistory).delete()
-        db.session.query(SaleItem).delete()
-        db.session.query(Sale).delete()
-        db.session.query(StoreStock).delete()
-        db.session.query(Variant).delete()
-        db.session.query(Product).delete()
-        
-        db.session.commit()
-        
-        # [추가] StockHistory 테이블 생성 (테이블이 없을 경우를 대비해 create_all 호출)
-        db.create_all()
-        
-        flash('상품 데이터 초기화 완료. (상품/옵션/재고/매출/재고이력 삭제됨. 계정/주문 내역 보존)', 'success')
-    except Exception as e:
-        db.session.rollback()
-        flash(f'DB 초기화 오류: {e}', 'error')
-        print(f"DB Reset Error: {e}")
-        traceback.print_exc()
-    return redirect(url_for('ui.setting_page'))

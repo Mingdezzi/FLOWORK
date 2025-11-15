@@ -2,11 +2,6 @@ import pandas as pd
 import io
 
 def transform_horizontal_to_vertical(file_stream, size_mapping_config, category_mapping_config, column_map_indices):
-    """
-    가로형 재고 데이터를 세로형으로 변환합니다.
-    사용자가 선택한 열(column_map_indices)을 기준으로 식별자를 추출합니다.
-    """
-    # 1. 파일 로딩
     file_stream.seek(0)
     try:
         df_stock = pd.read_excel(file_stream)
@@ -18,10 +13,8 @@ def transform_horizontal_to_vertical(file_stream, size_mapping_config, category_
             file_stream.seek(0)
             df_stock = pd.read_csv(file_stream, encoding='cp949')
 
-    # 컬럼명 공백 제거
     df_stock.columns = df_stock.columns.astype(str).str.strip()
 
-    # 2. 사용자가 매핑한 열 인덱스로 데이터 추출
     extracted_data = pd.DataFrame()
     
     field_to_col_idx = {
@@ -42,31 +35,22 @@ def transform_horizontal_to_vertical(file_stream, size_mapping_config, category_
         else:
             extracted_data[field] = None
 
-    # 3. 사이즈 컬럼(0~29) 자동 식별
     size_cols = [col for col in df_stock.columns if col in [str(i) for i in range(30)]]
     if not size_cols:
         return [] 
 
-    # 데이터 병합
     df_merged = pd.concat([extracted_data, df_stock[size_cols]], axis=1)
 
-    # -------------------------------------------------------------------------
-    # [로직 1] 사이즈 분류용 키 결정 (사용자 수식 100% 반영)
-    # -------------------------------------------------------------------------
+    # 1. 사이즈 매핑용 키 (변환 로직용)
     def get_size_mapping_key(row):
-        # 1. 품번 가져오기
         pn = str(row.get('product_number', '')).strip().upper()
         if not pn: return '기타'
 
-        # 2. 수식에 따른 변수 정의
-        # first: 첫 글자 (LEFT 1)
         first = pn[0] if len(pn) > 0 else ''
-        # gender: 두 번째 글자 (MID 2, 1)
         gender = pn[1] if len(pn) > 1 else ''
-        # code: 여섯 번째 글자 (MID 6, 1) -> 파이썬 인덱스 5
         code = pn[5] if len(pn) > 5 else ''
 
-        # 3. 사용자 수식 로직 구현
+        # [로직 1] 첫 글자가 J면 키즈
         if first == "J":
             return "키즈"
         
@@ -83,7 +67,7 @@ def transform_horizontal_to_vertical(file_stream, size_mapping_config, category_
             return "양말"
         
         if code in ["B", "T"]:
-            return "가방스틱" # JSON에 "가방스틱" 키가 있어야 함
+            return "가방스틱"
         
         if code == "V":
             return "장갑"
@@ -94,23 +78,25 @@ def transform_horizontal_to_vertical(file_stream, size_mapping_config, category_
         if code == "3":
             if gender == "M": return "남성하의"
             if gender == "W": return "여성하의"
-            if gender == "U": return "남성하의" # 남녀공용 -> 남성하의 (기본)
-            return "남성하의" # 기본값
+            if gender == "U": return "남성하의"
+            return "남성하의"
 
-        # 위 규칙에 해당하지 않으면 엑셀의 '품목' 값 사용 (보조)
         category_val = str(row.get('item_category', '')).strip()
         if category_val and category_val != 'nan' and category_val != 'None':
              return category_val
              
         return "기타"
 
-    # -------------------------------------------------------------------------
-    # [로직 2] DB 저장용 품목 결정 (JSON 규칙 우선)
-    # -------------------------------------------------------------------------
+    # 2. DB 저장용 카테고리 명 (수정됨)
     def get_db_item_category(row):
-        # JSON 규칙이 있으면 그것을 따름
+        product_code = str(row.get('product_number', '')).strip().upper()
+        
+        # [수정] 품번이 'J'로 시작하면 무조건 '키즈'로 분류 (가장 우선)
+        if product_code.startswith("J"):
+             return "키즈"
+
+        # 그 외는 JSON 설정 규칙 따름
         if category_mapping_config:
-            product_code = str(row.get('product_number', '')).strip()
             target_index = category_mapping_config.get('INDEX', 5)
             mapping_map = category_mapping_config.get('MAP', {})
             default_value = category_mapping_config.get('DEFAULT', '기타')
@@ -119,15 +105,13 @@ def transform_horizontal_to_vertical(file_stream, size_mapping_config, category_
             code_char = product_code[target_index]
             return mapping_map.get(code_char, default_value)
         
-        # 규칙이 없으면 엑셀 값 사용
+        # 설정도 없으면 엑셀 값 사용
         mapped_val = row.get('item_category')
         return str(mapped_val).strip() if mapped_val else '기타'
 
-    # 컬럼 생성
     df_merged['Mapping_Key'] = df_merged.apply(get_size_mapping_key, axis=1)
     df_merged['DB_Category'] = df_merged.apply(get_db_item_category, axis=1)
 
-    # 4. 데이터 변환 (Melt)
     id_vars = ['product_number', 'product_name', 'color', 'original_price', 'sale_price', 'release_year', 'DB_Category', 'Mapping_Key']
     
     df_melted = df_merged.melt(
@@ -139,10 +123,6 @@ def transform_horizontal_to_vertical(file_stream, size_mapping_config, category_
 
     df_melted['Quantity'] = pd.to_numeric(df_melted['Quantity'], errors='coerce').fillna(0).astype(int)
     
-    # [수정] 재고가 0이어도 상품 정보를 등록하기 위해 필터링 로직 제거
-    # df_melted = df_melted[df_melted['Quantity'] > 0] 
-
-    # 5. 사이즈 매핑
     def get_real_size(row):
         mapping_key = row['Mapping_Key']
         size_code = str(row['Size_Code'])
@@ -159,10 +139,8 @@ def transform_horizontal_to_vertical(file_stream, size_mapping_config, category_
 
     df_melted['Real_Size'] = df_melted.apply(get_real_size, axis=1)
     
-    # "Unknown" 사이즈(매핑 규칙에 없는 사이즈 코드)는 제거 (유효한 사이즈 옵션만 남김)
     df_final = df_melted[df_melted['Real_Size'] != "Unknown"]
 
-    # 6. 결과 반환
     result_list = []
     for _, row in df_final.iterrows():
         

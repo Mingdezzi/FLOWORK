@@ -147,16 +147,17 @@ document.addEventListener('DOMContentLoaded', () => {
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 
-                // HTML confirm 처리 (매장재고/본사재고 메시지 다름)
-                const msg = formId === 'form-update-hq-full' 
-                    ? '엑셀 파일 검증을 시작합니다.\n검증 후 문제가 없는 행만 업로드됩니다.\n계속하시겠습니까?'
-                    : '엑셀 파일 검증을 시작합니다.\n검증 후 문제가 없는 행만 업로드됩니다.\n계속하시겠습니까?';
+                // HTML confirm 처리
+                const msg = '엑셀 파일 검증을 시작합니다.\n검증 후 문제가 없는 행만 업로드됩니다.\n계속하시겠습니까?';
                 
                 if (!confirm(msg)) return;
 
                 const formData = new FormData(form);
-                const stockType = formId === 'form-update-hq-full' ? 'hq' : 'store';
-                formData.append('stock_type', stockType);
+                
+                // [수정] formId에 따라 upload_mode 자동 설정 (HTML hidden input이 없거나 확실히 하기 위해)
+                let uploadMode = 'store';
+                if (formId === 'form-update-hq-full') uploadMode = 'hq';
+                formData.append('upload_mode', uploadMode);
 
                 if (submitButton) {
                     submitButton.disabled = true;
@@ -173,7 +174,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         body: formData
                     });
 
-                    // JSON 응답인지 확인 (에러 처리 강화)
                     const contentType = verifyResp.headers.get("content-type");
                     if (!verifyResp.ok || !contentType || !contentType.includes("application/json")) {
                         const text = await verifyResp.text();
@@ -208,16 +208,15 @@ document.addEventListener('DOMContentLoaded', () => {
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 
-                // HTML onsubmit 속성에서 confirm을 처리하므로, 여기 도달했다면 확인 누른 것임.
-                // 바로 업로드 프로세스 시작
                 const formData = new FormData(form);
+                // upload_mode='db'는 HTML form action URL 파라미터로 전달되거나 hidden input으로 있을 수 있음
+                // 여기서는 formData 그대로 전송
                 startUploadProcess(formData);
             });
         }
 
         function showVerificationModal(suspiciousRows, originalFormData) {
             const modalEl = document.getElementById('verification-modal');
-            // Bootstrap Modal이 없을 경우 대비
             if (!modalEl || typeof bootstrap === 'undefined') {
                 if(confirm(`검증 결과 ${suspiciousRows.length}개의 의심 행이 발견되었습니다.\n(모달을 띄울 수 없어 바로 진행합니다.)\n\n그대로 진행하시겠습니까?`)) {
                     startUploadProcess(originalFormData);
@@ -252,24 +251,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 tbody.appendChild(tr);
             });
 
-            // 제외 버튼 핸들러 (이벤트 위임)
             tbody.onclick = (e) => {
                 const btn = e.target.closest('.btn-exclude-row');
                 if (btn) {
                     const tr = btn.closest('tr');
                     if (tr.classList.contains('excluded')) {
-                        // 취소 (복구)
                         tr.classList.remove('table-danger', 'text-decoration-line-through', 'excluded');
                         btn.classList.remove('active');
                     } else {
-                        // 제외
                         tr.classList.add('table-danger', 'text-decoration-line-through', 'excluded');
                         btn.classList.add('active');
                     }
                 }
             };
 
-            // 확인 버튼 (업로드 시작)
             confirmBtn.onclick = () => {
                 const excludedIndices = [];
                 tbody.querySelectorAll('tr.excluded').forEach(tr => {
@@ -282,7 +277,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 startUploadProcess(originalFormData);
             };
             
-            // 취소 버튼
             cancelBtn.onclick = () => {
                 resetSubmitButton();
             };
@@ -316,10 +310,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json();
 
                 if (data.status === 'success' && data.task_id) {
-                    // 비동기 작업 시작됨 -> 폴링
                     pollTaskStatus(data.task_id);
                 } else if (data.status === 'success') {
-                    // 동기 작업 완료됨
                     finishProgress();
                     alert(data.message);
                     window.location.reload();
@@ -370,7 +362,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 } catch (err) {
                     console.error('Polling error:', err);
-                    // 네트워크 오류 시 계속 시도 (필요시 카운트 제한)
                 }
             }, 1000);
         }
@@ -390,11 +381,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 submitButton.disabled = false;
                 const isHq = formId.includes('hq');
                 
-                // [수정] 버튼 텍스트 원복 로직 보완
                 if (formId === 'form-import-db') {
                     submitButton.innerHTML = '<i class="bi bi-upload me-1"></i>상품 DB 전체 업로드';
                 } else {
-                    submitButton.innerHTML = `<i class="bi bi-arrow-clockwise me-1"></i> ${isHq ? '본사재고 UPSERT' : '매장재고 업데이트'}`;
+                    // hq면 '본사재고', store면 '매장재고' (텍스트는 대략적으로 복원)
+                    submitButton.innerHTML = `<i class="bi bi-arrow-clockwise me-1"></i> ${isHq ? '본사재고 업로드' : '검토 및 업데이트'}`;
                 }
             }
         }
@@ -412,19 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setupExcelAnalyzer(storeConfig);
     }
     
-    // --- 초기화 (본사 재고 폼 - 바코드) ---
-    const hqConfigBarcode = {
-        fileInputId: 'hq_stock_excel_file',
-        formId: 'form-update-hq',
-        wrapperId: 'wrapper-hq-file',
-        statusId: 'status-hq-file',
-        gridId: 'grid-update-hq',
-    };
-    if (document.getElementById(hqConfigBarcode.formId)) {
-        setupExcelAnalyzer(hqConfigBarcode);
-    }
-
-    // --- 초기화 (본사 재고 폼 - 9필드 UPSERT) ---
+    // --- 초기화 (본사 재고 폼 - UPSERT) ---
     const hqConfigFull = {
         fileInputId: 'hq_stock_excel_file_full',
         formId: 'form-update-hq-full',
@@ -434,18 +413,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     if (document.getElementById(hqConfigFull.formId)) {
         setupExcelAnalyzer(hqConfigFull);
-    }
-
-    // --- 초기화 (매장 재고 - 본사 전용) ---
-    const storeHqConfigBarcode = {
-        fileInputId: 'store_stock_excel_file_hq',
-        formId: 'form-update-store-hq',
-        wrapperId: 'wrapper-store-file-hq',
-        statusId: 'status-store-file-hq',
-        gridId: 'grid-update-store-hq',
-    };
-    if (document.getElementById(storeHqConfigBarcode.formId)) {
-        setupExcelAnalyzer(storeHqConfigBarcode);
     }
 
     // --- 초기화 (DB Import) ---

@@ -1,3 +1,7 @@
+{
+type: uploaded file
+fileName: mingdezzi/flowork/FLOWORK-def7528b5dc466d746c3acf11f8c5d087d408243/flowork/templates/detail.html
+fullContent:
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -120,6 +124,7 @@
                         
                         {% if current_user.is_admin and not current_user.store_id %}
                         <form id="delete-product-form" method="POST" action="{{ url_for('api.api_delete_product', product_id=product.id) }}" class="view-field" style="margin: 0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                             <button type="button" id="delete-product-btn" class="btn btn-danger btn-delete-product">
                                 <i class="bi bi-trash-fill me-1"></i> 상품 전체 삭제
                             </button>
@@ -186,7 +191,7 @@
             <ul class="list-group list-group-flush product-list">
                 {% for rel_prod in related_products %}
                 <li class="list-group-item">
-                    <a href="{{ url_for('ui.product_detail', product_id=rel_prod.id) }}" class="product-item d-flex align-items-center text-decoration-none text-body">
+                    <a href="{{ url_for('ui.product_detail', product_id=rel_prod.id, partial=1 if is_partial else None) }}" class="product-item d-flex align-items-center text-decoration-none text-body">
                         {% set image_pn = rel_prod.product_number.split(' ')[0] %}
                         <img src="{{ IMAGE_URL_PREFIX }}{{ image_pn }}.jpg" alt="{{ rel_prod.product_name }}" class="item-image rounded border flex-shrink-0" onerror="imgFallback(this)">
                         <div class="item-details flex-grow-1 ms-3">
@@ -311,3 +316,4 @@
     </script>
 </body>
 </html>
+}
