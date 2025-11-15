@@ -46,10 +46,18 @@ def verify_excel_upload():
 @api_bp.route('/api/inventory/upsert', methods=['POST'])
 @login_required
 def inventory_upsert():
+    """
+    [상세/신규 등록] 엑셀 파일을 통해 상품 및 재고 정보를 상세하게 업로드합니다.
+    Mode: 
+      - 'db': 전체 상품 DB (재고 제외, 본사 관리자 전용)
+      - 'hq': 본사 재고 포함 (본사 관리자 전용)
+      - 'store': 매장 재고 포함 (매장 관리자 또는 타겟 매장 지정된 본사 관리자)
+    """
     upload_mode = request.form.get('upload_mode')
     if upload_mode not in ['db', 'hq', 'store']:
         return jsonify({'status': 'error', 'message': '잘못된 업로드 모드입니다.'}), 400
 
+    # 권한 체크
     if upload_mode in ['db', 'hq'] and (not current_user.brand_id or current_user.store_id):
         return jsonify({'status': 'error', 'message': '본사 관리자만 접근 가능합니다.'}), 403
     
@@ -57,7 +65,7 @@ def inventory_upsert():
     if upload_mode == 'store':
         if current_user.store_id:
             target_store_id = current_user.store_id
-        elif current_user.is_admin: 
+        elif current_user.is_admin: # 본사 관리자가 매장 재고 업로드 시
             target_store_id = request.form.get('target_store_id', type=int)
             
         if not target_store_id:
@@ -69,6 +77,7 @@ def inventory_upsert():
 
     current_brand_id = current_user.current_brand_id
     
+    # 검증 모달에서 제외된 행 인덱스
     excluded_str = request.form.get('excluded_row_indices', '')
     excluded_indices = [int(x) for x in excluded_str.split(',')] if excluded_str else []
 
@@ -78,6 +87,7 @@ def inventory_upsert():
     temp_filename = f"/tmp/upsert_{upload_mode}_{task_id}.xlsx"
     file.save(temp_filename)
     
+    # DB 모드(전체 덮어쓰기/초기화 Import)와 일반 Upsert 분기
     if upload_mode == 'db' and request.form.get('is_full_import') == 'true':
         thread = threading.Thread(
             target=run_async_import_db,
@@ -101,7 +111,7 @@ def inventory_upsert():
                 current_brand_id, 
                 target_store_id,
                 excluded_indices,
-                True 
+                True # allow_create (신규 생성 허용)
             )
         )
     
@@ -112,10 +122,15 @@ def inventory_upsert():
 @api_bp.route('/api/inventory/update_stock_excel', methods=['POST'])
 @login_required
 def inventory_update_stock_excel():
+    """
+    [단순/기존 수정] 엑셀 파일을 통해 바코드와 수량만으로 재고를 빠르게 수정합니다.
+    Mode: 'hq', 'store'
+    """
     upload_mode = request.form.get('upload_mode')
     if upload_mode not in ['hq', 'store']:
         return jsonify({'status': 'error', 'message': '잘못된 업로드 모드입니다.'}), 400
 
+    # 권한 체크
     if upload_mode == 'hq' and (not current_user.brand_id or current_user.store_id):
         return jsonify({'status': 'error', 'message': '본사 관리자만 접근 가능합니다.'}), 403
 
