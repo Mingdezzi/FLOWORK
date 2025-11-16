@@ -8,6 +8,7 @@ from flask_login import login_required, current_user
 from sqlalchemy import or_, delete, exc
 from sqlalchemy.orm import selectinload
 
+# [수정] StockHistory 모델 추가
 from flowork.models import db, Product, Variant, StoreStock, Setting, Store, StockHistory
 from flowork.utils import clean_string_upper, get_choseong, generate_barcode, get_sort_key
 
@@ -893,6 +894,7 @@ def api_order_product_search():
     else:
         return jsonify({'status': 'error', 'message': f"'{query}'(으)로 검색된 상품이 없습니다."}), 404
 
+# [신규] DB 완전 초기화 (상품/옵션/재고)
 @api_bp.route('/api/reset_database_completely', methods=['POST'])
 @admin_required
 def reset_database_completely():
@@ -902,22 +904,22 @@ def reset_database_completely():
     try:
         brand_id = current_user.current_brand_id
         
-        # 1. Get store IDs for the brand
+        # 1. 브랜드 소속 매장 ID 조회
         store_ids_query = db.session.query(Store.id).filter_by(brand_id=brand_id)
         
-        # 2. Delete StockHistory (Referencing Variant and Store)
+        # 2. StockHistory 삭제 (Variant, Store 참조)
         db.session.query(StockHistory).filter(StockHistory.store_id.in_(store_ids_query)).delete(synchronize_session=False)
 
-        # 3. Delete StoreStock (Referencing Variant and Store)
+        # 3. StoreStock 삭제 (Variant, Store 참조)
         db.session.query(StoreStock).filter(StoreStock.store_id.in_(store_ids_query)).delete(synchronize_session=False)
         
-        # 4. Get product IDs for the brand
+        # 4. Product ID 조회
         product_ids_query = db.session.query(Product.id).filter_by(brand_id=brand_id)
 
-        # 5. Delete Variants (Referencing Product)
+        # 5. Variant 삭제 (Product 참조)
         db.session.query(Variant).filter(Variant.product_id.in_(product_ids_query)).delete(synchronize_session=False)
 
-        # 6. Delete Products
+        # 6. Product 삭제
         db.session.query(Product).filter_by(brand_id=brand_id).delete(synchronize_session=False)
         
         db.session.commit()
