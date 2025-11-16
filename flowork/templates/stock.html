@@ -58,10 +58,13 @@
                         <input type="hidden" name="upload_mode" value="db"/>
                         <input type="hidden" name="is_full_import" value="true"/>
 
-                        <div class="form-check form-switch mb-3 p-3 bg-light border rounded">
-                            <input class="form-check-input horizontal-mode-switch" type="checkbox" role="switch" id="switch-import-db" name="is_horizontal">
-                            <label class="form-check-label fw-bold" for="switch-import-db">가로형(Matrix) 엑셀 파일인가요?</label>
-                            <div class="form-text">체크 시 '사이즈'가 헤더(가로)에 나열된 형식으로 인식하며, 체크 해제 시 '사이즈' 열을 직접 선택해야 합니다.</div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input horizontal-mode-switch" type="checkbox" id="check-import-db" name="is_horizontal">
+                                <label class="form-check-label fw-bold" for="check-import-db">
+                                    가로형(Matrix) 엑셀 파일 (사이즈가 가로로 나열됨)
+                                </label>
+                            </div>
                         </div>
 
                         <div class="mb-3">
@@ -168,9 +171,13 @@
                         </div>
                         {% endif %}
 
-                        <div class="form-check form-switch mb-3 p-3 bg-light border rounded">
-                            <input class="form-check-input horizontal-mode-switch" type="checkbox" role="switch" id="switch-update-store" name="is_horizontal">
-                            <label class="form-check-label fw-bold" for="switch-update-store">가로형(Matrix) 엑셀 파일인가요?</label>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input horizontal-mode-switch" type="checkbox" id="check-update-store" name="is_horizontal">
+                                <label class="form-check-label fw-bold" for="check-update-store">
+                                    가로형(Matrix) 엑셀 파일 (사이즈가 가로로 나열됨)
+                                </label>
+                            </div>
                         </div>
 
                         <div class="mb-3">
@@ -284,9 +291,13 @@
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <input type="hidden" name="upload_mode" value="hq"/>
                         
-                        <div class="form-check form-switch mb-3 p-3 bg-light border rounded">
-                            <input class="form-check-input horizontal-mode-switch" type="checkbox" role="switch" id="switch-update-hq" name="is_horizontal">
-                            <label class="form-check-label fw-bold" for="switch-update-hq">가로형(Matrix) 엑셀 파일인가요?</label>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input horizontal-mode-switch" type="checkbox" id="check-update-hq" name="is_horizontal">
+                                <label class="form-check-label fw-bold" for="check-update-hq">
+                                    가로형(Matrix) 엑셀 파일 (사이즈가 가로로 나열됨)
+                                </label>
+                            </div>
                         </div>
 
                         <div class="mb-3">
@@ -377,83 +388,6 @@
                     <form action="{{ url_for('api.sync_missing_data') }}" method="POST" onsubmit="return confirm('데이터 동기화를 실행합니다.\n비어있는 품목/년도/가격 정보가 자동으로 채워집니다.\n계속하시겠습니까?');">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <button type="submit" class="btn btn-info"><i class="bi bi-check2-circle me-1"></i>데이터 동기화 실행</button>
-                    </form>
-                </div>
-            </div>
-            {% endif %}
-
-            {% if not current_user.store_id %}
-            <div class="card mb-3 management-section">
-                <div class="card-header">
-                    <h3 class="mb-0"><i class="bi bi-house-gear me-2"></i>매장재고 엑셀 업로드 (본사 전용)</h3>
-                </div>
-                <div class="card-body">
-                    <div class="card-description">
-                        <strong>엑셀 파일로 '선택한 매장'의 재고(StoreStock.quantity)만 업데이트합니다. (바코드 2필드 기준)</strong>
-                        <span>(1) '업데이트 대상 매장' 선택 -> (2) '파일 선택' -> (3) 열 분석 -> (4) '매장재고 업데이트' 클릭</span>
-                    </div>
-                    
-                    <form action="{{ url_for('api.update_store_stock_excel') }}" method="POST" enctype="multipart/form-data" 
-                          class="update-stock-form" id="form-update-store-hq"
-                          onsubmit="return confirm('엑셀 파일 기준으로 선택한 매장의 재고를 (재고만) 수정합니다.\n(바코드 2필드 기준 / 신규 상품 추가 안함)\n계속하시겠습니까?');">
-                        
-                        <div class="mb-3">
-                            <label for="target_store_id" class="form-label fw-bold">업데이트 대상 매장*</label>
-                            <select class="form-select" id="target_store_id" name="target_store_id" required>
-                                <option value="">-- 재고를 적용할 매장을 선택하세요 --</option>
-                                {% for store in all_stores %}
-                                <option value="{{ store.id }}">{{ store.store_name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <hr>
-                        <div class="mb-3">
-                             <label for="store_stock_excel_file_hq" class="form-label file-upload-wrapper" id="wrapper-store-file-hq">
-                                <i class="bi bi-file-earmark-excel-fill fs-4"></i>
-                                <div>파일 선택 (매장재고 - 바코드)</div>
-                                <div class="file-status-text" id="status-store-file-hq">엑셀 파일을 선택하세요.</div>
-                            </label>
-                            <input type="file" name="excel_file" class="form-control" accept=".xlsx, .xls" required id="store_stock_excel_file_hq">
-                        </div>
-
-                        <div class="column-mapping-grid mb-3" id="grid-update-store-hq">
-                            <div class="mapping-item-wrapper">
-                                <div class="mapping-item">
-                                    <label for="col_barcode_store_hq">바코드*</label>
-                                    <select id="col_barcode_store_hq" name="barcode_col" class="form-select form-select-sm" required disabled>
-                                        <option value="">-- 열 선택 --</option>
-                                    </select>
-                                    <div class="col-preview" id="preview_col_barcode_store_hq"></div>
-                                </div>
-                            </div>
-                            <div class="mapping-item-wrapper">
-                                <div class="mapping-item">
-                                    <label for="col_stock_store_hq">매장재고*</label>
-                                    <select id="col_stock_store_hq" name="qty_col" class="form-select form-select-sm" required disabled>
-                                        <option value="">-- 열 선택 --</option>
-                                    </select>
-                                    <div class="col-preview" id="preview_col_stock_store_hq"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <button type="submit" class="btn btn-primary"><i class="bi bi-arrow-clockwise me-1"></i>매장재고 수정 (바코드)</button>
-                    </form>
-                </div>
-            </div>
-
-            <div class="card mb-3 management-section border-danger">
-                 <div class="card-header bg-danger text-white">
-                     <h3 class="mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>상품 데이터 초기화 (현재 브랜드)</h3>
-                </div>
-                <div class="card-body">
-                    <div class="card-description text-danger">
-                        <strong>(요청) 현재 브랜드의 '상품/옵션/재고' 데이터만 삭제합니다.</strong>
-                        <span>(경고) '주문/공지/설정/계정'은 유지되지만, 현재 브랜드의 모든 '상품(Product)', '옵션(Variant)', '매장재고(StoreStock)' 기록이 영구적으로 삭제됩니다.</span>
-                    </div>
-                    <form action="{{ url_for('api.reset_database_completely') }}" method="POST" onsubmit="return confirm('🚨🚨🚨 최종 경고! 🚨🚨🚨\n\n데이터베이스의 모든 상품, 옵션, 재고 정보가 영구적으로 삭제됩니다.\n\n정말로 계속 진행하시겠습니까?');">
-                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <button type="submit" class="btn btn-danger"><i class="bi bi-trash3-fill me-1"></i>상품 데이터 초기화</button>
                     </form>
                 </div>
             </div>
