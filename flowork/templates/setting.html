@@ -60,6 +60,28 @@
                         <span class="text-muted small">서버에 저장된 브랜드 설정 파일(JSON)을 불러옵니다.</span>
                         <button class="btn btn-info btn-sm" id="btn-load-settings"><i class="bi bi-file-earmark-code"></i> 설정 파일 로드</button>
                     </div>
+                    
+                    <div class="mt-2 p-2 bg-light border rounded" style="font-size: 0.85rem;">
+                        {% if loaded_settings_file %}
+                            <span class="text-success fw-bold">
+                                <i class="bi bi-check-circle-fill me-1"></i> 현재 적용된 파일: <strong>{{ loaded_settings_file }}</strong>
+                            </span>
+                        {% else %}
+                            <span class="text-danger fw-bold">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i> 적용된 설정 파일이 없습니다.
+                            </span>
+                            <br>
+                            <small class="text-muted">(파일 로드 버튼을 눌러 설정을 적용하세요.)</small>
+                        {% endif %}
+                        
+                        {% if expected_settings_file %}
+                        <br>
+                        <span class="text-muted">
+                            (로드 시 `flowork/brands/{{ expected_settings_file }}` 파일을 읽습니다.)
+                        </span>
+                        {% endif %}
+                    </div>
+
                     <div id="load-settings-status" class="mt-2"></div>
 
                     <hr>
