@@ -89,6 +89,14 @@ def load_settings_from_file():
                 new_setting = Setting(brand_id=brand.id, key=key, value=str_value)
                 db.session.add(new_setting)
             updated_count += 1
+            
+        loaded_status_key = 'LOADED_SETTINGS_FILE'
+        setting = Setting.query.filter_by(brand_id=brand.id, key=loaded_status_key).first()
+        if setting:
+            setting.value = filename
+        else:
+            new_setting = Setting(brand_id=brand.id, key=loaded_status_key, value=filename)
+            db.session.add(new_setting)
                 
         db.session.commit()
         return jsonify({'status': 'success', 'message': f"'{filename}' 파일에서 {updated_count}개의 설정을 로드하여 적용했습니다."})
@@ -304,7 +312,6 @@ def update_store(store_id):
 @api_bp.route('/api/stores/<int:store_id>', methods=['DELETE', 'POST'])
 @login_required
 def delete_store(store_id):
-    # [수정] 매장 관리자가 본인 매장을 삭제(계정 초기화)할 수 있도록 권한 로직 변경
     is_hq_admin = current_user.brand_id and not current_user.store_id
     is_store_self_delete = current_user.store_id and current_user.store_id == store_id
     is_super_admin = current_user.is_super_admin
@@ -313,14 +320,12 @@ def delete_store(store_id):
         abort(403, description="삭제 권한이 없습니다.")
 
     try:
-        # 본인 매장 삭제 시 (안전 장치)
         if is_store_self_delete:
             store = Store.query.filter_by(id=store_id, brand_id=current_user.brand_id).first()
         else:
-            # 본사 관리자는 자기 브랜드 소속 매장만
             if is_hq_admin:
                 store = Store.query.filter_by(id=store_id, brand_id=current_user.current_brand_id).first()
-            else: # 슈퍼관리자
+            else: 
                 store = db.session.get(Store, store_id)
         
         if not store:
@@ -329,7 +334,6 @@ def delete_store(store_id):
                 return redirect(url_for('ui.setting_page'))
             return jsonify({'status': 'error', 'message': '삭제할 매장을 찾을 수 없습니다.'}), 404
         
-        # [조건] 매장 사용자가 등록 신청한 상태에서 본사 관리자가 삭제하려는 경우 (등록 초기화 유도)
         if is_hq_admin and store.is_registered:
             msg = f"'{store.store_name}'(은)는 가입된 매장입니다. 계정 삭제는 '등록 초기화' 기능을 사용하세요."
             if request.method == 'POST':
@@ -341,7 +345,6 @@ def delete_store(store_id):
         db.session.delete(store)
         db.session.commit()
         
-        # [처리] 매장 관리자가 스스로 삭제한 경우 -> 로그아웃
         if is_store_self_delete:
             logout_user()
             flash(f"매장 계정({name})이 삭제되었습니다.", 'info')
