@@ -7,14 +7,15 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
-        .status-badge { font-size: 0.85rem; width: 80px; }
+        .status-badge { font-size: 0.85rem; width: 80px; cursor: help; }
         .img-preview { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #dee2e6; }
         .img-placeholder { width: 40px; height: 40px; background: #f8f9fa; border-radius: 4px; border: 1px solid #dee2e6; display: flex; align-items: center; justify-content: center; color: #adb5bd; }
         .nav-tabs .nav-link { cursor: pointer; }
     </style>
 </head>
 <body data-api-list="{{ url_for('api.get_product_image_status') }}" 
-      data-api-process="{{ url_for('api.trigger_image_process') }}">
+      data-api-process="{{ url_for('api.trigger_image_process') }}"
+      data-api-reset="{{ url_for('api.reset_image_process_status') }}">
     
     <div class="container my-4">
         {% include '_header.html' %}
@@ -24,8 +25,13 @@
             <h2 class="section-title mb-0"><i class="bi bi-globe me-2"></i>온라인 품번 관리</h2>
             <div class="d-flex gap-2">
                 <span id="status-text" class="text-muted small align-self-center me-2">로딩 중...</span>
+                
+                <button class="btn btn-warning text-dark" id="btn-reset-status" disabled>
+                    <i class="bi bi-arrow-counterclockwise me-1"></i> 상태 초기화
+                </button>
+                
                 <button class="btn btn-primary" id="btn-start-process" disabled>
-                    <i class="bi bi-play-fill me-1"></i> 선택 항목 처리 시작
+                    <i class="bi bi-play-fill me-1"></i> 처리 시작
                 </button>
             </div>
         </div>
@@ -35,7 +41,7 @@
                 <ul class="nav nav-tabs card-header-tabs" id="managementTabs" role="tablist">
                     <li class="nav-item" role="presentation">
                         <button class="nav-link active" id="tab-processing-btn" data-bs-toggle="tab" data-bs-target="#tab-processing" type="button">
-                            <i class="bi bi-hourglass-split me-1"></i>진행중 <span class="badge bg-primary ms-1" id="count-processing">0</span>
+                            <i class="bi bi-hourglass-split me-1"></i>진행/대기 <span class="badge bg-primary ms-1" id="count-processing">0</span>
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
@@ -44,13 +50,13 @@
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="tab-all-btn" data-bs-toggle="tab" data-bs-target="#tab-all" type="button">
-                            <i class="bi bi-list me-1"></i>전체 <span class="badge bg-secondary ms-1" id="count-all">0</span>
+                        <button class="nav-link" id="tab-failed-btn" data-bs-toggle="tab" data-bs-target="#tab-failed" type="button">
+                            <i class="bi bi-exclamation-triangle me-1"></i>실패 <span class="badge bg-danger ms-1" id="count-failed">0</span>
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="tab-search-btn" data-bs-toggle="tab" data-bs-target="#tab-search" type="button">
-                            <i class="bi bi-search me-1"></i>상세검색
+                        <button class="nav-link" id="tab-all-btn" data-bs-toggle="tab" data-bs-target="#tab-all" type="button">
+                            <i class="bi bi-list me-1"></i>전체 <span class="badge bg-secondary ms-1" id="count-all">0</span>
                         </button>
                     </li>
                 </ul>
@@ -95,8 +101,28 @@
                             </table>
                         </div>
                     </div>
+                    
+                    <div class="tab-pane fade" id="tab-failed" role="tabpanel">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0 text-center">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 50px;"><input type="checkbox" class="form-check-input check-all-tab" data-target="tbody-failed"></th>
+                                        <th>품번</th>
+                                        <th>상품명</th>
+                                        <th>오류 메시지</th>
+                                        <th>상태</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-failed"></tbody>
+                            </table>
+                        </div>
+                    </div>
 
                     <div class="tab-pane fade" id="tab-all" role="tabpanel">
+                        <div class="p-3 bg-light border-bottom">
+                            <input type="text" class="form-control" id="search-query" placeholder="품번 또는 상품명 검색...">
+                        </div>
                         <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0 text-center">
                                 <thead class="table-light">
@@ -114,42 +140,6 @@
                         </div>
                     </div>
 
-                    <div class="tab-pane fade" id="tab-search" role="tabpanel">
-                        <div class="p-3 bg-light border-bottom">
-                            <div class="row g-2">
-                                <div class="col-md-4">
-                                    <input type="text" class="form-control" id="search-query" placeholder="품번 또는 상품명 검색...">
-                                </div>
-                                <div class="col-md-3">
-                                    <select class="form-select" id="search-status">
-                                        <option value="">모든 상태</option>
-                                        <option value="READY">대기</option>
-                                        <option value="PROCESSING">진행중</option>
-                                        <option value="COMPLETED">완료</option>
-                                        <option value="FAILED">실패</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0 text-center">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width: 50px;"><input type="checkbox" class="form-check-input check-all-tab" data-target="tbody-search"></th>
-                                        <th>품번</th>
-                                        <th>상품명</th>
-                                        <th>컬러수</th>
-                                        <th>썸네일</th>
-                                        <th>상태</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tbody-search">
-                                    <tr><td colspan="6" class="p-4 text-muted">검색어를 입력하세요.</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
                 </div>
             </div>
         </div>
@@ -160,10 +150,12 @@
         document.addEventListener('DOMContentLoaded', () => {
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
             const btnStart = document.getElementById('btn-start-process');
+            const btnReset = document.getElementById('btn-reset-status');
             const statusText = document.getElementById('status-text');
             
             const API_LIST = document.body.dataset.apiList;
             const API_PROCESS = document.body.dataset.apiProcess;
+            const API_RESET = document.body.dataset.apiReset;
 
             let itemsCache = [];
             let isProcessing = false;
@@ -178,7 +170,6 @@
                     if (json.status === 'success') {
                         itemsCache = json.data;
                         renderAllTabs();
-                        updateGlobalStatus();
                     }
                 } catch (e) {
                     console.error("Load error:", e);
@@ -187,20 +178,31 @@
             }
 
             function renderAllTabs() {
-                const processingItems = itemsCache.filter(i => i.status === 'PROCESSING');
+                const processingItems = itemsCache.filter(i => i.status === 'PROCESSING' || i.status === 'READY');
                 const completedItems = itemsCache.filter(i => i.status === 'COMPLETED');
+                const failedItems = itemsCache.filter(i => i.status === 'FAILED');
                 
                 renderTable('tbody-processing', processingItems);
                 renderTable('tbody-completed', completedItems);
-                renderTable('tbody-all', itemsCache);
+                renderTable('tbody-failed', failedItems);
                 
-                // 검색 탭은 검색어가 있을 때만 갱신
-                const query = document.getElementById('search-query').value.trim();
-                if (query) filterSearch();
+                // 전체 탭 (검색어 있으면 필터링)
+                const query = document.getElementById('search-query').value.toLowerCase().trim();
+                if (query) {
+                    const filtered = itemsCache.filter(item => 
+                        item.style_code.toLowerCase().includes(query) || item.product_name.toLowerCase().includes(query)
+                    );
+                    renderTable('tbody-all', filtered);
+                } else {
+                    renderTable('tbody-all', itemsCache);
+                }
 
                 document.getElementById('count-processing').textContent = processingItems.length;
                 document.getElementById('count-completed').textContent = completedItems.length;
+                document.getElementById('count-failed').textContent = failedItems.length;
                 document.getElementById('count-all').textContent = itemsCache.length;
+                
+                updateStatusText();
             }
 
             function renderTable(tbodyId, items) {
@@ -211,7 +213,7 @@
 
                 tbody.innerHTML = '';
                 if (items.length === 0) {
-                    const colSpan = (tbodyId === 'tbody-completed') ? 7 : 6;
+                    const colSpan = (tbodyId === 'tbody-completed') ? 7 : (tbodyId === 'tbody-failed' ? 5 : 6);
                     tbody.innerHTML = `<tr><td colspan="${colSpan}" class="p-4 text-muted">데이터가 없습니다.</td></tr>`;
                     return;
                 }
@@ -224,61 +226,64 @@
                     if (item.status === 'PROCESSING') { badgeClass = 'bg-primary'; statusLabel = '진행중'; }
                     else if (item.status === 'COMPLETED') { badgeClass = 'bg-success'; statusLabel = '완료'; }
                     else if (item.status === 'FAILED') { badgeClass = 'bg-danger'; statusLabel = '실패'; }
+                    else if (item.status === 'DB_PATCH_REQ') { badgeClass = 'bg-warning text-dark'; statusLabel = 'DB점검'; }
+                    
+                    // 에러 메시지 툴팁
+                    const titleAttr = item.message ? `title="${item.message}"` : '';
                     
                     const thumbHtml = item.thumbnail 
                         ? `<a href="${item.thumbnail}" target="_blank"><img src="${item.thumbnail}" class="img-preview"></a>`
                         : `<div class="img-placeholder"><i class="bi bi-image"></i></div>`;
-                        
+                    
                     const detailLink = item.detail 
                         ? `<a href="${item.detail}" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-file-earmark-image"></i></a>`
                         : `-`;
 
                     const disabled = item.status === 'PROCESSING' ? 'disabled' : '';
                     const isChecked = checkedSet.has(item.style_code);
-
-                    let extraCells = '';
-                    if (tbodyId === 'tbody-completed') {
-                         extraCells = `<td>${detailLink}</td><td><i class="bi bi-google text-success"></i></td>`;
+                    
+                    // 테이블별 컬럼 구성
+                    let innerCells = '';
+                    
+                    if (tbodyId === 'tbody-failed') {
+                        innerCells = `
+                            <td class="fw-bold">${item.style_code}</td>
+                            <td class="text-start text-truncate" style="max-width: 150px;">${item.product_name}</td>
+                            <td class="text-danger small text-start text-truncate" style="max-width: 200px;" ${titleAttr}>${item.message || '-'}</td>
+                            <td><span class="badge ${badgeClass} status-badge" ${titleAttr}>${statusLabel}</span></td>
+                        `;
+                    } else if (tbodyId === 'tbody-completed') {
+                        innerCells = `
+                            <td class="fw-bold">${item.style_code}</td>
+                            <td class="text-start text-truncate" style="max-width: 150px;">${item.product_name}</td>
+                            <td>${item.total_colors}</td>
+                            <td>${thumbHtml}</td>
+                            <td>${detailLink}</td>
+                            <td><i class="bi bi-google text-success"></i></td>
+                        `;
                     } else {
-                         extraCells = `<td><span class="badge ${badgeClass} status-badge">${statusLabel}</span></td>`;
+                        innerCells = `
+                            <td class="fw-bold">${item.style_code}</td>
+                            <td class="text-start text-truncate" style="max-width: 200px;">${item.product_name}</td>
+                            <td>${item.total_colors}</td>
+                            <td>${thumbHtml}</td>
+                            <td><span class="badge ${badgeClass} status-badge" ${titleAttr}>${statusLabel}</span></td>
+                        `;
                     }
 
                     tr.innerHTML = `
                         <td><input type="checkbox" class="form-check-input item-check" value="${item.style_code}" ${isChecked ? 'checked' : ''} ${disabled}></td>
-                        <td class="fw-bold">${item.style_code}</td>
-                        <td class="text-start text-truncate" style="max-width: 200px;">${item.product_name}</td>
-                        <td>${item.total_colors}</td>
-                        <td>${thumbHtml}</td>
-                        ${extraCells}
+                        ${innerCells}
                     `;
                     tbody.appendChild(tr);
                 });
-                updateStartButton();
+                updateButtons();
             }
 
             // 검색 필터링
-            const searchInput = document.getElementById('search-query');
-            const searchStatus = document.getElementById('search-status');
-            
-            function filterSearch() {
-                const query = searchInput.value.toLowerCase().trim();
-                const status = searchStatus.value;
-                
-                if (!query && !status) {
-                    renderTable('tbody-search', []);
-                    return;
-                }
-
-                const filtered = itemsCache.filter(item => {
-                    const matchQuery = item.style_code.toLowerCase().includes(query) || item.product_name.toLowerCase().includes(query);
-                    const matchStatus = !status || item.status === status;
-                    return matchQuery && matchStatus;
-                });
-                renderTable('tbody-search', filtered);
-            }
-
-            searchInput.addEventListener('input', filterSearch);
-            searchStatus.addEventListener('change', filterSearch);
+            document.getElementById('search-query').addEventListener('input', () => {
+                renderAllTabs();
+            });
 
             // 전체 선택 (탭별)
             document.querySelectorAll('.check-all-tab').forEach(checkAll => {
@@ -286,34 +291,39 @@
                     const targetId = e.target.dataset.target;
                     const isChecked = e.target.checked;
                     const tbody = document.getElementById(targetId);
-                    tbody.querySelectorAll('.item-check:not(:disabled)').forEach(cb => {
-                        cb.checked = isChecked;
-                    });
-                    updateStartButton();
+                    if (tbody) {
+                        tbody.querySelectorAll('.item-check:not(:disabled)').forEach(cb => {
+                            cb.checked = isChecked;
+                        });
+                        updateButtons();
+                    }
                 });
             });
 
             // 개별 선택 감지
             document.body.addEventListener('change', (e) => {
                 if (e.target.classList.contains('item-check')) {
-                    updateStartButton();
+                    updateButtons();
                 }
             });
 
-            function updateStartButton() {
-                // 현재 활성화된 탭의 체크박스만 계산 (또는 전체 탭 합산)
-                // 여기서는 전체 DOM에서 체크된 항목을 수집 (중복 제거)
+            function updateButtons() {
                 const allChecked = document.querySelectorAll('.item-check:checked');
-                const uniqueCodes = new Set(Array.from(allChecked).map(cb => cb.value));
-                const count = uniqueCodes.size;
+                const count = new Set(Array.from(allChecked).map(cb => cb.value)).size;
 
                 btnStart.disabled = count === 0;
-                btnStart.innerHTML = count > 0 
-                    ? `<i class="bi bi-play-fill me-1"></i> ${count}건 처리 시작`
-                    : `<i class="bi bi-play-fill me-1"></i> 선택 항목 처리 시작`;
+                btnReset.disabled = count === 0;
+                
+                if (count > 0) {
+                    btnStart.innerHTML = `<i class="bi bi-play-fill me-1"></i> ${count}건 처리 시작`;
+                    btnReset.innerHTML = `<i class="bi bi-arrow-counterclockwise me-1"></i> ${count}건 상태 초기화`;
+                } else {
+                    btnStart.innerHTML = `<i class="bi bi-play-fill me-1"></i> 선택 항목 처리 시작`;
+                    btnReset.innerHTML = `<i class="bi bi-arrow-counterclockwise me-1"></i> 상태 초기화`;
+                }
             }
 
-            function updateGlobalStatus() {
+            function updateStatusText() {
                 const processing = itemsCache.filter(i => i.status === 'PROCESSING').length;
                 if (processing > 0) {
                     statusText.innerHTML = `<span class="spinner-border spinner-border-sm text-primary me-1"></span> ${processing}건 처리 중...`;
@@ -322,41 +332,67 @@
                 }
             }
 
+            // [처리 시작] 버튼
             btnStart.addEventListener('click', async () => {
-                const allChecked = document.querySelectorAll('.item-check:checked');
-                const selectedCodes = Array.from(new Set(Array.from(allChecked).map(cb => cb.value)));
-                
+                const selectedCodes = getSelectedCodes();
                 if (selectedCodes.length === 0) return;
                 if (!confirm(`${selectedCodes.length}개 품번의 이미지 작업을 시작하시겠습니까?`)) return;
+                await sendRequest(API_PROCESS, { style_codes: selectedCodes });
+            });
 
+            // [상태 초기화] 버튼
+            btnReset.addEventListener('click', async () => {
+                const selectedCodes = getSelectedCodes();
+                if (selectedCodes.length === 0) return;
+                if (!confirm(`선택한 ${selectedCodes.length}개 품번의 상태를 '대기(READY)'로 강제 초기화하시겠습니까?\n(진행 중이던 작업은 중단되지 않지만, DB 상태는 변경됩니다)`)) return;
+                await sendRequest(API_RESET, { style_codes: selectedCodes });
+            });
+
+            function getSelectedCodes() {
+                const allChecked = document.querySelectorAll('.item-check:checked');
+                return Array.from(new Set(Array.from(allChecked).map(cb => cb.value)));
+            }
+
+            async function sendRequest(url, data) {
                 isProcessing = true;
-                btnStart.disabled = true;
-                btnStart.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 요청 중...';
+                setButtonsLoading(true);
 
                 try {
-                    const res = await fetch(API_PROCESS, {
+                    const res = await fetch(url, {
                         method: 'POST',
                         headers: { 
                             'Content-Type': 'application/json',
                             'X-CSRFToken': csrfToken 
                         },
-                        body: JSON.stringify({ style_codes: selectedCodes })
+                        body: JSON.stringify(data)
                     });
                     const json = await res.json();
                     if (json.status === 'success') {
                         alert(json.message);
-                        isProcessing = false;
-                        loadData(); 
                     } else {
                         alert('오류: ' + json.message);
-                        isProcessing = false;
                     }
                 } catch (e) {
                     alert('통신 오류');
+                } finally {
                     isProcessing = false;
+                    setButtonsLoading(false);
+                    document.querySelectorAll('.check-all-tab').forEach(cb => cb.checked = false);
+                    loadData(); // 즉시 갱신
                 }
-            });
+            }
+            
+            function setButtonsLoading(isLoading) {
+                if (isLoading) {
+                    btnStart.disabled = true;
+                    btnReset.disabled = true;
+                    btnStart.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 처리 중...';
+                } else {
+                    updateButtons();
+                }
+            }
 
+            // 초기 실행
             loadData();
             setInterval(loadData, 5000);
         });
