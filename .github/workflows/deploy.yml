@@ -2,7 +2,7 @@ name: Deploy to Contabo
 
 on:
   push:
-    branches: [ "main" ]  # main 브랜치에 푸시되면 실행
+    branches: [ "main" ]
 
 jobs:
   deploy:
@@ -19,29 +19,11 @@ jobs:
           password: ${{ secrets.PASSWORD }}
           port: 22
           script: |
-            # 1. 프로젝트 폴더로 이동
             cd ~/flowork
-            
-            # 2. 최신 코드 받기 (Git Pull)
             git pull origin main
-            
-            # 3. Docker 이미지 새로 빌드 (캐시 없이 깨끗하게)
-            # --no-cache 옵션이 '캐시를 다 지우고' 빌드하라는 뜻입니다.
+            echo '${{ secrets.EIDER_JSON_KEY }}' > EIDERGOOGLE.json
             docker build --no-cache -t flowork .
-            
-            # 4. 기존 컨테이너 중지 및 삭제
             docker stop flowork_app || true
             docker rm flowork_app || true
-            
-            # 5. 새로운 컨테이너 실행 (환경변수는 GitHub Secrets에서 가져옴)
-            docker run -d \
-              --name flowork_app \
-              --restart always \
-              -p 80:5000 \
-              -e PORT=5000 \
-              -e SECRET_KEY="${{ secrets.ENV_SECRET_KEY }}" \
-              -e DATABASE_URL="${{ secrets.ENV_DATABASE_URL }}" \
-              flowork
-            
-            # 6. (선택) 불필요한 미사용 이미지 삭제 (디스크 공간 확보)
+            docker run -d --name flowork_app --restart always -p 80:5000 -e PORT=5000 -e SECRET_KEY="${{ secrets.ENV_SECRET_KEY }}" -e DATABASE_URL="${{ secrets.ENV_DATABASE_URL }}" flowork
             docker image prune -f
