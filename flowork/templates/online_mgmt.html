@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>FLOWORK - 온라인 관리</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/journal/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .status-badge { font-size: 0.85rem; width: 80px; }
+        .img-preview { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #dee2e6; }
+        .img-placeholder { width: 40px; height: 40px; background: #f8f9fa; border-radius: 4px; border: 1px solid #dee2e6; display: flex; align-items: center; justify-content: center; color: #adb5bd; }
+    </style>
+</head>
+<body data-api-list="{{ url_for('api.get_product_image_status') }}" 
+      data-api-process="{{ url_for('api.trigger_image_process') }}">
+    
+    <div class="container my-4">
+        {% include '_header.html' %}
+        {% include '_navigation.html' %}
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="section-title mb-0"><i class="bi bi-globe me-2"></i>온라인 품번 관리</h2>
+            <button class="btn btn-primary" id="btn-start-process" disabled>
+                <i class="bi bi-play-fill me-1"></i> 선택 항목 처리 시작
+            </button>
+        </div>
+
+        <div class="card">
+            <div class="card-header bg-light">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span id="status-text" class="text-muted small">데이터 로딩 중...</span>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="check-all">
+                        <label class="form-check-label" for="check-all">전체 선택</label>
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 text-center">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 50px;">선택</th>
+                            <th>품번 (Style Code)</th>
+                            <th>대표 상품명</th>
+                            <th>컬러 수</th>
+                            <th>썸네일</th>
+                            <th>상세이미지</th>
+                            <th>상태</th>
+                        </tr>
+                    </thead>
+                    <tbody id="image-list-body">
+                        <tr><td colspan="7" class="p-5 text-muted">로딩 중...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            const listBody = document.getElementById('image-list-body');
+            const btnStart = document.getElementById('btn-start-process');
+            const checkAll = document.getElementById('check-all');
+            const statusText = document.getElementById('status-text');
+            
+            const API_LIST = document.body.dataset.apiList;
+            const API_PROCESS = document.body.dataset.apiProcess;
+
+            let itemsCache = [];
+            let isProcessing = false;
+
+            async function loadData() {
+                if (isProcessing) return; 
+
+                try {
+                    const res = await fetch(API_LIST);
+                    const json = await res.json();
+                    
+                    if (json.status === 'success') {
+                        itemsCache = json.data;
+                        renderTable(itemsCache);
+                        updateStatusText();
+                    }
+                } catch (e) {
+                    console.error("Load error:", e);
+                }
+            }
+
+            function renderTable(items) {
+                const checkedIds = new Set(
+                    Array.from(document.querySelectorAll('.item-check:checked')).map(cb => cb.value)
+                );
+
+                listBody.innerHTML = '';
+                
+                if (items.length === 0) {
+                    listBody.innerHTML = '<tr><td colspan="7" class="p-5 text-muted">등록된 상품이 없습니다.</td></tr>';
+                    return;
+                }
+
+                items.forEach(item => {
+                    const tr = document.createElement('tr');
+                    const isChecked = checkedIds.has(item.style_code);
+                    
+                    let badgeClass = 'bg-secondary';
+                    let statusLabel = '대기';
+                    if (item.status === 'PROCESSING') { badgeClass = 'bg-primary'; statusLabel = '진행중'; }
+                    else if (item.status === 'COMPLETED') { badgeClass = 'bg-success'; statusLabel = '완료'; }
+                    else if (item.status === 'FAILED') { badgeClass = 'bg-danger'; statusLabel = '실패'; }
+                    
+                    const thumbHtml = item.thumbnail 
+                        ? `<a href="${item.thumbnail}" target="_blank"><img src="${item.thumbnail}" class="img-preview"></a>`
+                        : `<div class="img-placeholder"><i class="bi bi-image"></i></div>`;
+                        
+                    const detailHtml = item.detail 
+                        ? `<a href="${item.detail}" target="_blank"><i class="bi bi-file-earmark-image fs-4 text-primary"></i></a>`
+                        : `<span class="text-muted">-</span>`;
+
+                    const disabled = item.status === 'PROCESSING' ? 'disabled' : '';
+
+                    tr.innerHTML = `
+                        <td>
+                            <input type="checkbox" class="form-check-input item-check" 
+                                   value="${item.style_code}" ${isChecked ? 'checked' : ''} ${disabled}>
+                        </td>
+                        <td class="fw-bold">${item.style_code}</td>
+                        <td class="text-start">${item.product_name}</td>
+                        <td>${item.total_colors}</td>
+                        <td>${thumbHtml}</td>
+                        <td>${detailHtml}</td>
+                        <td><span class="badge ${badgeClass} status-badge">${statusLabel}</span></td>
+                    `;
+                    listBody.appendChild(tr);
+                });
+                
+                updateStartButton();
+            }
+
+            checkAll.addEventListener('change', (e) => {
+                const isChecked = e.target.checked;
+                document.querySelectorAll('.item-check:not(:disabled)').forEach(cb => {
+                    cb.checked = isChecked;
+                });
+                updateStartButton();
+            });
+
+            listBody.addEventListener('change', (e) => {
+                if (e.target.classList.contains('item-check')) {
+                    updateStartButton();
+                }
+            });
+
+            function updateStartButton() {
+                const count = document.querySelectorAll('.item-check:checked').length;
+                btnStart.disabled = count === 0;
+                btnStart.innerHTML = count > 0 
+                    ? `<i class="bi bi-play-fill me-1"></i> ${count}건 처리 시작`
+                    : `<i class="bi bi-play-fill me-1"></i> 선택 항목 처리 시작`;
+            }
+            
+            function updateStatusText() {
+                const total = itemsCache.length;
+                const completed = itemsCache.filter(i => i.status === 'COMPLETED').length;
+                const processing = itemsCache.filter(i => i.status === 'PROCESSING').length;
+                statusText.innerHTML = `총 <b>${total}</b>건 (완료: ${completed}, 진행중: ${processing})`;
+            }
+
+            btnStart.addEventListener('click', async () => {
+                const selectedCodes = Array.from(document.querySelectorAll('.item-check:checked')).map(cb => cb.value);
+                if (selectedCodes.length === 0) return;
+
+                if (!confirm(`선택한 ${selectedCodes.length}개 품번의 이미지 작업을 시작하시겠습니까?\n(시간이 소요될 수 있습니다)`)) return;
+
+                isProcessing = true;
+                btnStart.disabled = true;
+                btnStart.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 요청 중...';
+
+                try {
+                    const res = await fetch(API_PROCESS, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken 
+                        },
+                        body: JSON.stringify({ style_codes: selectedCodes })
+                    });
+                    
+                    const json = await res.json();
+                    if (json.status === 'success') {
+                        alert(json.message);
+                        loadData(); 
+                    } else {
+                        alert('오류: ' + json.message);
+                    }
+                } catch (e) {
+                    alert('통신 오류 발생');
+                    console.error(e);
+                } finally {
+                    isProcessing = false;
+                    checkAll.checked = false; 
+                }
+            });
+
+            loadData();
+            setInterval(loadData, 5000); 
+        });
+    </script>
+</body>
+</html>

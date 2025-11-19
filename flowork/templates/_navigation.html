@@ -19,6 +19,17 @@
         </div>
 
         <div class="nav-group">
+            <button class="btn btn-nav-category collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-online" aria-expanded="false">
+                온라인몰
+            </button>
+            <div class="collapse nav-sub-items" id="nav-online" data-bs-parent="#nav-accordion">
+                <a href="{{ url_for('ui.online_management') }}" class="btn btn-nav-item {{ 'active' if active_page == 'online_mgmt' else '' }}">
+                    품번관리
+                </a>
+            </div>
+        </div>
+
+        <div class="nav-group">
             <button class="btn btn-nav-category collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-return" aria-expanded="false">
                 주문반품
             </button>
