@@ -30,8 +30,9 @@ def process_style_code_group(brand_id, style_code):
         
         drive_service = get_drive_service(key_filename)
         if not drive_service:
-            _update_product_status(products, 'FAILED', f"Google Drive 연결 실패 (키 파일: {key_filename} 확인 필요)")
-            return False, "Google Drive 연결 실패"
+            msg = f"Google Drive 연결 실패 (키 파일: {key_filename} 확인 필요)"
+            _update_product_status(products, 'FAILED', msg)
+            return False, msg
 
         # 2. 컬러별 옵션 그룹화
         variants_map = {}
@@ -53,8 +54,9 @@ def process_style_code_group(brand_id, style_code):
                 }
 
         if not variants_map:
-            _update_product_status(products, 'FAILED', "처리할 컬러 옵션을 찾을 수 없습니다.")
-            return False, "처리할 컬러 옵션을 찾을 수 없습니다."
+            msg = "처리할 컬러 옵션을 찾을 수 없습니다."
+            _update_product_status(products, 'FAILED', msg)
+            return False, msg
 
         # 3. 임시 폴더 생성
         temp_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'temp_images', style_code)
@@ -76,28 +78,34 @@ def process_style_code_group(brand_id, style_code):
             # DF가 없고 DM만 있는 경우 등은 정책에 따라 처리
 
         if not valid_variants:
-            _update_product_status(products, 'FAILED', "이미지 다운로드 실패 또는 배경 제거 실패")
-            return False, "이미지 다운로드 실패 또는 배경 제거 실패"
+            msg = "이미지 다운로드 실패 또는 배경 제거 실패"
+            _update_product_status(products, 'FAILED', msg)
+            return False, msg
 
         # 6. 썸네일 및 상세 이미지 생성
         thumbnail_path = _create_thumbnail(valid_variants, temp_dir, style_code)
         detail_path = _create_detail_image(valid_variants, temp_dir, style_code)
 
         # 7. 구글 드라이브 업로드
-        result_links = _upload_structure_to_drive(
-            drive_service, drive_settings, style_code, variants_map, thumbnail_path, detail_path
-        )
+        try:
+            result_links = _upload_structure_to_drive(
+                drive_service, drive_settings, style_code, variants_map, thumbnail_path, detail_path
+            )
+        except Exception as upload_err:
+            msg = f"구글 드라이브 업로드 중 오류: {upload_err}"
+            _update_product_status(products, 'FAILED', msg)
+            return False, msg
 
-        # 8. DB 업데이트
+        # 8. 성공 처리 (DB 업데이트)
         _update_product_db(products, result_links)
         
         return True, f"성공: {len(valid_variants)}개 컬러 처리 완료"
 
     except Exception as e:
-        print(f"Image processing error: {e}")
-        traceback.print_exc()
+        err_msg = f"시스템 오류: {str(e)}\n{traceback.format_exc()}"
+        print(f"Image processing fatal error: {err_msg}")
         if products:
-            _update_product_status(products, 'FAILED', f"시스템 오류: {str(e)}")
+            _update_product_status(products, 'FAILED', err_msg)
         return False, f"오류 발생: {str(e)}"
 
 def _update_product_status(products, status, message=None):
@@ -224,13 +232,13 @@ async def _download_sequence(session, code, year, patterns, save_dir, img_type, 
 
 def _remove_background(input_path):
     try:
-        # Lazy Import (서버 부팅 속도 향상)
+        # [중요] Lazy Import: 함수 호출 시점에 라이브러리 로딩 (서버 부팅 속도 향상)
         from rembg import remove
         
         name, ext = os.path.splitext(input_path)
         output_path = f"{name}_nobg.png"
         
-        # AI 모델 저장 경로 지정
+        # AI 모델 저장 경로 지정 (권한 문제 방지)
         model_home = os.path.join(current_app.config['UPLOAD_FOLDER'], 'models')
         os.environ['U2NET_HOME'] = model_home
         os.makedirs(model_home, exist_ok=True)
@@ -350,10 +358,12 @@ def _create_detail_image(variants, temp_dir, style_code):
 def _upload_structure_to_drive(service, settings, style_code, variants_map, thumb_path, detail_path):
     root_id = settings.get('TARGET_FOLDER_ID')
     
+    # 1. 품번 폴더 생성
     product_folder_id = get_or_create_folder(service, style_code, root_id)
     
     result = {'drive_folders': {}, 'thumbnail': None, 'detail': None}
 
+    # 2. 썸네일/상세 폴더 및 파일 업로드
     if thumb_path:
         thumb_folder_id = get_or_create_folder(service, 'THUMBNAIL', product_folder_id)
         link = upload_file_to_drive(service, thumb_path, f"{style_code}_thumb.png", thumb_folder_id)
@@ -364,6 +374,7 @@ def _upload_structure_to_drive(service, settings, style_code, variants_map, thum
         link = upload_file_to_drive(service, detail_path, f"{style_code}_detail.png", detail_folder_id)
         result['detail'] = link
 
+    # 3. 컬러별 폴더 및 이미지 업로드
     for color_name, data in variants_map.items():
         color_folder_id = get_or_create_folder(service, color_name, product_folder_id)
         result['drive_folders'][color_name] = f"https://drive.google.com/drive/folders/{color_folder_id}"
@@ -374,7 +385,7 @@ def _upload_structure_to_drive(service, settings, style_code, variants_map, thum
 
         for path in data['files']['DF']:
             upload_file_to_drive(service, path, os.path.basename(path), original_folder_id)
-            
+        
         for path in data['files']['DG']:
              pass 
 
