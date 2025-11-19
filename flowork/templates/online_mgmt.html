@@ -178,326 +178,318 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-            const btnStart = document.getElementById('btn-start-process');
-            const btnReset = document.getElementById('btn-reset-status');
-            const btnCancelAll = document.getElementById('btn-cancel-all');
-            const statusText = document.getElementById('status-text');
-            
-            const API_LIST = document.body.dataset.apiList;
-            const API_PROCESS = document.body.dataset.apiProcess;
-            const API_RESET = document.body.dataset.apiReset;
-            const API_RESET_ALL = document.body.dataset.apiResetAll;
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        const btnStart = document.getElementById('btn-start-process');
+        const btnReset = document.getElementById('btn-reset-status');
+        const btnCancelAll = document.getElementById('btn-cancel-all');
+        const statusText = document.getElementById('status-text');
+        
+        const API_LIST = document.body.dataset.apiList;
+        const API_PROCESS = document.body.dataset.apiProcess;
+        const API_RESET = document.body.dataset.apiReset;
+        const API_RESET_ALL = document.body.dataset.apiResetAll;
 
-            let itemsCache = [];
-            let isProcessing = false;
-            
-            const paginationState = {
-                processing: { page: 1, limit: 10 },
-                failed: { page: 1, limit: 10 },
-                completed: { page: 1, limit: 100 },
-                all: { page: 1, limit: 100 }
-            };
+        let isProcessing = false;
+        
+        // 탭별 현재 페이지 상태 관리
+        const paginationState = {
+            processing: 1,
+            failed: 1,
+            completed: 1,
+            all: 1
+        };
 
-            document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tab => {
-                tab.addEventListener('shown.bs.tab', (e) => {
-                    const tabType = e.target.dataset.tabType;
-                    renderTab(tabType);
-                });
+        // [초기화] 탭 클릭 이벤트
+        document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tab => {
+            tab.addEventListener('shown.bs.tab', (e) => {
+                const tabType = e.target.dataset.tabType;
+                loadData(tabType, paginationState[tabType]); // 탭 전환 시 해당 탭 데이터 로드
             });
+        });
 
-            document.getElementById('search-all').addEventListener('input', () => { 
-                paginationState.all.page = 1; renderTab('all'); 
-            });
-            document.getElementById('search-completed').addEventListener('input', () => { 
-                paginationState.completed.page = 1; renderTab('completed'); 
-            });
-
-            async function loadData() {
-                if (isProcessing) return;
-                try {
-                    const res = await fetch(API_LIST);
-                    const json = await res.json();
-                    if (json.status === 'success') {
-                        itemsCache = json.data;
-                        updateCounts();
-                        const activeTabBtn = document.querySelector('.nav-link.active');
-                        if (activeTabBtn) {
-                            renderTab(activeTabBtn.dataset.tabType);
-                        }
-                        updateStatusText();
+        // [초기화] 검색창 엔터/입력 이벤트
+        ['search-all', 'search-completed'].forEach(id => {
+            const el = document.getElementById(id);
+            if(el) {
+                // 엔터 키 입력 시 검색 실행
+                el.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        const tabType = id.replace('search-', '');
+                        paginationState[tabType] = 1; // 검색 시 1페이지로 초기화
+                        loadData(tabType, 1);
                     }
-                } catch (e) {
-                    console.error("Load error:", e);
-                    statusText.textContent = "데이터 로드 실패";
-                }
+                });
+            }
+        });
+
+        // 데이터 로드 함수 (서버 연동 핵심)
+        async function loadData(tabType, page) {
+            if (isProcessing) return;
+            
+            // 현재 탭의 검색어 가져오기
+            let query = '';
+            if (tabType === 'completed') {
+                query = document.getElementById('search-completed').value.trim();
+            } else if (tabType === 'all') {
+                query = document.getElementById('search-all').value.trim();
             }
 
-            function updateCounts() {
-                const processingItems = itemsCache.filter(i => i.status === 'PROCESSING' || i.status === 'READY');
-                const failedItems = itemsCache.filter(i => i.status === 'FAILED');
-                const completedItems = itemsCache.filter(i => i.status === 'COMPLETED');
-                
-                document.getElementById('count-processing').textContent = processingItems.length;
-                document.getElementById('count-failed').textContent = failedItems.length;
-                document.getElementById('count-completed').textContent = completedItems.length;
-                document.getElementById('count-all').textContent = itemsCache.length;
+            const tbodyId = `tbody-${tabType}`;
+            const paginationId = `pagination-${tabType}`;
+            const tbody = document.getElementById(tbodyId);
+
+            try {
+                // 서버에 파라미터 전달 (50개씩 요청)
+                const params = new URLSearchParams({
+                    page: page,
+                    limit: 50,          // (2) 50개씩 보기
+                    tab: tabType,       // (1) 탭 구분 (backend에서 processing 필터링 처리됨)
+                    query: query        // (3) 전체 데이터 대상 검색
+                });
+
+                const res = await fetch(`${API_LIST}?${params.toString()}`);
+                const json = await res.json();
+
+                if (json.status === 'success') {
+                    // 테이블 렌더링
+                    renderTableRows(tbodyId, json.data);
+                    
+                    // 페이지네이션 렌더링
+                    renderPaginationControls(paginationId, tabType, json.pagination);
+                    
+                    // 현재 탭의 카운트 업데이트
+                    const badge = document.getElementById(`count-${tabType}`);
+                    if(badge) badge.textContent = json.pagination.total_items;
+
+                    // 상태 텍스트 업데이트 (진행중인 작업 확인)
+                    if (tabType === 'processing') {
+                        if (json.data.length > 0) {
+                            statusText.innerHTML = `<span class="spinner-border spinner-border-sm text-primary me-1"></span> 작업 목록 불러옴`;
+                        } else {
+                            statusText.textContent = "대기중인 작업 없음";
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Load error:", e);
+                if(tbody) tbody.innerHTML = `<tr><td colspan="10" class="text-center text-danger">데이터 로드 실패</td></tr>`;
+            }
+        }
+
+        function renderTableRows(tbodyId, items) {
+            const tbody = document.getElementById(tbodyId);
+            tbody.innerHTML = '';
+
+            if (items.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="p-4 text-muted">데이터가 없습니다.</td></tr>`;
+                return;
             }
 
-            function updateStatusText() {
-                const processing = itemsCache.filter(i => i.status === 'PROCESSING').length;
-                if (processing > 0) {
-                    statusText.innerHTML = `<span class="spinner-border spinner-border-sm text-primary me-1"></span> ${processing}건 처리 중...`;
-                } else {
-                    statusText.textContent = `최신 상태 (총 ${itemsCache.length}건)`;
-                }
+            items.forEach(item => {
+                const tr = document.createElement('tr');
+                
+                let badgeClass = 'bg-secondary';
+                let statusLabel = '대기';
+                // 서버에서 주는 status 값 활용
+                if (item.status === 'PROCESSING') { badgeClass = 'bg-primary'; statusLabel = '진행중'; }
+                else if (item.status === 'COMPLETED') { badgeClass = 'bg-success'; statusLabel = '완료'; }
+                else if (item.status === 'FAILED') { badgeClass = 'bg-danger'; statusLabel = '실패'; }
+                
+                const titleAttr = item.message ? `title="${item.message}"` : '';
+                
+                // 이미지 링크 처리
+                const thumbHtml = item.thumbnail 
+                    ? `<a href="${item.thumbnail}" target="_blank"><img src="${item.thumbnail}" class="img-preview"></a>`
+                    : `<div class="img-placeholder"><i class="bi bi-image"></i></div>`;
+                
+                const detailLink = item.detail 
+                    ? `<a href="${item.detail}" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-file-earmark-image"></i></a>`
+                    : `-`;
+                
+                const driveLink = item.drive_link 
+                    ? `<a href="${item.drive_link}" target="_blank" class="btn btn-sm btn-outline-success"><i class="bi bi-google"></i></a>`
+                    : `-`;
+
+                const disabled = item.status === 'PROCESSING' ? 'disabled' : '';
+
+                tr.innerHTML = `
+                    <td><input type="checkbox" class="form-check-input item-check" value="${item.style_code}" ${disabled}></td>
+                    <td class="fw-bold">${item.style_code}</td>
+                    <td class="text-start text-truncate" style="max-width: 150px;">${item.product_name}</td>
+                    <td>${item.total_colors}</td>
+                    <td>${driveLink}</td>
+                    <td>-</td>
+                    <td>${thumbHtml}</td>
+                    <td>${detailLink}</td>
+                    <td><span class="badge ${badgeClass} status-badge" ${titleAttr}>${statusLabel}</span></td>
+                    <td><button class="btn btn-sm btn-outline-dark"><i class="bi bi-download"></i></button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+            updateButtons();
+        }
+
+        function renderPaginationControls(containerId, tabType, pagination) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            const { current_page, total_pages } = pagination;
+            if (total_pages <= 1) return;
+
+            const ul = document.createElement('ul');
+            ul.className = 'pagination pagination-sm';
+
+            // 이전 버튼
+            const prevLi = document.createElement('li');
+            prevLi.className = `page-item ${!pagination.has_prev ? 'disabled' : ''}`;
+            prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Previous">&laquo;</a>`;
+            prevLi.onclick = (e) => { 
+                e.preventDefault(); 
+                if(pagination.has_prev) changePage(tabType, current_page - 1); 
+            };
+            ul.appendChild(prevLi);
+
+            // 페이지 번호 (현재 페이지 주변 5개만 표시)
+            let startPage = Math.max(1, current_page - 2);
+            let endPage = Math.min(total_pages, startPage + 4);
+            if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
+
+            for (let i = startPage; i <= endPage; i++) {
+                const li = document.createElement('li');
+                li.className = `page-item ${i === current_page ? 'active' : ''}`;
+                li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+                li.onclick = (e) => { 
+                    e.preventDefault(); 
+                    changePage(tabType, i); 
+                };
+                ul.appendChild(li);
             }
 
-            function renderTab(tabType) {
-                const tbodyId = `tbody-${tabType}`;
-                const paginationId = `pagination-${tabType}`;
-                const state = paginationState[tabType];
-                
-                let items = [];
-                let searchQuery = '';
+            // 다음 버튼
+            const nextLi = document.createElement('li');
+            nextLi.className = `page-item ${!pagination.has_next ? 'disabled' : ''}`;
+            nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Next">&raquo;</a>`;
+            nextLi.onclick = (e) => { 
+                e.preventDefault(); 
+                if(pagination.has_next) changePage(tabType, current_page + 1); 
+            };
+            ul.appendChild(nextLi);
 
-                if (tabType === 'processing') {
-                    items = itemsCache.filter(i => i.status === 'PROCESSING' || i.status === 'READY');
-                } else if (tabType === 'failed') {
-                    items = itemsCache.filter(i => i.status === 'FAILED');
-                } else if (tabType === 'completed') {
-                    searchQuery = document.getElementById('search-completed').value.toLowerCase().trim();
-                    items = itemsCache.filter(i => i.status === 'COMPLETED');
-                } else { // all
-                    searchQuery = document.getElementById('search-all').value.toLowerCase().trim();
-                    items = [...itemsCache];
-                }
+            container.appendChild(ul);
+        }
 
-                if (searchQuery) {
-                    items = items.filter(item => 
-                        item.style_code.toLowerCase().includes(searchQuery) || 
-                        item.product_name.toLowerCase().includes(searchQuery)
-                    );
-                }
+        function changePage(tabType, page) {
+            paginationState[tabType] = page;
+            loadData(tabType, page);
+        }
 
-                const totalItems = items.length;
-                const totalPages = Math.ceil(totalItems / state.limit);
-                
-                if (state.page > totalPages) state.page = Math.max(1, totalPages);
-                
-                const startIndex = (state.page - 1) * state.limit;
-                const endIndex = startIndex + state.limit;
-                const pageItems = items.slice(startIndex, endIndex);
-
-                renderTableRows(tbodyId, pageItems);
-                renderPaginationControls(paginationId, tabType, totalPages, state.page);
+        // 체크박스, 버튼 활성화 로직 등
+        document.body.addEventListener('change', (e) => {
+            if (e.target.classList.contains('item-check') || e.target.classList.contains('check-all-tab')) {
                 updateButtons();
             }
-
-            function renderTableRows(tbodyId, items) {
-                const tbody = document.getElementById(tbodyId);
-                const checkedSet = new Set(
-                    Array.from(tbody.querySelectorAll('.item-check:checked')).map(cb => cb.value)
-                );
-                tbody.innerHTML = '';
-
-                if (items.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="10" class="p-4 text-muted">데이터가 없습니다.</td></tr>`;
-                    return;
-                }
-
-                items.forEach(item => {
-                    const tr = document.createElement('tr');
-                    
-                    let badgeClass = 'bg-secondary';
-                    let statusLabel = '대기';
-                    if (item.status === 'PROCESSING') { badgeClass = 'bg-primary'; statusLabel = '진행중'; }
-                    else if (item.status === 'COMPLETED') { badgeClass = 'bg-success'; statusLabel = '완료'; }
-                    else if (item.status === 'FAILED') { badgeClass = 'bg-danger'; statusLabel = '실패'; }
-                    
-                    const titleAttr = item.message ? `title="${item.message}"` : '';
-                    
-                    const thumbHtml = item.thumbnail 
-                        ? `<a href="${item.thumbnail}" target="_blank"><img src="${item.thumbnail}" class="img-preview"></a>`
-                        : `<div class="img-placeholder"><i class="bi bi-image"></i></div>`;
-                    
-                    const detailLink = item.detail 
-                        ? `<a href="${item.detail}" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-file-earmark-image"></i></a>`
-                        : `-`;
-                    
-                    const driveLink = item.drive_link 
-                        ? `<a href="${item.drive_link}" target="_blank" class="btn btn-sm btn-outline-success"><i class="bi bi-google"></i></a>`
-                        : `-`;
-                        
-                    const repImage = item.thumbnail
-                        ? `<a href="${item.thumbnail}" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="bi bi-aspect-ratio"></i></a>`
-                        : `-`;
-
-                    const disabled = item.status === 'PROCESSING' ? 'disabled' : '';
-                    const isChecked = checkedSet.has(item.style_code);
-
-                    tr.innerHTML = `
-                        <td><input type="checkbox" class="form-check-input item-check" value="${item.style_code}" ${isChecked ? 'checked' : ''} ${disabled}></td>
-                        <td class="fw-bold">${item.style_code}</td>
-                        <td class="text-start text-truncate" style="max-width: 150px;">${item.product_name}</td>
-                        <td>${item.total_colors}</td>
-                        <td>${driveLink}</td>
-                        <td>${repImage}</td>
-                        <td>${thumbHtml}</td>
-                        <td>${detailLink}</td>
-                        <td><span class="badge ${badgeClass} status-badge" ${titleAttr}>${statusLabel}</span></td>
-                        <td><button class="btn btn-sm btn-outline-dark"><i class="bi bi-download"></i></button></td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            }
-
-            function renderPaginationControls(containerId, tabType, totalPages, currentPage) {
-                const container = document.getElementById(containerId);
-                container.innerHTML = '';
-                
-                if (totalPages <= 1) return;
-
-                const ul = document.createElement('ul');
-                ul.className = 'pagination pagination-sm';
-
-                const prevLi = document.createElement('li');
-                prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
-                prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Previous">&laquo;</a>`;
-                prevLi.onclick = (e) => { e.preventDefault(); if(currentPage > 1) changePage(tabType, currentPage - 1); };
-                ul.appendChild(prevLi);
-
-                let startPage = Math.max(1, currentPage - 2);
-                let endPage = Math.min(totalPages, startPage + 4);
-                if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
-
-                for (let i = startPage; i <= endPage; i++) {
-                    const li = document.createElement('li');
-                    li.className = `page-item ${i === currentPage ? 'active' : ''}`;
-                    li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
-                    li.onclick = (e) => { e.preventDefault(); changePage(tabType, i); };
-                    ul.appendChild(li);
-                }
-
-                const nextLi = document.createElement('li');
-                nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
-                nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Next">&raquo;</a>`;
-                nextLi.onclick = (e) => { e.preventDefault(); if(currentPage < totalPages) changePage(tabType, currentPage + 1); };
-                ul.appendChild(nextLi);
-
-                container.appendChild(ul);
-            }
-
-            function changePage(tabType, page) {
-                paginationState[tabType].page = page;
-                renderTab(tabType);
-            }
-
-            document.querySelectorAll('.check-all-tab').forEach(checkAll => {
-                checkAll.addEventListener('change', (e) => {
-                    const targetId = e.target.dataset.target;
-                    const isChecked = e.target.checked;
-                    const tbody = document.getElementById(targetId);
-                    if (tbody) {
-                        tbody.querySelectorAll('.item-check:not(:disabled)').forEach(cb => {
-                            cb.checked = isChecked;
-                        });
-                        updateButtons();
-                    }
-                });
-            });
-
-            document.body.addEventListener('change', (e) => {
-                if (e.target.classList.contains('item-check')) {
+        });
+        
+        // 전체 체크박스 로직
+        document.querySelectorAll('.check-all-tab').forEach(checkAll => {
+            checkAll.addEventListener('change', (e) => {
+                const targetId = e.target.dataset.target;
+                const isChecked = e.target.checked;
+                const tbody = document.getElementById(targetId);
+                if (tbody) {
+                    tbody.querySelectorAll('.item-check:not(:disabled)').forEach(cb => {
+                        cb.checked = isChecked;
+                    });
                     updateButtons();
                 }
             });
+        });
 
-            function updateButtons() {
-                const allChecked = document.querySelectorAll('.item-check:checked');
-                const count = new Set(Array.from(allChecked).map(cb => cb.value)).size;
-
-                btnStart.disabled = count === 0;
-                btnReset.disabled = count === 0;
-                
+        function updateButtons() {
+            const allChecked = document.querySelectorAll('.item-check:checked');
+            const count = new Set(Array.from(allChecked).map(cb => cb.value)).size;
+            
+            if (btnStart) btnStart.disabled = count === 0;
+            if (btnReset) btnReset.disabled = count === 0;
+            
+            if (btnStart) {
                 if (count > 0) {
                     btnStart.innerHTML = `<i class="bi bi-play-fill me-1"></i> ${count}건 처리 시작`;
-                    btnReset.innerHTML = `<i class="bi bi-arrow-counterclockwise me-1"></i> ${count}건 선택 초기화`;
+                    btnReset.innerHTML = `<i class="bi bi-arrow-counterclockwise me-1"></i> 선택 초기화`;
                 } else {
                     btnStart.innerHTML = `<i class="bi bi-play-fill me-1"></i> 처리 시작`;
                     btnReset.innerHTML = `<i class="bi bi-arrow-counterclockwise me-1"></i> 선택 초기화`;
                 }
             }
+        }
+        
+        // 버튼 이벤트 핸들러들
+        function getSelectedCodes() {
+            const allChecked = document.querySelectorAll('.item-check:checked');
+            return Array.from(new Set(Array.from(allChecked).map(cb => cb.value)));
+        }
 
-            btnStart.addEventListener('click', async () => {
-                const selectedCodes = getSelectedCodes();
-                if (selectedCodes.length === 0) return;
-                if (!confirm(`${selectedCodes.length}개 품번의 이미지 작업을 시작하시겠습니까?`)) return;
-                await sendRequest(API_PROCESS, { style_codes: selectedCodes });
-            });
-
-            btnReset.addEventListener('click', async () => {
-                const selectedCodes = getSelectedCodes();
-                if (selectedCodes.length === 0) return;
-                if (!confirm(`선택한 ${selectedCodes.length}개 품번의 상태를 '대기(READY)'로 강제 초기화하시겠습니까?`)) return;
-                await sendRequest(API_RESET, { style_codes: selectedCodes });
-            });
-            
-            if (btnCancelAll) {
-                btnCancelAll.addEventListener('click', async () => {
-                    if (!confirm('진행 중인 모든 이미지 작업을 취소(상태 초기화)하시겠습니까?')) return;
-                    await sendRequest(API_RESET_ALL, {});
+        async function sendRequest(url, data) {
+            isProcessing = true;
+            setButtonsLoading(true);
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify(data)
                 });
+                const json = await res.json();
+                alert(json.message);
+            } catch (e) {
+                alert('통신 오류');
+            } finally {
+                isProcessing = false;
+                setButtonsLoading(false);
+                // 현재 활성 탭 새로고침
+                const activeTabBtn = document.querySelector('.nav-link.active');
+                if(activeTabBtn) loadData(activeTabBtn.dataset.tabType, 1);
             }
-
-            function getSelectedCodes() {
-                const allChecked = document.querySelectorAll('.item-check:checked');
-                return Array.from(new Set(Array.from(allChecked).map(cb => cb.value)));
-            }
-
-            async function sendRequest(url, data) {
-                isProcessing = true;
-                setButtonsLoading(true);
-                try {
-                    const res = await fetch(url, {
-                        method: 'POST',
-                        headers: { 
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': csrfToken 
-                        },
-                        body: JSON.stringify(data)
-                    });
-                    const json = await res.json();
-                    if (json.status === 'success') {
-                        alert(json.message);
-                    } else {
-                        alert('오류: ' + json.message);
-                    }
-                } catch (e) {
-                    alert('통신 오류');
-                } finally {
-                    isProcessing = false;
-                    setButtonsLoading(false);
-                    document.querySelectorAll('.check-all-tab').forEach(cb => cb.checked = false);
-                    loadData(); 
-                }
-            }
-            
-            function setButtonsLoading(isLoading) {
+        }
+        
+        function setButtonsLoading(isLoading) {
+            if (btnStart) {
                 if (isLoading) {
                     btnStart.disabled = true;
-                    btnReset.disabled = true;
                     btnStart.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 처리 중...';
                 } else {
                     updateButtons();
                 }
             }
+        }
 
-            loadData();
-            setInterval(loadData, 5000);
-        });
-    </script>
+        if(btnStart) {
+            btnStart.addEventListener('click', () => {
+                const codes = getSelectedCodes();
+                if (codes.length === 0) return;
+                if (confirm(`${codes.length}건 처리 시작?`)) sendRequest(API_PROCESS, { style_codes: codes });
+            });
+        }
+        if(btnReset) {
+            btnReset.addEventListener('click', () => {
+                const codes = getSelectedCodes();
+                if (codes.length === 0) return;
+                if (confirm(`${codes.length}건 초기화?`)) sendRequest(API_RESET, { style_codes: codes });
+            });
+        }
+        if(btnCancelAll) {
+            btnCancelAll.addEventListener('click', () => {
+                if (confirm('모든 작업 취소?')) sendRequest(API_RESET_ALL, {});
+            });
+        }
+
+        // 초기 로드: 활성화된 탭 (보통 'processing')
+        const initialTab = document.querySelector('.nav-link.active');
+        if (initialTab) {
+            loadData(initialTab.dataset.tabType, 1);
+        }
+    });
+</script>
 </body>
 </html>
