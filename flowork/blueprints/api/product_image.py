@@ -65,15 +65,12 @@ def _update_group_status_and_links(group, product):
     elif item_status == 'COMPLETED' and current_status == 'READY':
         group['status'] = 'COMPLETED'
         
-    # 썸네일/상세이미지 링크
     if product.thumbnail_url and not group['thumbnail']:
         group['thumbnail'] = product.thumbnail_url
     if product.detail_image_url and not group['detail']:
         group['detail'] = product.detail_image_url
         
-    # 에러 메시지나 상태 메시지 저장
     if product.last_message:
-        # 실패 메시지가 있으면 우선 표시
         if item_status == 'FAILED':
             group['message'] = product.last_message
         elif not group['message']:
@@ -92,15 +89,16 @@ def trigger_image_process():
         return jsonify({'status': 'error', 'message': '선택된 품번이 없습니다.'}), 400
 
     try:
-        # 1. 선택된 품번들의 상태를 PROCESSING으로 변경
+        # 1. Bulk Update: 선택된 품번들의 상태를 PROCESSING으로 변경
         for code in style_codes:
-            products = Product.query.filter_by(
-                brand_id=current_user.current_brand_id,
-                product_number=code
-            ).all()
-            for p in products:
-                p.image_status = 'PROCESSING'
-                p.last_message = '작업 시작됨...'
+            db.session.query(Product).filter(
+                Product.brand_id == current_user.current_brand_id,
+                Product.product_number.like(f"{code}%")
+            ).update({
+                Product.image_status: 'PROCESSING',
+                Product.last_message: '작업 시작됨...'
+            }, synchronize_session=False)
+            
         db.session.commit()
 
         # 2. 비동기 작업 시작
@@ -136,7 +134,7 @@ def trigger_image_process():
 @api_bp.route('/api/product/images/reset', methods=['POST'])
 @login_required
 def reset_image_process_status():
-    """선택한 품번의 작업을 강제 초기화 (진행중 멈춤 해결용)"""
+    """선택한 품번의 상태를 'READY'로 강제 초기화 (Bulk Update 적용)"""
     if not current_user.brand_id:
          return jsonify({'status': 'error', 'message': '권한이 없습니다.'}), 403
 
@@ -147,19 +145,43 @@ def reset_image_process_status():
         return jsonify({'status': 'error', 'message': '선택된 품번이 없습니다.'}), 400
 
     try:
-        count = 0
+        updated_count = 0
         for code in style_codes:
-            products = Product.query.filter_by(
-                brand_id=current_user.current_brand_id,
-                product_number=code
-            ).all()
-            for p in products:
-                p.image_status = 'READY'
-                p.last_message = '사용자에 의해 초기화됨'
-                count += 1
+            # LIKE 쿼리로 해당 품번으로 시작하는 모든 상품 업데이트
+            res = db.session.query(Product).filter(
+                Product.brand_id == current_user.current_brand_id,
+                Product.product_number.like(f"{code}%")
+            ).update({
+                Product.image_status: 'READY',
+                Product.last_message: '사용자에 의해 초기화됨'
+            }, synchronize_session=False)
+            updated_count += res
+            
         db.session.commit()
+        return jsonify({'status': 'success', 'message': f'{updated_count}개 상품의 상태를 초기화했습니다.'})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@api_bp.route('/api/product/images/reset_all_processing', methods=['POST'])
+@login_required
+def reset_all_processing_status():
+    """'진행중(PROCESSING)' 상태인 모든 항목을 'READY'로 강제 초기화"""
+    if not current_user.brand_id:
+         return jsonify({'status': 'error', 'message': '권한이 없습니다.'}), 403
+
+    try:
+        res = db.session.query(Product).filter(
+            Product.brand_id == current_user.current_brand_id,
+            Product.image_status == 'PROCESSING'
+        ).update({
+            Product.image_status: 'READY',
+            Product.last_message: '일괄 초기화됨'
+        }, synchronize_session=False)
         
-        return jsonify({'status': 'success', 'message': f'{len(style_codes)}개 품번({count}개 상품)의 상태를 초기화했습니다.'})
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': f'진행 중이던 {res}개 상품을 모두 대기 상태로 초기화했습니다.'})
 
     except Exception as e:
         db.session.rollback()
