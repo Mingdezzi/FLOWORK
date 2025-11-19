@@ -51,7 +51,9 @@ def auto_patch_db():
             print(f"❌ [DB Patch Error] {e}")
 
 if __name__ == '__main__':
+    # 로컬 개발 환경(python run.py 직접 실행)에서는 패치 기능 유지
     auto_patch_db()
     app.run(debug=True, host='0.0.0.0', port=5000)
 else:
-    auto_patch_db()
+    # [수정] 프로덕션(Gunicorn) 환경에서는 자동 패치 실행 제거 (부팅 속도 향상)
+    pass
