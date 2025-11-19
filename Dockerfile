@@ -14,4 +14,6 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 COPY . .
 
-CMD gunicorn --workers 1 --bind 0.0.0.0:$PORT --timeout 120 run:app
+ENV CUDA_VISIBLE_DEVICES=-1
+
+CMD gunicorn --workers 1 --bind 0.0.0.0:$PORT --timeout 300 run:app
