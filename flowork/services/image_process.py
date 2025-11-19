@@ -5,6 +5,7 @@ import io
 import random
 import traceback
 import json
+from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 from flask import current_app
 from flowork.extensions import db
@@ -16,38 +17,51 @@ RESAMPLE_LANCZOS = Image.Resampling.LANCZOS
 
 _REMBG_SESSION = None
 
+def _log(message):
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [ImageProcess] {message}")
+
 def _get_rembg_session():
     global _REMBG_SESSION
     if _REMBG_SESSION is None:
         model_name = "u2netp"
+        _log(f"Initializing Rembg session with model: {model_name}")
         _REMBG_SESSION = new_session(model_name)
     return _REMBG_SESSION
 
 def process_style_code_group(brand_id, style_code):
     products = []
     try:
+        _log(f"Start processing group: {style_code} (Brand ID: {brand_id})")
+        
         products = Product.query.filter_by(brand_id=brand_id).filter(
             Product.product_number.like(f"{style_code}%")
         ).all()
         
         if not products:
+            _log(f"No products found for style code: {style_code}")
             return False, "해당 품번의 상품이 없습니다."
+
+        _log(f"Found {len(products)} products for {style_code}")
 
         drive_settings = _get_google_drive_settings(brand_id)
         if not drive_settings:
             msg = "구글 드라이브 설정을 찾을 수 없습니다."
+            _log(f"Error: {msg}")
             _update_product_status(products, 'FAILED', msg)
             return False, msg
 
         key_filename = drive_settings.get('SERVICE_ACCOUNT_FILE')
         if not key_filename:
             msg = "설정에 'SERVICE_ACCOUNT_FILE' 항목이 누락되었습니다."
+            _log(f"Error: {msg}")
             _update_product_status(products, 'FAILED', msg)
             return False, msg
         
+        _log(f"Connecting to Google Drive with key: {key_filename}")
         drive_service = get_drive_service(key_filename)
         if not drive_service:
-            msg = f"Google Drive 연결 실패. Secret File '{key_filename}'이(가) Render에 업로드되어 있는지 확인하세요."
+            msg = f"Google Drive 연결 실패. Secret File '{key_filename}' 확인 필요."
+            _log(f"Error: {msg}")
             _update_product_status(products, 'FAILED', msg)
             return False, msg
 
@@ -67,61 +81,77 @@ def process_style_code_group(brand_id, style_code):
                         'NOBG': None 
                     }
                 }
+        
+        _log(f"Grouped into {len(variants_map)} colors: {', '.join(variants_map.keys())}")
 
         if not variants_map:
             msg = "처리할 컬러 옵션을 찾을 수 없습니다."
+            _log(msg)
             _update_product_status(products, 'FAILED', msg)
             return False, msg
 
         temp_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'temp_images', style_code)
         os.makedirs(temp_dir, exist_ok=True)
+        _log(f"Created temp directory: {temp_dir}")
 
         patterns_config = _get_brand_url_patterns(brand_id)
         if not patterns_config:
              msg = "이미지 다운로드 URL 패턴 설정이 없습니다."
+             _log(msg)
              _update_product_status(products, 'FAILED', msg)
              return False, msg
 
+        _log("Starting asynchronous image download...")
         asyncio.run(_download_all_variants(style_code, variants_map, patterns_config, temp_dir))
+        _log("Download finished.")
 
         valid_variants = []
         for color_name, data in variants_map.items():
             if data['files']['DF']:
                 rep_image_path = data['files']['DF'][0]
+                _log(f"Removing background for {color_name}: {os.path.basename(rep_image_path)}")
                 nobg_path = _remove_background(rep_image_path)
                 if nobg_path:
                     data['files']['NOBG'] = nobg_path
                     valid_variants.append(data)
             
             elif data['files']['DM']:
+                 _log(f"No DF image for {color_name}, but DM exists. Using DM only.")
                  valid_variants.append(data)
 
         if not valid_variants:
             msg = "유효한 이미지를 하나도 다운로드하지 못했습니다."
+            _log(msg)
             _update_product_status(products, 'FAILED', msg)
             return False, msg
 
+        _log("Creating thumbnail and detail images...")
         thumbnail_path = _create_thumbnail(valid_variants, temp_dir, style_code)
         detail_path = _create_detail_image(valid_variants, temp_dir, style_code)
 
         try:
+            _log("Uploading to Google Drive...")
             result_links = _upload_structure_to_drive(
                 drive_service, drive_settings, style_code, variants_map, thumbnail_path, detail_path
             )
+            _log("Upload successful.")
         except Exception as upload_err:
             msg = f"구글 드라이브 업로드 중 오류: {upload_err}"
+            _log(msg)
             _update_product_status(products, 'FAILED', msg)
             return False, msg
 
+        _log("Updating database with results...")
         _update_product_db(products, result_links)
         
+        _log(f"Completed processing for {style_code}")
         return True, f"성공: {len(valid_variants)}개 컬러 처리 완료"
 
     except Exception as e:
         err_msg = f"시스템 오류: {str(e)}\n{traceback.format_exc()}"
-        print(f"Image processing fatal error: {err_msg}")
+        _log(f"Fatal Error: {err_msg}")
         if products:
-            _update_product_status(products, 'FAILED', err_msg)
+            _update_product_status(products, 'FAILED', f"오류 발생: {str(e)}")
         return False, f"오류 발생: {str(e)}"
 
 def _update_product_status(products, status, message=None):
@@ -136,7 +166,13 @@ def _update_product_status(products, status, message=None):
 
 def _update_product_db(products, links):
     try:
+        updated_count = 0
         for p in products:
+            db.session.refresh(p)
+            if p.image_status != 'PROCESSING':
+                _log(f"Skipping DB update for {p.product_number}: Status is {p.image_status} (Cancelled?)")
+                continue
+
             p.image_status = 'COMPLETED'
             p.last_message = '처리 완료'
             
@@ -150,9 +186,17 @@ def _update_product_db(products, links):
             
             if my_color in links.get('drive_folders', {}):
                 p.image_drive_link = links['drive_folders'][my_color]
+            
+            updated_count += 1
 
-        db.session.commit()
-    except:
+        if updated_count > 0:
+            db.session.commit()
+            _log(f"Updated {updated_count} products in DB.")
+        else:
+            _log("No products updated (possibly cancelled).")
+            
+    except Exception as e:
+        _log(f"DB Update Failed: {e}")
         db.session.rollback()
 
 def _load_brand_config_from_file(brand_id):
@@ -165,7 +209,7 @@ def _load_brand_config_from_file(brand_id):
             with open(json_path, 'r', encoding='utf-8') as f:
                 return json.load(f)
     except Exception as e:
-        print(f"Config load error for brand {brand_id}: {e}")
+        _log(f"Config load error for brand {brand_id}: {e}")
     return None
 
 def _get_brand_url_patterns(brand_id):
@@ -231,7 +275,6 @@ async def _download_sequence(session, code, year, patterns, save_dir, img_type, 
     
     while True:
         found_any_pattern = False
-        
         num_formats = [f"{num:02d}", f"{num}", f"{num:03d}"]
         
         for num_fmt in num_formats: 
@@ -254,6 +297,7 @@ async def _download_sequence(session, code, year, patterns, save_dir, img_type, 
                             
                             data_ref['files'][img_type].append(save_path)
                             found_any_pattern = True
+                            _log(f"Downloaded: {filename}")
                             break 
                 except:
                     continue
@@ -285,7 +329,7 @@ def _remove_background(input_path):
                 o.write(output_data)
         return output_path
     except Exception as e:
-        print(f"Rembg error for {input_path}: {e}")
+        _log(f"Rembg error for {input_path}: {e}")
         return None
 
 def _create_thumbnail(variants, temp_dir, style_code):
@@ -333,7 +377,7 @@ def _create_thumbnail(variants, temp_dir, style_code):
         canvas.save(output_path)
         return output_path
     except Exception as e:
-        print(f"Thumbnail creation error: {e}")
+        _log(f"Thumbnail creation error: {e}")
         return None
 
 def _get_grid_layout(count):
@@ -387,7 +431,7 @@ def _create_detail_image(variants, temp_dir, style_code):
         canvas.save(output_path)
         return output_path
     except Exception as e:
-        print(f"Detail image creation error: {e}")
+        _log(f"Detail image creation error: {e}")
         return None
 
 def _upload_structure_to_drive(service, settings, style_code, variants_map, thumb_path, detail_path):

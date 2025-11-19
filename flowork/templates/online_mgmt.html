@@ -11,11 +11,15 @@
         .img-preview { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #dee2e6; }
         .img-placeholder { width: 40px; height: 40px; background: #f8f9fa; border-radius: 4px; border: 1px solid #dee2e6; display: flex; align-items: center; justify-content: center; color: #adb5bd; }
         .nav-tabs .nav-link { cursor: pointer; }
+        .table th { font-size: 0.85rem; vertical-align: middle; white-space: nowrap; }
+        .table td { font-size: 0.9rem; vertical-align: middle; }
+        .pagination { margin-bottom: 0; }
     </style>
 </head>
 <body data-api-list="{{ url_for('api.get_product_image_status') }}" 
       data-api-process="{{ url_for('api.trigger_image_process') }}"
-      data-api-reset="{{ url_for('api.reset_image_process_status') }}">
+      data-api-reset="{{ url_for('api.reset_image_process_status') }}"
+      data-api-reset-all="{{ url_for('api.reset_all_processing_status') }}">
     
     <div class="container my-4">
         {% include '_header.html' %}
@@ -27,7 +31,7 @@
                 <span id="status-text" class="text-muted small align-self-center me-2">로딩 중...</span>
                 
                 <button class="btn btn-warning text-dark" id="btn-reset-status" disabled>
-                    <i class="bi bi-arrow-counterclockwise me-1"></i> 상태 초기화
+                    <i class="bi bi-arrow-counterclockwise me-1"></i> 선택 초기화
                 </button>
                 
                 <button class="btn btn-primary" id="btn-start-process" disabled>
@@ -40,23 +44,23 @@
             <div class="card-header">
                 <ul class="nav nav-tabs card-header-tabs" id="managementTabs" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="tab-processing-btn" data-bs-toggle="tab" data-bs-target="#tab-processing" type="button">
-                            <i class="bi bi-hourglass-split me-1"></i>진행/대기 <span class="badge bg-primary ms-1" id="count-processing">0</span>
+                        <button class="nav-link active" id="tab-processing-btn" data-bs-toggle="tab" data-bs-target="#tab-processing" type="button" data-tab-type="processing">
+                            <i class="bi bi-hourglass-split me-1"></i>진행중 <span class="badge bg-primary ms-1" id="count-processing">0</span>
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="tab-completed-btn" data-bs-toggle="tab" data-bs-target="#tab-completed" type="button">
-                            <i class="bi bi-check-circle me-1"></i>완료 <span class="badge bg-success ms-1" id="count-completed">0</span>
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="tab-failed-btn" data-bs-toggle="tab" data-bs-target="#tab-failed" type="button">
+                        <button class="nav-link" id="tab-failed-btn" data-bs-toggle="tab" data-bs-target="#tab-failed" type="button" data-tab-type="failed">
                             <i class="bi bi-exclamation-triangle me-1"></i>실패 <span class="badge bg-danger ms-1" id="count-failed">0</span>
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="tab-all-btn" data-bs-toggle="tab" data-bs-target="#tab-all" type="button">
-                            <i class="bi bi-list me-1"></i>전체 <span class="badge bg-secondary ms-1" id="count-all">0</span>
+                        <button class="nav-link" id="tab-completed-btn" data-bs-toggle="tab" data-bs-target="#tab-completed" type="button" data-tab-type="completed">
+                            <i class="bi bi-check-circle me-1"></i>완료목록 <span class="badge bg-success ms-1" id="count-completed">0</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-all-btn" data-bs-toggle="tab" data-bs-target="#tab-all" type="button" data-tab-type="all">
+                            <i class="bi bi-list me-1"></i>전체목록 <span class="badge bg-secondary ms-1" id="count-all">0</span>
                         </button>
                     </li>
                 </ul>
@@ -66,78 +70,106 @@
                 <div class="tab-content" id="managementTabsContent">
                     
                     <div class="tab-pane fade show active" id="tab-processing" role="tabpanel">
+                        <div class="p-2 border-bottom bg-light d-flex justify-content-end">
+                             <button class="btn btn-danger btn-sm" id="btn-cancel-all">
+                                <i class="bi bi-stop-circle-fill me-1"></i>진행중인 작업 모두 취소
+                             </button>
+                        </div>
                         <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0 text-center">
                                 <thead class="table-light">
                                     <tr>
-                                        <th style="width: 50px;"><input type="checkbox" class="form-check-input check-all-tab" data-target="tbody-processing"></th>
+                                        <th style="width: 40px;"><input type="checkbox" class="form-check-input check-all-tab" data-target="tbody-processing"></th>
                                         <th>품번</th>
-                                        <th>상품명</th>
-                                        <th>컬러수</th>
+                                        <th>품명</th>
+                                        <th>컬러</th>
+                                        <th>전체이미지</th>
+                                        <th>대표이미지</th>
                                         <th>썸네일</th>
-                                        <th>상태</th>
+                                        <th>상세컬러</th>
+                                        <th>진행상태</th>
+                                        <th>전체저장</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tbody-processing"></tbody>
                             </table>
                         </div>
+                        <div class="p-2 border-top d-flex justify-content-center" id="pagination-processing"></div>
                     </div>
 
-                    <div class="tab-pane fade" id="tab-completed" role="tabpanel">
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0 text-center">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width: 50px;"><input type="checkbox" class="form-check-input check-all-tab" data-target="tbody-completed"></th>
-                                        <th>품번</th>
-                                        <th>상품명</th>
-                                        <th>컬러수</th>
-                                        <th>썸네일</th>
-                                        <th>상세이미지</th>
-                                        <th>드라이브</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tbody-completed"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                    
                     <div class="tab-pane fade" id="tab-failed" role="tabpanel">
                         <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0 text-center">
+                             <table class="table table-hover align-middle mb-0 text-center">
                                 <thead class="table-light">
                                     <tr>
-                                        <th style="width: 50px;"><input type="checkbox" class="form-check-input check-all-tab" data-target="tbody-failed"></th>
+                                        <th style="width: 40px;"><input type="checkbox" class="form-check-input check-all-tab" data-target="tbody-failed"></th>
                                         <th>품번</th>
-                                        <th>상품명</th>
-                                        <th>오류 메시지</th>
-                                        <th>상태</th>
+                                        <th>품명</th>
+                                        <th>컬러</th>
+                                        <th>전체이미지</th>
+                                        <th>대표이미지</th>
+                                        <th>썸네일</th>
+                                        <th>상세컬러</th>
+                                        <th>진행상태</th>
+                                        <th>전체저장</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tbody-failed"></tbody>
                             </table>
                         </div>
+                        <div class="p-2 border-top d-flex justify-content-center" id="pagination-failed"></div>
                     </div>
 
-                    <div class="tab-pane fade" id="tab-all" role="tabpanel">
-                        <div class="p-3 bg-light border-bottom">
-                            <input type="text" class="form-control" id="search-query" placeholder="품번 또는 상품명 검색...">
+                    <div class="tab-pane fade" id="tab-completed" role="tabpanel">
+                        <div class="p-2 border-bottom bg-light">
+                             <input type="text" class="form-control form-control-sm" id="search-completed" placeholder="품번 또는 상품명 검색...">
                         </div>
                         <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0 text-center">
                                 <thead class="table-light">
                                     <tr>
-                                        <th style="width: 50px;"><input type="checkbox" class="form-check-input check-all-tab" data-target="tbody-all"></th>
+                                        <th style="width: 40px;"><input type="checkbox" class="form-check-input check-all-tab" data-target="tbody-completed"></th>
                                         <th>품번</th>
-                                        <th>상품명</th>
-                                        <th>컬러수</th>
+                                        <th>품명</th>
+                                        <th>컬러</th>
+                                        <th>전체이미지</th>
+                                        <th>대표이미지</th>
                                         <th>썸네일</th>
-                                        <th>상태</th>
+                                        <th>상세컬러</th>
+                                        <th>진행상태</th>
+                                        <th>전체저장</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-completed"></tbody>
+                            </table>
+                        </div>
+                        <div class="p-2 border-top d-flex justify-content-center" id="pagination-completed"></div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-all" role="tabpanel">
+                        <div class="p-2 border-bottom bg-light">
+                            <input type="text" class="form-control form-control-sm" id="search-all" placeholder="품번 또는 상품명 검색...">
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0 text-center">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 40px;"><input type="checkbox" class="form-check-input check-all-tab" data-target="tbody-all"></th>
+                                        <th>품번</th>
+                                        <th>품명</th>
+                                        <th>컬러</th>
+                                        <th>전체이미지</th>
+                                        <th>대표이미지</th>
+                                        <th>썸네일</th>
+                                        <th>상세컬러</th>
+                                        <th>진행상태</th>
+                                        <th>전체저장</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tbody-all"></tbody>
                             </table>
                         </div>
+                        <div class="p-2 border-top d-flex justify-content-center" id="pagination-all"></div>
                     </div>
 
                 </div>
@@ -151,25 +183,51 @@
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
             const btnStart = document.getElementById('btn-start-process');
             const btnReset = document.getElementById('btn-reset-status');
+            const btnCancelAll = document.getElementById('btn-cancel-all');
             const statusText = document.getElementById('status-text');
             
             const API_LIST = document.body.dataset.apiList;
             const API_PROCESS = document.body.dataset.apiProcess;
             const API_RESET = document.body.dataset.apiReset;
+            const API_RESET_ALL = document.body.dataset.apiResetAll;
 
             let itemsCache = [];
             let isProcessing = false;
+            
+            const paginationState = {
+                processing: { page: 1, limit: 10 },
+                failed: { page: 1, limit: 10 },
+                completed: { page: 1, limit: 100 },
+                all: { page: 1, limit: 100 }
+            };
+
+            document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tab => {
+                tab.addEventListener('shown.bs.tab', (e) => {
+                    const tabType = e.target.dataset.tabType;
+                    renderTab(tabType);
+                });
+            });
+
+            document.getElementById('search-all').addEventListener('input', () => { 
+                paginationState.all.page = 1; renderTab('all'); 
+            });
+            document.getElementById('search-completed').addEventListener('input', () => { 
+                paginationState.completed.page = 1; renderTab('completed'); 
+            });
 
             async function loadData() {
                 if (isProcessing) return;
-
                 try {
                     const res = await fetch(API_LIST);
                     const json = await res.json();
-                    
                     if (json.status === 'success') {
                         itemsCache = json.data;
-                        renderAllTabs();
+                        updateCounts();
+                        const activeTabBtn = document.querySelector('.nav-link.active');
+                        if (activeTabBtn) {
+                            renderTab(activeTabBtn.dataset.tabType);
+                        }
+                        updateStatusText();
                     }
                 } catch (e) {
                     console.error("Load error:", e);
@@ -177,44 +235,76 @@
                 }
             }
 
-            function renderAllTabs() {
+            function updateCounts() {
                 const processingItems = itemsCache.filter(i => i.status === 'PROCESSING' || i.status === 'READY');
-                const completedItems = itemsCache.filter(i => i.status === 'COMPLETED');
                 const failedItems = itemsCache.filter(i => i.status === 'FAILED');
+                const completedItems = itemsCache.filter(i => i.status === 'COMPLETED');
                 
-                renderTable('tbody-processing', processingItems);
-                renderTable('tbody-completed', completedItems);
-                renderTable('tbody-failed', failedItems);
-                
-                // 전체 탭 (검색어 있으면 필터링)
-                const query = document.getElementById('search-query').value.toLowerCase().trim();
-                if (query) {
-                    const filtered = itemsCache.filter(item => 
-                        item.style_code.toLowerCase().includes(query) || item.product_name.toLowerCase().includes(query)
-                    );
-                    renderTable('tbody-all', filtered);
-                } else {
-                    renderTable('tbody-all', itemsCache);
-                }
-
                 document.getElementById('count-processing').textContent = processingItems.length;
-                document.getElementById('count-completed').textContent = completedItems.length;
                 document.getElementById('count-failed').textContent = failedItems.length;
+                document.getElementById('count-completed').textContent = completedItems.length;
                 document.getElementById('count-all').textContent = itemsCache.length;
-                
-                updateStatusText();
             }
 
-            function renderTable(tbodyId, items) {
+            function updateStatusText() {
+                const processing = itemsCache.filter(i => i.status === 'PROCESSING').length;
+                if (processing > 0) {
+                    statusText.innerHTML = `<span class="spinner-border spinner-border-sm text-primary me-1"></span> ${processing}건 처리 중...`;
+                } else {
+                    statusText.textContent = `최신 상태 (총 ${itemsCache.length}건)`;
+                }
+            }
+
+            function renderTab(tabType) {
+                const tbodyId = `tbody-${tabType}`;
+                const paginationId = `pagination-${tabType}`;
+                const state = paginationState[tabType];
+                
+                let items = [];
+                let searchQuery = '';
+
+                if (tabType === 'processing') {
+                    items = itemsCache.filter(i => i.status === 'PROCESSING' || i.status === 'READY');
+                } else if (tabType === 'failed') {
+                    items = itemsCache.filter(i => i.status === 'FAILED');
+                } else if (tabType === 'completed') {
+                    searchQuery = document.getElementById('search-completed').value.toLowerCase().trim();
+                    items = itemsCache.filter(i => i.status === 'COMPLETED');
+                } else { // all
+                    searchQuery = document.getElementById('search-all').value.toLowerCase().trim();
+                    items = [...itemsCache];
+                }
+
+                if (searchQuery) {
+                    items = items.filter(item => 
+                        item.style_code.toLowerCase().includes(searchQuery) || 
+                        item.product_name.toLowerCase().includes(searchQuery)
+                    );
+                }
+
+                const totalItems = items.length;
+                const totalPages = Math.ceil(totalItems / state.limit);
+                
+                if (state.page > totalPages) state.page = Math.max(1, totalPages);
+                
+                const startIndex = (state.page - 1) * state.limit;
+                const endIndex = startIndex + state.limit;
+                const pageItems = items.slice(startIndex, endIndex);
+
+                renderTableRows(tbodyId, pageItems);
+                renderPaginationControls(paginationId, tabType, totalPages, state.page);
+                updateButtons();
+            }
+
+            function renderTableRows(tbodyId, items) {
                 const tbody = document.getElementById(tbodyId);
                 const checkedSet = new Set(
                     Array.from(tbody.querySelectorAll('.item-check:checked')).map(cb => cb.value)
                 );
-
                 tbody.innerHTML = '';
+
                 if (items.length === 0) {
-                    const colSpan = (tbodyId === 'tbody-completed') ? 7 : (tbodyId === 'tbody-failed' ? 5 : 6);
-                    tbody.innerHTML = `<tr><td colspan="${colSpan}" class="p-4 text-muted">데이터가 없습니다.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="10" class="p-4 text-muted">데이터가 없습니다.</td></tr>`;
                     return;
                 }
 
@@ -226,9 +316,7 @@
                     if (item.status === 'PROCESSING') { badgeClass = 'bg-primary'; statusLabel = '진행중'; }
                     else if (item.status === 'COMPLETED') { badgeClass = 'bg-success'; statusLabel = '완료'; }
                     else if (item.status === 'FAILED') { badgeClass = 'bg-danger'; statusLabel = '실패'; }
-                    else if (item.status === 'DB_PATCH_REQ') { badgeClass = 'bg-warning text-dark'; statusLabel = 'DB점검'; }
                     
-                    // 에러 메시지 툴팁
                     const titleAttr = item.message ? `title="${item.message}"` : '';
                     
                     const thumbHtml = item.thumbnail 
@@ -238,54 +326,75 @@
                     const detailLink = item.detail 
                         ? `<a href="${item.detail}" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-file-earmark-image"></i></a>`
                         : `-`;
+                    
+                    const driveLink = item.drive_link 
+                        ? `<a href="${item.drive_link}" target="_blank" class="btn btn-sm btn-outline-success"><i class="bi bi-google"></i></a>`
+                        : `-`;
+                        
+                    const repImage = item.thumbnail
+                        ? `<a href="${item.thumbnail}" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="bi bi-aspect-ratio"></i></a>`
+                        : `-`;
 
                     const disabled = item.status === 'PROCESSING' ? 'disabled' : '';
                     const isChecked = checkedSet.has(item.style_code);
-                    
-                    // 테이블별 컬럼 구성
-                    let innerCells = '';
-                    
-                    if (tbodyId === 'tbody-failed') {
-                        innerCells = `
-                            <td class="fw-bold">${item.style_code}</td>
-                            <td class="text-start text-truncate" style="max-width: 150px;">${item.product_name}</td>
-                            <td class="text-danger small text-start text-truncate" style="max-width: 200px;" ${titleAttr}>${item.message || '-'}</td>
-                            <td><span class="badge ${badgeClass} status-badge" ${titleAttr}>${statusLabel}</span></td>
-                        `;
-                    } else if (tbodyId === 'tbody-completed') {
-                        innerCells = `
-                            <td class="fw-bold">${item.style_code}</td>
-                            <td class="text-start text-truncate" style="max-width: 150px;">${item.product_name}</td>
-                            <td>${item.total_colors}</td>
-                            <td>${thumbHtml}</td>
-                            <td>${detailLink}</td>
-                            <td><i class="bi bi-google text-success"></i></td>
-                        `;
-                    } else {
-                        innerCells = `
-                            <td class="fw-bold">${item.style_code}</td>
-                            <td class="text-start text-truncate" style="max-width: 200px;">${item.product_name}</td>
-                            <td>${item.total_colors}</td>
-                            <td>${thumbHtml}</td>
-                            <td><span class="badge ${badgeClass} status-badge" ${titleAttr}>${statusLabel}</span></td>
-                        `;
-                    }
 
                     tr.innerHTML = `
                         <td><input type="checkbox" class="form-check-input item-check" value="${item.style_code}" ${isChecked ? 'checked' : ''} ${disabled}></td>
-                        ${innerCells}
+                        <td class="fw-bold">${item.style_code}</td>
+                        <td class="text-start text-truncate" style="max-width: 150px;">${item.product_name}</td>
+                        <td>${item.total_colors}</td>
+                        <td>${driveLink}</td>
+                        <td>${repImage}</td>
+                        <td>${thumbHtml}</td>
+                        <td>${detailLink}</td>
+                        <td><span class="badge ${badgeClass} status-badge" ${titleAttr}>${statusLabel}</span></td>
+                        <td><button class="btn btn-sm btn-outline-dark"><i class="bi bi-download"></i></button></td>
                     `;
                     tbody.appendChild(tr);
                 });
-                updateButtons();
             }
 
-            // 검색 필터링
-            document.getElementById('search-query').addEventListener('input', () => {
-                renderAllTabs();
-            });
+            function renderPaginationControls(containerId, tabType, totalPages, currentPage) {
+                const container = document.getElementById(containerId);
+                container.innerHTML = '';
+                
+                if (totalPages <= 1) return;
 
-            // 전체 선택 (탭별)
+                const ul = document.createElement('ul');
+                ul.className = 'pagination pagination-sm';
+
+                const prevLi = document.createElement('li');
+                prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+                prevLi.innerHTML = `<a class="page-link" href="#" aria-label="Previous">&laquo;</a>`;
+                prevLi.onclick = (e) => { e.preventDefault(); if(currentPage > 1) changePage(tabType, currentPage - 1); };
+                ul.appendChild(prevLi);
+
+                let startPage = Math.max(1, currentPage - 2);
+                let endPage = Math.min(totalPages, startPage + 4);
+                if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
+
+                for (let i = startPage; i <= endPage; i++) {
+                    const li = document.createElement('li');
+                    li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+                    li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+                    li.onclick = (e) => { e.preventDefault(); changePage(tabType, i); };
+                    ul.appendChild(li);
+                }
+
+                const nextLi = document.createElement('li');
+                nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+                nextLi.innerHTML = `<a class="page-link" href="#" aria-label="Next">&raquo;</a>`;
+                nextLi.onclick = (e) => { e.preventDefault(); if(currentPage < totalPages) changePage(tabType, currentPage + 1); };
+                ul.appendChild(nextLi);
+
+                container.appendChild(ul);
+            }
+
+            function changePage(tabType, page) {
+                paginationState[tabType].page = page;
+                renderTab(tabType);
+            }
+
             document.querySelectorAll('.check-all-tab').forEach(checkAll => {
                 checkAll.addEventListener('change', (e) => {
                     const targetId = e.target.dataset.target;
@@ -300,7 +409,6 @@
                 });
             });
 
-            // 개별 선택 감지
             document.body.addEventListener('change', (e) => {
                 if (e.target.classList.contains('item-check')) {
                     updateButtons();
@@ -316,23 +424,13 @@
                 
                 if (count > 0) {
                     btnStart.innerHTML = `<i class="bi bi-play-fill me-1"></i> ${count}건 처리 시작`;
-                    btnReset.innerHTML = `<i class="bi bi-arrow-counterclockwise me-1"></i> ${count}건 상태 초기화`;
+                    btnReset.innerHTML = `<i class="bi bi-arrow-counterclockwise me-1"></i> ${count}건 선택 초기화`;
                 } else {
-                    btnStart.innerHTML = `<i class="bi bi-play-fill me-1"></i> 선택 항목 처리 시작`;
-                    btnReset.innerHTML = `<i class="bi bi-arrow-counterclockwise me-1"></i> 상태 초기화`;
+                    btnStart.innerHTML = `<i class="bi bi-play-fill me-1"></i> 처리 시작`;
+                    btnReset.innerHTML = `<i class="bi bi-arrow-counterclockwise me-1"></i> 선택 초기화`;
                 }
             }
 
-            function updateStatusText() {
-                const processing = itemsCache.filter(i => i.status === 'PROCESSING').length;
-                if (processing > 0) {
-                    statusText.innerHTML = `<span class="spinner-border spinner-border-sm text-primary me-1"></span> ${processing}건 처리 중...`;
-                } else {
-                    statusText.textContent = `최신 상태 (총 ${itemsCache.length}건)`;
-                }
-            }
-
-            // [처리 시작] 버튼
             btnStart.addEventListener('click', async () => {
                 const selectedCodes = getSelectedCodes();
                 if (selectedCodes.length === 0) return;
@@ -340,13 +438,19 @@
                 await sendRequest(API_PROCESS, { style_codes: selectedCodes });
             });
 
-            // [상태 초기화] 버튼
             btnReset.addEventListener('click', async () => {
                 const selectedCodes = getSelectedCodes();
                 if (selectedCodes.length === 0) return;
-                if (!confirm(`선택한 ${selectedCodes.length}개 품번의 상태를 '대기(READY)'로 강제 초기화하시겠습니까?\n(진행 중이던 작업은 중단되지 않지만, DB 상태는 변경됩니다)`)) return;
+                if (!confirm(`선택한 ${selectedCodes.length}개 품번의 상태를 '대기(READY)'로 강제 초기화하시겠습니까?`)) return;
                 await sendRequest(API_RESET, { style_codes: selectedCodes });
             });
+            
+            if (btnCancelAll) {
+                btnCancelAll.addEventListener('click', async () => {
+                    if (!confirm('진행 중인 모든 이미지 작업을 취소(상태 초기화)하시겠습니까?')) return;
+                    await sendRequest(API_RESET_ALL, {});
+                });
+            }
 
             function getSelectedCodes() {
                 const allChecked = document.querySelectorAll('.item-check:checked');
@@ -356,7 +460,6 @@
             async function sendRequest(url, data) {
                 isProcessing = true;
                 setButtonsLoading(true);
-
                 try {
                     const res = await fetch(url, {
                         method: 'POST',
@@ -378,7 +481,7 @@
                     isProcessing = false;
                     setButtonsLoading(false);
                     document.querySelectorAll('.check-all-tab').forEach(cb => cb.checked = false);
-                    loadData(); // 즉시 갱신
+                    loadData(); 
                 }
             }
             
@@ -392,7 +495,6 @@
                 }
             }
 
-            // 초기 실행
             loadData();
             setInterval(loadData, 5000);
         });

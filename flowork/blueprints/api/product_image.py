@@ -3,9 +3,8 @@ import threading
 import traceback
 from flask import request, jsonify, current_app
 from flask_login import login_required, current_user
-from sqlalchemy import text
-from sqlalchemy.orm import selectinload
-from flowork.models import db, Product
+from sqlalchemy import text, func, or_, case
+from flowork.models import db, Product, Variant
 from . import api_bp
 from .tasks import TASKS, run_async_image_process
 
@@ -16,65 +15,92 @@ def get_product_image_status():
         return jsonify({'status': 'error', 'message': '브랜드 계정이 필요합니다.'}), 403
 
     try:
-        # 1. 상품 및 옵션 정보 로드
-        products = Product.query.options(selectinload(Product.variants))\
-            .filter_by(brand_id=current_user.current_brand_id).all()
+        # 1. 파라미터 수신 (페이지네이션 및 필터)
+        page = request.args.get('page', 1, type=int)
+        limit = request.args.get('limit', 50, type=int)
+        tab_type = request.args.get('tab', 'all') # processing, failed, completed, all
+        search_query = request.args.get('query', '').strip()
+
+        # 2. 기본 쿼리 구성 (Product + Variant 조인하여 컬러 수 계산)
+        # SQL Group By를 사용하여 사이즈 중복을 DB단에서 제거하고 컬러 수만 셉니다.
+        query = db.session.query(
+            Product.product_number,
+            Product.product_name,
+            Product.image_status,
+            Product.thumbnail_url,
+            Product.detail_image_url,
+            Product.image_drive_link,
+            Product.last_message,
+            func.count(func.distinct(Variant.color)).label('total_colors')
+        ).outerjoin(Variant, Product.id == Variant.product_id)\
+         .filter(Product.brand_id == current_user.current_brand_id)\
+         .group_by(Product.id)
+
+        # 3. 탭별 필터링 적용
+        if tab_type == 'processing':
+            # 진행중 또는 대기 상태
+            query = query.filter(or_(
+                Product.image_status == 'PROCESSING',
+                Product.image_status == 'READY',
+                Product.image_status == None
+            ))
+        elif tab_type == 'failed':
+            query = query.filter(Product.image_status == 'FAILED')
+        elif tab_type == 'completed':
+            query = query.filter(Product.image_status == 'COMPLETED')
         
-        groups = {}
-        for p in products:
-            style_code = p.product_number
-            
-            if style_code not in groups:
-                groups[style_code] = {
-                    'style_code': style_code,
-                    'product_name': p.product_name,
-                    'total_colors': 0,
-                    'status': 'READY',
-                    'thumbnail': None,
-                    'detail': None,
-                    'message': ''
-                }
-            
-            group = groups[style_code]
-            unique_colors = set(v.color for v in p.variants if v.color)
-            group['total_colors'] = len(unique_colors) if unique_colors else 1
-            
-            _update_group_status_and_links(group, p)
+        # 4. 검색 필터링 (품번 또는 품명)
+        if search_query:
+            search_term = f"%{search_query.upper()}%"
+            query = query.filter(or_(
+                Product.product_number.ilike(search_term),
+                Product.product_name.ilike(search_term)
+            ))
+
+        # 5. 정렬 및 페이지네이션 (DB에서 자름)
+        # 우선순위: 진행중/실패가 상단, 나머지는 품번순
+        pagination = query.order_by(
+            case(
+                (Product.image_status == 'PROCESSING', 1),
+                (Product.image_status == 'FAILED', 2),
+                else_=3
+            ),
+            Product.product_number.asc()
+        ).paginate(page=page, per_page=limit, error_out=False)
+
+        # 6. 결과 변환
+        result_list = []
+        for row in pagination.items:
+            # row는 튜플 형태: (product_number, product_name, ..., total_colors)
+            item = {
+                'style_code': row.product_number,
+                'product_name': row.product_name,
+                'status': row.image_status or 'READY',
+                'thumbnail': row.thumbnail_url,
+                'detail': row.detail_image_url,
+                'drive_link': row.image_drive_link,
+                'message': row.last_message,
+                'total_colors': row.total_colors # DB에서 계산된 컬러 수
+            }
+            result_list.append(item)
+
+        return jsonify({
+            'status': 'success', 
+            'data': result_list,
+            'pagination': {
+                'current_page': pagination.page,
+                'total_pages': pagination.pages,
+                'total_items': pagination.total,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev
+            }
+        })
 
     except Exception as e:
         print(f"⚠️ DB 조회 중 오류: {e}")
+        traceback.print_exc()
         db.session.rollback()
         return jsonify({'status': 'error', 'message': f'DB 조회 오류: {str(e)}'}), 500
-
-    # 리스트 변환 및 정렬
-    result_list = list(groups.values())
-    result_list.sort(key=lambda x: x['style_code'])
-
-    return jsonify({'status': 'success', 'data': result_list})
-
-def _update_group_status_and_links(group, product):
-    """그룹 상태 및 정보 최신화"""
-    current_status = group['status']
-    item_status = product.image_status or 'READY'
-    
-    # 상태 우선순위: PROCESSING > FAILED > COMPLETED > READY
-    if item_status == 'PROCESSING' or current_status == 'PROCESSING':
-        group['status'] = 'PROCESSING'
-    elif item_status == 'FAILED' and current_status != 'PROCESSING':
-        group['status'] = 'FAILED'
-    elif item_status == 'COMPLETED' and current_status == 'READY':
-        group['status'] = 'COMPLETED'
-        
-    if product.thumbnail_url and not group['thumbnail']:
-        group['thumbnail'] = product.thumbnail_url
-    if product.detail_image_url and not group['detail']:
-        group['detail'] = product.detail_image_url
-        
-    if product.last_message:
-        if item_status == 'FAILED':
-            group['message'] = product.last_message
-        elif not group['message']:
-            group['message'] = product.last_message
 
 @api_bp.route('/api/product/images/process', methods=['POST'])
 @login_required
@@ -89,7 +115,6 @@ def trigger_image_process():
         return jsonify({'status': 'error', 'message': '선택된 품번이 없습니다.'}), 400
 
     try:
-        # 1. Bulk Update: 선택된 품번들의 상태를 PROCESSING으로 변경
         for code in style_codes:
             db.session.query(Product).filter(
                 Product.brand_id == current_user.current_brand_id,
@@ -101,7 +126,6 @@ def trigger_image_process():
             
         db.session.commit()
 
-        # 2. 비동기 작업 시작
         task_id = str(uuid.uuid4())
         TASKS[task_id] = {
             'status': 'processing', 
@@ -129,12 +153,12 @@ def trigger_image_process():
 
     except Exception as e:
         db.session.rollback()
+        traceback.print_exc()
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @api_bp.route('/api/product/images/reset', methods=['POST'])
 @login_required
 def reset_image_process_status():
-    """선택한 품번의 상태를 'READY'로 강제 초기화 (Bulk Update 적용)"""
     if not current_user.brand_id:
          return jsonify({'status': 'error', 'message': '권한이 없습니다.'}), 403
 
@@ -147,7 +171,6 @@ def reset_image_process_status():
     try:
         updated_count = 0
         for code in style_codes:
-            # LIKE 쿼리로 해당 품번으로 시작하는 모든 상품 업데이트
             res = db.session.query(Product).filter(
                 Product.brand_id == current_user.current_brand_id,
                 Product.product_number.like(f"{code}%")
@@ -167,7 +190,6 @@ def reset_image_process_status():
 @api_bp.route('/api/product/images/reset_all_processing', methods=['POST'])
 @login_required
 def reset_all_processing_status():
-    """'진행중(PROCESSING)' 상태인 모든 항목을 'READY'로 강제 초기화"""
     if not current_user.brand_id:
          return jsonify({'status': 'error', 'message': '권한이 없습니다.'}), 403
 
