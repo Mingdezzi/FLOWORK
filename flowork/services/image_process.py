@@ -316,7 +316,8 @@ def _remove_background(input_path):
         name, ext = os.path.splitext(input_path)
         output_path = f"{name}_nobg.png"
         
-        model_home = os.path.join(current_app.config['UPLOAD_FOLDER'], 'models')
+        # [수정] Dockerfile에서 미리 다운로드한 고정 경로(/app/models) 사용
+        model_home = '/app/models'
         os.environ['U2NET_HOME'] = model_home
         os.makedirs(model_home, exist_ok=True)
 
