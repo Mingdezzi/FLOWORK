@@ -14,3 +14,4 @@ aiofiles
 Pillow
 requests
 numpy
+holidays
