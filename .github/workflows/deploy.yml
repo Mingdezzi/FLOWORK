@@ -21,9 +21,22 @@ jobs:
           script: |
             cd ~/flowork
             git pull origin main
+            
+            # 1. Eider JSON 키 생성 (필요시)
             echo '${{ secrets.EIDER_JSON_KEY }}' > EIDERGOOGLE.json
-            docker build --no-cache -t flowork .
-            docker stop flowork_app || true
-            docker rm flowork_app || true
-            docker run -d --name flowork_app --restart always -p 80:5000 -e PORT=5000 -e SECRET_KEY="${{ secrets.ENV_SECRET_KEY }}" -e DATABASE_URL="${{ secrets.ENV_DATABASE_URL }}" flowork
+            
+            # 2. Docker Compose로 빌드 및 실행 (기존 컨테이너 자동 재시작)
+            # 환경변수 파일(.env)을 만들거나, docker-compose 명령 내에서 환경변수를 주입할 수 있습니다.
+            # 여기서는 간단하게 docker-compose.yml의 하드코딩된 값을 쓰거나,
+            # 필요한 경우 export로 환경변수를 설정합니다.
+            
+            docker compose down
+            docker compose build --no-cache
+            docker compose up -d
+            
+            # 3. DB 업데이트 (테이블 생성/스키마 패치)
+            # web 컨테이너 내부에서 플라스크 명령어로 실행
+            sleep 10  # DB가 켜질 때까지 잠시 대기
+            docker exec flowork_app flask update-db
+            
             docker image prune -f

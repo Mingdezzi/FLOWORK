@@ -1,4 +1,5 @@
-<<<<<<< HEAD
+version: '3.8'
+
 services:
   web:
     build: .
@@ -9,9 +10,11 @@ services:
     environment:
       - PORT=5000
       - SECRET_KEY=change_this_to_a_secure_secret_key
+      # docker 내부 네트워크에서는 service name인 'db'를 호스트로 사용
       - DATABASE_URL=postgresql://flowork_user:flowork_pass@db:5432/flowork_db
       - TZ=Asia/Seoul
     volumes:
+      # 이미지 업로드 폴더 영구 보존을 위해 볼륨 연결
       - ./flowork/static/product_images:/app/flowork/static/product_images
     depends_on:
       - db
@@ -31,38 +34,4 @@ services:
       - "5432:5432"
 
 volumes:
-=======
-services:
-  web:
-    build: .
-    container_name: flowork_app
-    restart: always
-    ports:
-      - "80:5000"
-    environment:
-      - PORT=5000
-      - SECRET_KEY=change_this_to_a_secure_secret_key
-      - DATABASE_URL=postgresql://flowork_user:flowork_pass@db:5432/flowork_db
-      - TZ=Asia/Seoul
-    volumes:
-      - ./flowork/static/product_images:/app/flowork/static/product_images
-    depends_on:
-      - db
-
-  db:
-    image: postgres:15
-    container_name: flowork_db
-    restart: always
-    environment:
-      POSTGRES_USER: flowork_user
-      POSTGRES_PASSWORD: flowork_pass
-      POSTGRES_DB: flowork_db
-      TZ: Asia/Seoul
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-
-volumes:
->>>>>>> 6a2ef68e3e576ba2080214062c5a15913ddf2e14
   postgres_data:
