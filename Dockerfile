@@ -15,7 +15,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 RUN apt-get update && \
     apt-get install -y curl && \
     mkdir -p /app/models && \
-    curl -L -o /app/models/u2netp.onnx https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx && \
+    curl -L -o /app/models/u2net.onnx https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

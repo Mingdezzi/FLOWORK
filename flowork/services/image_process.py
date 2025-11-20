@@ -22,7 +22,7 @@ def _log(message):
 def _get_rembg_session():
     global _REMBG_SESSION
     if _REMBG_SESSION is None:
-        model_name = "u2netp"
+        model_name = "u2net"
         _REMBG_SESSION = new_session(model_name)
     return _REMBG_SESSION
 
@@ -113,7 +113,6 @@ def process_style_code_group(brand_id, style_code):
         return True, f"성공: {len(valid_variants)}개 컬러 처리 완료"
 
     except Exception as e:
-        err_msg = f"시스템 오류: {str(e)}\n{traceback.format_exc()}"
         if products:
             _update_product_status(products, 'FAILED', f"오류 발생: {str(e)}")
         return False, f"오류 발생: {str(e)}"

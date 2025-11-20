@@ -92,7 +92,6 @@ def get_product_image_status():
         })
 
     except Exception as e:
-        print(f"⚠️ DB 조회 중 오류: {e}")
         traceback.print_exc()
         db.session.rollback()
         return jsonify({'status': 'error', 'message': f'DB 조회 오류: {str(e)}'}), 500
@@ -237,7 +236,6 @@ def download_product_images(style_code):
         )
         
     except Exception as e:
-        print(f"Download Error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @api_bp.route('/api/product/delete_image_data', methods=['POST'])
@@ -274,7 +272,7 @@ def delete_product_image_data():
                 try:
                     shutil.rmtree(folder_path)
                 except Exception as fs_err:
-                    print(f"File delete error for {code}: {fs_err}")
+                    print(f"File delete error: {fs_err}")
             
             count += 1
             
