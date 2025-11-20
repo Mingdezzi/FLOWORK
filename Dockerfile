@@ -23,4 +23,4 @@ COPY . .
 
 ENV CUDA_VISIBLE_DEVICES=-1
 
-CMD gunicorn --workers 4 --bind 0.0.0.0:$PORT --timeout 300 run:app
+CMD gunicorn --workers 6 --bind 0.0.0.0:$PORT --timeout 300 run:app
