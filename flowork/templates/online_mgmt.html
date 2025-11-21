@@ -15,6 +15,20 @@
         .table th { font-size: 0.85rem; vertical-align: middle; white-space: nowrap; }
         .table td { font-size: 0.9rem; vertical-align: middle; }
         .pagination { margin-bottom: 0; }
+        
+        /* 옵션 패널 스타일 */
+        .options-panel {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .options-panel label {
+            font-size: 0.85rem;
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+        }
     </style>
 </head>
 <body data-api-list="{{ url_for('api.get_product_image_status') }}" 
@@ -38,6 +52,38 @@
                 <button class="btn btn-primary" id="btn-start-process" disabled>
                     <i class="bi bi-play-fill me-1"></i> 처리 시작
                 </button>
+            </div>
+        </div>
+
+        <div class="options-panel">
+            <div class="row g-3 align-items-end">
+                <div class="col-auto">
+                    <label for="opt-padding"><i class="bi bi-arrows-angle-contract me-1"></i>안전 여백 (px)</label>
+                    <input type="number" class="form-control form-control-sm" id="opt-padding" value="10" min="0" max="100" style="width: 100px;">
+                </div>
+                <div class="col-auto">
+                    <label for="opt-direction"><i class="bi bi-compass me-1"></i>배치 방향</label>
+                    <select class="form-select form-select-sm" id="opt-direction" style="width: 120px;">
+                        <option value="SE" selected>↘ 우하단 (기본)</option>
+                        <option value="SW">↙ 좌하단</option>
+                        <option value="NE">↗ 우상단</option>
+                        <option value="NW">↖ 좌상단</option>
+                        <option value="E">→ 우측</option>
+                        <option value="W">← 좌측</option>
+                        <option value="S">↓ 하단</option>
+                        <option value="N">↑ 상단</option>
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <label for="opt-bgcolor"><i class="bi bi-palette me-1"></i>배경 색상</label>
+                    <div class="input-group input-group-sm">
+                        <input type="color" class="form-control form-control-color" id="opt-bgcolor-picker" value="#FFFFFF" title="색상 선택">
+                        <input type="text" class="form-control" id="opt-bgcolor-text" value="#FFFFFF" style="width: 80px; text-transform: uppercase;">
+                    </div>
+                </div>
+                <div class="col text-muted small text-end align-self-center">
+                    * 설정한 옵션은 '처리 시작' 버튼을 누를 때 적용됩니다.
+                </div>
             </div>
         </div>
 
@@ -221,6 +267,23 @@
             const API_RESET_ALL = document.body.dataset.apiResetAll;
             const API_DOWNLOAD = "/api/product/download/";
             const API_DELETE = "/api/product/delete_image_data";
+
+            // 옵션 UI 요소
+            const optPadding = document.getElementById('opt-padding');
+            const optDirection = document.getElementById('opt-direction');
+            const optBgColorPicker = document.getElementById('opt-bgcolor-picker');
+            const optBgColorText = document.getElementById('opt-bgcolor-text');
+
+            // 배경색 피커 동기화
+            optBgColorPicker.addEventListener('input', (e) => {
+                optBgColorText.value = e.target.value.toUpperCase();
+            });
+            optBgColorText.addEventListener('input', (e) => {
+                const val = e.target.value;
+                if (/^#[0-9A-F]{6}$/i.test(val)) {
+                    optBgColorPicker.value = val;
+                }
+            });
 
             let isProcessing = false;
             
@@ -535,8 +598,19 @@
             if(btnStart) btnStart.addEventListener('click', () => {
                 const codes = getSelectedCodes();
                 if (codes.length === 0) return;
+                
+                // [신규] 옵션값 수집
+                const options = {
+                    padding: document.getElementById('opt-padding').value,
+                    direction: document.getElementById('opt-direction').value,
+                    bg_color: document.getElementById('opt-bgcolor-text').value
+                };
+
                 if (confirm(`${codes.length}건 품번의 이미지 작업을 시작하시겠습니까?`)) {
-                    sendRequest(API_PROCESS, { style_codes: codes });
+                    sendRequest(API_PROCESS, { 
+                        style_codes: codes,
+                        options: options // 옵션 전달
+                    });
                 }
             });
 

@@ -104,6 +104,7 @@ def trigger_image_process():
          
     data = request.json
     style_codes = data.get('style_codes', [])
+    options = data.get('options', {})
     
     if not style_codes:
         return jsonify({'status': 'error', 'message': '선택된 품번이 없습니다.'}), 400
@@ -134,7 +135,8 @@ def trigger_image_process():
                 current_app._get_current_object(),
                 task_id,
                 current_user.current_brand_id,
-                style_codes
+                style_codes,
+                options
             )
         )
         thread.start()

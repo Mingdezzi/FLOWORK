@@ -27,9 +27,16 @@ def _get_rembg_session():
         _REMBG_SESSION = new_session(model_name)
     return _REMBG_SESSION
 
-def process_style_code_group(brand_id, style_code):
+def _hex_to_rgb(hex_value):
+    hex_value = hex_value.lstrip('#')
+    return tuple(int(hex_value[i:i+2], 16) for i in (0, 2, 4))
+
+def process_style_code_group(brand_id, style_code, options=None):
     products = []
     try:
+        if options is None:
+            options = {}
+
         brand = db.session.get(Brand, brand_id)
         if not brand:
             return False, "브랜드 정보를 찾을 수 없습니다."
@@ -99,13 +106,12 @@ def process_style_code_group(brand_id, style_code):
             _update_product_status(products, 'FAILED', msg)
             return False, msg
 
-        # [수정] 메인 로고와 겹치지 않는 전용 로고 파일 사용
         logo_path = os.path.join(current_app.root_path, 'static', 'thumbnail_logo.png')
         if not os.path.exists(logo_path):
             logo_path = None
 
-        thumbnail_path = _create_thumbnail(valid_variants, temp_dir, style_code, logo_path=logo_path)
-        detail_path = _create_detail_image(valid_variants, temp_dir, style_code)
+        thumbnail_path = _create_thumbnail(valid_variants, temp_dir, style_code, logo_path=logo_path, options=options)
+        detail_path = _create_detail_image(valid_variants, temp_dir, style_code, options=options)
 
         result_links = _save_structure_locally(brand_name, style_code, variants_map, thumbnail_path, detail_path)
 
@@ -312,10 +318,19 @@ def _paste_logo(final_image, logo_path, logo_config):
     except Exception as e:
         print(f"Logo paste error: {e}")
 
-def _create_thumbnail(variants, temp_dir, style_code, bg_color=(255, 255, 255), logo_path=None):
+def _create_thumbnail(variants, temp_dir, style_code, logo_path=None, options=None):
     try:
+        if options is None:
+            options = {}
+            
         canvas_w = 800
         canvas_h = 800
+        
+        # 옵션값 파싱
+        PADDING = int(options.get('padding', 10))
+        direction = options.get('direction', 'SE')
+        bg_hex = options.get('bg_color', '#FFFFFF')
+        bg_color = _hex_to_rgb(bg_hex)
         
         logo_config = {
             'height': 80,
@@ -326,8 +341,6 @@ def _create_thumbnail(variants, temp_dir, style_code, bg_color=(255, 255, 255), 
         
         prod_area_w = canvas_w
         prod_area_h = canvas_h - logo_area_h
-        
-        PADDING = 10 
         
         layout_layer = Image.new("RGBA", (canvas_w, canvas_h), (255, 255, 255, 0))
         
@@ -380,29 +393,57 @@ def _create_thumbnail(variants, temp_dir, style_code, bg_color=(255, 255, 255), 
         
         offset_y = logo_area_h
         
-        if count == 1:
-            start_x = (prod_area_w - first_w) // 2
-            start_y = offset_y + (prod_area_h - first_h) // 2
-            step_x, step_y = 0, 0
-        else:
-            start_x = PADDING
-            start_y = offset_y + PADDING
-            
-            max_x = prod_area_w - PADDING - first_w
-            max_y = offset_y + prod_area_h - PADDING - first_h
-            
-            if max_x < start_x: 
-                start_x = (prod_area_w - first_w) // 2
-                max_x = start_x
-            if max_y < start_y:
-                start_y = offset_y + (prod_area_h - first_h) // 2
-                max_y = start_y
+        # 배치 영역의 좌표 범위 계산
+        min_x = PADDING
+        max_x = prod_area_w - PADDING - first_w
+        min_y = offset_y + PADDING
+        max_y = offset_y + prod_area_h - PADDING - first_h
+        
+        # 중앙값 계산
+        center_x = (prod_area_w - first_w) // 2
+        center_y = offset_y + (prod_area_h - first_h) // 2
+        
+        # 이미지가 영역보다 큰 경우 처리
+        if max_x < min_x: max_x = min_x = center_x
+        if max_y < min_y: max_y = min_y = center_y
 
-            travel_x = max_x - start_x
-            travel_y = max_y - start_y
+        start_x, start_y = center_x, center_y
+        step_x, step_y = 0, 0
+
+        if count > 1:
+            s_x, s_y, e_x, e_y = 0, 0, 0, 0
             
-            step_x = travel_x // (count - 1) if count > 1 else 0
-            step_y = travel_y // (count - 1) if count > 1 else 0
+            if direction == 'SE': # ↘
+                s_x, s_y = min_x, min_y
+                e_x, e_y = max_x, max_y
+            elif direction == 'SW': # ↙
+                s_x, s_y = max_x, min_y
+                e_x, e_y = min_x, max_y
+            elif direction == 'NE': # ↗
+                s_x, s_y = min_x, max_y
+                e_x, e_y = max_x, min_y
+            elif direction == 'NW': # ↖
+                s_x, s_y = max_x, max_y
+                e_x, e_y = min_x, min_y
+            elif direction == 'E': # →
+                s_x, s_y = min_x, center_y
+                e_x, e_y = max_x, center_y
+            elif direction == 'W': # ←
+                s_x, s_y = max_x, center_y
+                e_x, e_y = min_x, center_y
+            elif direction == 'S': # ↓
+                s_x, s_y = center_x, min_y
+                e_x, e_y = center_x, max_y
+            elif direction == 'N': # ↑
+                s_x, s_y = center_x, max_y
+                e_x, e_y = center_x, min_y
+            else: # Default SE
+                s_x, s_y = min_x, min_y
+                e_x, e_y = max_x, max_y
+
+            start_x, start_y = s_x, s_y
+            step_x = (e_x - s_x) // (count - 1)
+            step_y = (e_y - s_y) // (count - 1)
                 
         for idx, img in enumerate(resized_images):
             x = int(start_x + (idx * step_x))
@@ -424,8 +465,14 @@ def _create_thumbnail(variants, temp_dir, style_code, bg_color=(255, 255, 255), 
         traceback.print_exc()
         return None
 
-def _create_detail_image(variants, temp_dir, style_code, bg_color=(255, 255, 255)):
+def _create_detail_image(variants, temp_dir, style_code, options=None):
     try:
+        if options is None:
+            options = {}
+            
+        bg_hex = options.get('bg_color', '#FFFFFF')
+        bg_color = _hex_to_rgb(bg_hex)
+
         canvas_width = 800
         cell_width = canvas_width // 2
         target_img_width = int(cell_width * 0.9)
