@@ -70,10 +70,11 @@ def upload_brand_logo():
         static_folder = os.path.join(current_app.root_path, 'static')
         os.makedirs(static_folder, exist_ok=True)
         
-        file_path = os.path.join(static_folder, 'logo.png')
+        # [수정] 메인 로고(logo.png)와 충돌하지 않도록 별도 파일명 사용
+        file_path = os.path.join(static_folder, 'thumbnail_logo.png')
         file.save(file_path)
         
-        return jsonify({'status': 'success', 'message': '로고가 성공적으로 업로드되었습니다.'})
+        return jsonify({'status': 'success', 'message': '썸네일용 로고가 성공적으로 업로드되었습니다.'})
         
     except Exception as e:
         print(f"Logo upload error: {e}")
