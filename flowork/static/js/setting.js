@@ -1,14 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
     
-    // [수정] CSRF 토큰 가져오기
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
     const bodyData = document.body.dataset;
     
-    // [기존] 브랜드 이름 설정 URL
     const setBrandNameUrl = bodyData.apiBrandNameSetUrl;
     
-    // [기존] 스토어 관리 URL
     const addStoreUrl = bodyData.apiStoresAddUrl;
     const updateStoreUrlPrefix = bodyData.apiStoreUpdateUrlPrefix;
     const deleteStoreUrlPrefix = bodyData.apiStoreDeleteUrlPrefix;
@@ -16,24 +13,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleStoreActiveUrlPrefix = bodyData.apiStoreToggleActiveUrlPrefix;
     const resetStoreUrlPrefix = bodyData.apiStoreResetUrlPrefix;
 
-    // [기존] 직원 관리 URL
     const addStaffUrl = bodyData.apiStaffAddUrl;
     const updateStaffUrlPrefix = bodyData.apiStaffUpdateUrlPrefix;
     const deleteStaffUrlPrefix = bodyData.apiStaffDeleteUrlPrefix;
 
-    // [신규] 설정 파일 로드, 설정 저장, 로고 업로드 URL
     const loadSettingsUrl = bodyData.apiLoadSettingsUrl;
     const updateSettingUrl = bodyData.apiSettingUrl;
     const logoUploadUrl = bodyData.apiLogoUploadUrl;
 
-    // --- DOM 요소 ---
     const brandNameForm = document.getElementById('form-brand-name');
     const brandNameStatus = document.getElementById('brand-name-status');
 
     const loadSettingsBtn = document.getElementById('btn-load-settings');
     const loadSettingsStatus = document.getElementById('load-settings-status');
 
-    // [신규] 로고 업로드 DOM
     const logoForm = document.getElementById('form-logo-upload');
     const logoStatus = document.getElementById('logo-upload-status');
 
@@ -42,7 +35,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const storesTableBody = document.getElementById('all-stores-table')?.querySelector('tbody');
     const deleteStoreStatus = document.getElementById('delete-store-status');
     
-    // 매장 수정 모달
     const editModalEl = document.getElementById('edit-store-modal');
     const editModal = editModalEl ? new bootstrap.Modal(editModalEl) : null;
     const editForm = document.getElementById('form-edit-store');
@@ -52,7 +44,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const editStatus = document.getElementById('edit-store-status');
     const editSaveBtn = document.getElementById('btn-save-edit-store');
 
-    // 직원 관리 DOM
     const addStaffForm = document.getElementById('form-add-staff');
     const addStaffStatus = document.getElementById('add-staff-status');
     const staffTableBody = document.getElementById('all-staff-table')?.querySelector('tbody');
@@ -66,7 +57,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const editStaffStatus = document.getElementById('edit-staff-status');
     const editStaffSaveBtn = document.getElementById('btn-save-edit-staff');
 
-    // [신규] 카테고리 설정 DOM
     const catForm = document.getElementById('form-category-config');
     const catContainer = document.getElementById('cat-buttons-container');
     const btnAddCat = document.getElementById('btn-add-cat-row');
@@ -74,7 +64,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const catColumns = document.getElementById('cat-columns');
 
 
-    // --- 1. 브랜드 이름 설정 ---
     if (brandNameForm) {
         brandNameForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -112,7 +101,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- 2. [신규] 로고 업로드 처리 ---
     if (logoForm) {
         logoForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -148,7 +136,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 logoStatus.innerHTML = `<div class="alert alert-success mt-2">${data.message}</div>`;
-                // 필요 시 페이지 새로고침 없이 이미지 프리뷰 갱신 로직 추가 가능
 
             } catch (error) {
                 console.error('Logo upload error:', error);
@@ -160,7 +147,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- 3. [신규] 설정 파일 로드 ---
     if (loadSettingsBtn) {
         loadSettingsBtn.addEventListener('click', async () => {
             if (!confirm('서버에 저장된 브랜드 설정 파일을 로드하여 DB에 적용하시겠습니까?\n(기존 설정이 덮어씌워질 수 있습니다.)')) {
@@ -191,9 +177,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- 4. [신규] 카테고리 버튼 설정 ---
-    
-    // UI 헬퍼: 입력 행 추가
     function addCategoryInputRow(label = '', value = '') {
         const row = document.createElement('div');
         row.className = 'input-group mb-2 cat-row';
@@ -298,7 +281,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // --- 5. 매장 관리 ---
     if (addStoreForm) {
         addStoreForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -509,7 +491,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (storesTableBody) storesTableBody.insertAdjacentHTML('beforeend', newRowHtml);
     }
 
-    // --- 6. 직원 관리 ---
     if (addStaffForm) {
         addStaffForm.addEventListener('submit', async (e) => {
             e.preventDefault();
