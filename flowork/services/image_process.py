@@ -99,7 +99,13 @@ def process_style_code_group(brand_id, style_code):
             _update_product_status(products, 'FAILED', msg)
             return False, msg
 
-        thumbnail_path = _create_thumbnail(valid_variants, temp_dir, style_code)
+        # 로고 파일 경로 확인 (기본 static/logo.png 사용, 추후 브랜드별 확장 가능)
+        logo_path = os.path.join(current_app.root_path, 'static', 'logo.png')
+        if not os.path.exists(logo_path):
+            logo_path = None
+
+        # 썸네일 생성 시 로고 경로 전달
+        thumbnail_path = _create_thumbnail(valid_variants, temp_dir, style_code, logo_path=logo_path)
         detail_path = _create_detail_image(valid_variants, temp_dir, style_code)
 
         result_links = _save_structure_locally(brand_name, style_code, variants_map, thumbnail_path, detail_path)
@@ -275,12 +281,66 @@ def _trim_image(img):
         return img.crop(bbox)
     return img
 
-def _create_thumbnail(variants, temp_dir, style_code, bg_color=(255, 255, 255)):
+def _paste_logo(final_image, logo_path, logo_config):
+    """로고 이미지를 불러와서 설정된 위치에 합성합니다."""
     try:
-        canvas_size = 800
+        logo = Image.open(logo_path).convert("RGBA")
+        
+        area_height = logo_config.get('height', 80)
+        align = logo_config.get('align', 'left')
+        
+        # 로고 자체 여백 및 최대 높이 설정 (영역 높이의 70% 정도로 조정)
+        max_logo_h = int(area_height * 0.7)
+        
+        # 비율 유지 리사이징
+        ratio = max_logo_h / logo.height
+        new_w = int(logo.width * ratio)
+        new_h = int(logo.height * ratio)
+        logo = logo.resize((new_w, new_h), RESAMPLE_LANCZOS)
+        
+        # 캔버스 너비
+        canvas_w = final_image.width
+        
+        # 좌우 여백
+        margin_x = 20
+        
+        # 좌표 계산 (수직 중앙 정렬)
+        y = (area_height - new_h) // 2
+        
+        if align == 'center':
+            x = (canvas_w - new_w) // 2
+        elif align == 'right':
+            x = canvas_w - new_w - margin_x
+        else: # left
+            x = margin_x
+            
+        final_image.paste(logo, (x, y), logo)
+        
+    except Exception as e:
+        print(f"Logo paste error: {e}")
+
+def _create_thumbnail(variants, temp_dir, style_code, bg_color=(255, 255, 255), logo_path=None):
+    try:
+        # 1. 캔버스 및 영역 설정
+        canvas_w = 800
+        canvas_h = 800
+        
+        # 로고 설정 (추후 DB 등에서 받아올 수 있도록 구조화)
+        logo_config = {
+            'height': 80,
+            'align': 'left'
+        }
+        
+        logo_area_h = logo_config['height'] if logo_path else 0
+        
+        # 상품 이미지가 배치될 실제 영역 (로고 영역 제외)
+        prod_area_w = canvas_w
+        prod_area_h = canvas_h - logo_area_h
+        
         PADDING = 10 
         
-        layout_layer = Image.new("RGBA", (canvas_size, canvas_size), (255, 255, 255, 0))
+        # 투명 레이어 생성 (상품 배치용) - 전체 크기로 생성
+        layout_layer = Image.new("RGBA", (canvas_w, canvas_h), (255, 255, 255, 0))
         
         loaded_images = []
         for v in variants:
@@ -309,7 +369,8 @@ def _create_thumbnail(variants, temp_dir, style_code, bg_color=(255, 255, 255)):
         else:
             scale = 0.60
             
-        target_max_size = int(canvas_size * scale)
+        # 상품 영역 높이 기준 최대 크기 계산
+        target_max_size = int(min(prod_area_w, prod_area_h) * scale)
         
         resized_images = []
         for item in loaded_images:
@@ -329,22 +390,27 @@ def _create_thumbnail(variants, temp_dir, style_code, bg_color=(255, 255, 255)):
         
         first_w, first_h = resized_images[0].size
         
+        # 배치 로직 (로고 영역 오프셋 적용)
+        # start_y의 기준점은 logo_area_h 부터 시작
+        offset_y = logo_area_h
+        
         if count == 1:
-            start_x = (canvas_size - first_w) // 2
-            start_y = (canvas_size - first_h) // 2
+            start_x = (prod_area_w - first_w) // 2
+            start_y = offset_y + (prod_area_h - first_h) // 2
             step_x, step_y = 0, 0
         else:
             start_x = PADDING
-            start_y = PADDING
+            start_y = offset_y + PADDING
             
-            max_x = canvas_size - PADDING - first_w
-            max_y = canvas_size - PADDING - first_h
+            # 배치 가능 최대 좌표 (패딩 고려)
+            max_x = prod_area_w - PADDING - first_w
+            max_y = offset_y + prod_area_h - PADDING - first_h
             
             if max_x < start_x: 
-                start_x = (canvas_size - first_w) // 2
+                start_x = (prod_area_w - first_w) // 2
                 max_x = start_x
             if max_y < start_y:
-                start_y = (canvas_size - first_h) // 2
+                start_y = offset_y + (prod_area_h - first_h) // 2
                 max_y = start_y
 
             travel_x = max_x - start_x
@@ -358,8 +424,15 @@ def _create_thumbnail(variants, temp_dir, style_code, bg_color=(255, 255, 255)):
             y = int(start_y + (idx * step_y))
             layout_layer.alpha_composite(img, (x, y))
             
-        final_image = Image.new("RGB", (canvas_size, canvas_size), bg_color)
+        # 2. 배경 및 로고 합성
+        final_image = Image.new("RGB", (canvas_w, canvas_h), bg_color)
+        
+        # 상품 레이어 합성
         final_image.paste(layout_layer, (0, 0), layout_layer)
+        
+        # 로고 합성
+        if logo_path:
+            _paste_logo(final_image, logo_path, logo_config)
             
         output_path = os.path.join(temp_dir, f"{style_code}_thumbnail.jpg")
         final_image.save(output_path, "JPEG", quality=95)
