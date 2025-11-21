@@ -16,6 +16,7 @@
       data-api-brand-name-set-url="{{ url_for('api.update_brand_name') }}"
       data-api-load-settings-url="{{ url_for('api.load_settings_from_file') }}"
       data-api-setting-url="{{ url_for('api.update_setting') }}"
+      data-api-logo-upload-url="{{ url_for('api.upload_brand_logo') }}"
       data-api-staff-add-url="{{ url_for('api.add_staff') }}"
       data-api-staff-update-url-prefix="{{ url_for('api.update_staff', staff_id=0)[:-1] }}"
       data-api-staff-delete-url-prefix="{{ url_for('api.delete_staff', staff_id=0)[:-1] }}"
@@ -53,6 +54,21 @@
                         <button class="btn btn-primary" type="submit" id="btn-save-brand-name">저장</button>
                     </form>
                     <div id="brand-name-status"></div>
+
+                    <hr>
+
+                    <h6 class="card-subtitle mb-2 fw-bold text-dark"><i class="bi bi-image me-1"></i>브랜드 로고 설정</h6>
+                    <form id="form-logo-upload" class="input-group mb-3" enctype="multipart/form-data">
+                        <input type="file" class="form-control" id="logo-file-input" accept="image/png, image/jpeg" required>
+                        <button class="btn btn-outline-primary" type="submit" id="btn-upload-logo">
+                            <i class="bi bi-upload me-1"></i>로고 업로드
+                        </button>
+                    </form>
+                    <div class="form-text mb-2">
+                        * 권장 사이즈: 높이 80px 이상 (투명 배경 PNG 권장)<br>
+                        * 업로드된 로고는 썸네일 이미지 생성 시 좌측 상단에 자동 합성됩니다.
+                    </div>
+                    <div id="logo-upload-status"></div>
                     
                     <hr>
                     
