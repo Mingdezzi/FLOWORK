@@ -15,3 +15,5 @@ Pillow
 requests
 numpy
 holidays
+celery
+redis

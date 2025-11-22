@@ -110,7 +110,6 @@ def process_style_code_group(brand_id, style_code, options=None):
         if not os.path.exists(logo_path):
             logo_path = None
 
-        # [수정] options 인자를 _create_thumbnail로 전달
         thumbnail_path = _create_thumbnail(valid_variants, temp_dir, style_code, logo_path=logo_path, options=options)
         detail_path = _create_detail_image(valid_variants, temp_dir, style_code, options=options)
 
@@ -332,7 +331,6 @@ def _create_thumbnail(variants, temp_dir, style_code, logo_path=None, options=No
         bg_hex = options.get('bg_color', '#FFFFFF')
         bg_color = _hex_to_rgb(bg_hex)
         
-        # [수정] options에서 로고 정렬 값 가져오기
         logo_config = {
             'height': 80,
             'align': options.get('logo_align', 'left')

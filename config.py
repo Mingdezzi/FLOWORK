@@ -24,12 +24,15 @@ class Config:
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024
 
     SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_recycle': 280,
-        'pool_pre_ping': True,
-        'pool_size': 3,
-        'max_overflow': 5,
+        'pool_size': 10,
+        'max_overflow': 20,
         'pool_timeout': 30,
+        'pool_recycle': 1800,
+        'pool_pre_ping': True,
         'connect_args': {
             'connect_timeout': 10
         }
     }
+
+    CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://redis:6379/0')
+    CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://redis:6379/0')

@@ -1,5 +1,3 @@
-import uuid
-import threading
 import traceback
 import os
 import io
@@ -10,7 +8,7 @@ from flask_login import login_required, current_user
 from sqlalchemy import text, func, or_, case
 from flowork.models import db, Product, Variant
 from . import api_bp
-from .tasks import TASKS, run_async_image_process
+from flowork.celery_tasks import task_process_images
 
 @api_bp.route('/api/product/images', methods=['GET'])
 @login_required
@@ -104,7 +102,6 @@ def trigger_image_process():
          
     data = request.json
     style_codes = data.get('style_codes', [])
-    # [수정] 프론트엔드에서 전달된 옵션값(여백, 방향, 배경색, 로고위치) 수신
     options = data.get('options', {})
     
     if not style_codes:
@@ -122,30 +119,16 @@ def trigger_image_process():
             
         db.session.commit()
 
-        task_id = str(uuid.uuid4())
-        TASKS[task_id] = {
-            'status': 'processing', 
-            'current': 0, 
-            'total': len(style_codes), 
-            'percent': 0
-        }
-        
-        thread = threading.Thread(
-            target=run_async_image_process,
-            args=(
-                current_app._get_current_object(),
-                task_id,
-                current_user.current_brand_id,
-                style_codes,
-                options  # [수정] 비동기 작업 함수로 옵션 전달
-            )
+        task = task_process_images.delay(
+            current_user.current_brand_id,
+            style_codes,
+            options
         )
-        thread.start()
 
         return jsonify({
             'status': 'success', 
             'message': '이미지 처리가 시작되었습니다.', 
-            'task_id': task_id
+            'task_id': task.id
         })
 
     except Exception as e:

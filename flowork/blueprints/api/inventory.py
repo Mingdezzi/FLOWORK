@@ -1,27 +1,24 @@
 import os
 import io
 import uuid
-import threading
 import traceback
 from flask import request, jsonify, send_file, flash, redirect, url_for, current_app, abort
 from flask_login import login_required, current_user
 from sqlalchemy import or_, delete, exc
 from sqlalchemy.orm import selectinload
 
-# [수정] StockHistory 모델 추가
 from flowork.models import db, Product, Variant, StoreStock, Setting, Store, StockHistory
 from flowork.utils import clean_string_upper, get_choseong, generate_barcode, get_sort_key
 
 from flowork.services.excel import (
     export_db_to_excel,
     export_stock_check_excel,
-    verify_stock_excel,
-    import_excel_file
+    verify_stock_excel
 )
 
 from . import api_bp
 from .utils import admin_required, _get_or_create_store_stock
-from .tasks import TASKS, run_async_stock_upsert, run_async_import_db
+from flowork.celery_tasks import task_upsert_inventory, task_import_db
 
 @api_bp.route('/api/verify_excel', methods=['POST'])
 @login_required
@@ -73,41 +70,29 @@ def inventory_upsert():
     excluded_indices = [int(x) for x in excluded_str.split(',')] if excluded_str else []
 
     task_id = str(uuid.uuid4())
-    TASKS[task_id] = {'status': 'processing', 'current': 0, 'total': 0, 'percent': 0}
-    
     temp_filename = f"/tmp/upsert_{upload_mode}_{task_id}.xlsx"
     file.save(temp_filename)
     
+    form_data = request.form.to_dict()
+
     if upload_mode == 'db' and request.form.get('is_full_import') == 'true':
-        thread = threading.Thread(
-            target=run_async_import_db,
-            args=(
-                current_app._get_current_object(), 
-                task_id, 
-                temp_filename, 
-                request.form, 
-                current_brand_id
-            )
+        task = task_import_db.delay(
+            temp_filename,
+            form_data,
+            current_brand_id
         )
     else:
-        thread = threading.Thread(
-            target=run_async_stock_upsert,
-            args=(
-                current_app._get_current_object(), 
-                task_id, 
-                temp_filename, 
-                request.form, 
-                upload_mode, 
-                current_brand_id, 
-                target_store_id,
-                excluded_indices,
-                True 
-            )
+        task = task_upsert_inventory.delay(
+            temp_filename, 
+            form_data, 
+            upload_mode, 
+            current_brand_id, 
+            target_store_id,
+            excluded_indices,
+            True
         )
     
-    thread.start()
-    
-    return jsonify({'status': 'success', 'task_id': task_id, 'message': '업로드 작업을 시작했습니다.'})
+    return jsonify({'status': 'success', 'task_id': task.id, 'message': '업로드 작업을 시작했습니다.'})
 
 @api_bp.route('/update_store_stock_excel', methods=['POST'])
 @login_required
@@ -134,30 +119,24 @@ def update_store_stock_excel():
     current_brand_id = current_user.current_brand_id
     
     task_id = str(uuid.uuid4())
-    TASKS[task_id] = {'status': 'processing', 'current': 0, 'total': 0, 'percent': 0}
-    
     temp_filename = f"/tmp/store_upsert_{task_id}.xlsx"
     file.save(temp_filename)
     
     excluded_str = request.form.get('excluded_row_indices', '')
     excluded_indices = [int(x) for x in excluded_str.split(',')] if excluded_str else []
+    form_data = request.form.to_dict()
     
-    thread = threading.Thread(
-        target=run_async_stock_upsert,
-        args=(
-            current_app._get_current_object(), 
-            task_id, 
-            temp_filename, 
-            request.form, 
-            'store', 
-            current_brand_id, 
-            target_store_id,
-            excluded_indices,
-            True 
-        )
+    task = task_upsert_inventory.delay(
+        temp_filename, 
+        form_data, 
+        'store', 
+        current_brand_id, 
+        target_store_id,
+        excluded_indices,
+        True
     )
-    thread.start()
-    return jsonify({'status': 'success', 'task_id': task_id, 'message': '업데이트 작업을 시작했습니다.'})
+
+    return jsonify({'status': 'success', 'task_id': task.id, 'message': '업데이트 작업을 시작했습니다.'})
 
 @api_bp.route('/export_db_excel')
 @login_required
@@ -894,7 +873,6 @@ def api_order_product_search():
     else:
         return jsonify({'status': 'error', 'message': f"'{query}'(으)로 검색된 상품이 없습니다."}), 404
 
-# [신규] DB 완전 초기화 (상품/옵션/재고)
 @api_bp.route('/api/reset_database_completely', methods=['POST'])
 @admin_required
 def reset_database_completely():
@@ -904,22 +882,16 @@ def reset_database_completely():
     try:
         brand_id = current_user.current_brand_id
         
-        # 1. 브랜드 소속 매장 ID 조회
         store_ids_query = db.session.query(Store.id).filter_by(brand_id=brand_id)
         
-        # 2. StockHistory 삭제 (Variant, Store 참조)
         db.session.query(StockHistory).filter(StockHistory.store_id.in_(store_ids_query)).delete(synchronize_session=False)
 
-        # 3. StoreStock 삭제 (Variant, Store 참조)
         db.session.query(StoreStock).filter(StoreStock.store_id.in_(store_ids_query)).delete(synchronize_session=False)
         
-        # 4. Product ID 조회
         product_ids_query = db.session.query(Product.id).filter_by(brand_id=brand_id)
 
-        # 5. Variant 삭제 (Product 참조)
         db.session.query(Variant).filter(Variant.product_id.in_(product_ids_query)).delete(synchronize_session=False)
 
-        # 6. Product 삭제
         db.session.query(Product).filter_by(brand_id=brand_id).delete(synchronize_session=False)
         
         db.session.commit()
