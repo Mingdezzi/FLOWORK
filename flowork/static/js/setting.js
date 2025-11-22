@@ -19,16 +19,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const loadSettingsUrl = bodyData.apiLoadSettingsUrl;
     const updateSettingUrl = bodyData.apiSettingUrl;
-    const logoUploadUrl = bodyData.apiLogoUploadUrl;
 
     const brandNameForm = document.getElementById('form-brand-name');
     const brandNameStatus = document.getElementById('brand-name-status');
 
     const loadSettingsBtn = document.getElementById('btn-load-settings');
     const loadSettingsStatus = document.getElementById('load-settings-status');
-
-    const logoForm = document.getElementById('form-logo-upload');
-    const logoStatus = document.getElementById('logo-upload-status');
 
     const addStoreForm = document.getElementById('form-add-store');
     const addStoreStatus = document.getElementById('add-store-status');
@@ -97,52 +93,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="bi bi-save-fill me-1"></i> 브랜드 이름 저장';
-            }
-        });
-    }
-
-    if (logoForm) {
-        logoForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const fileInput = document.getElementById('logo-file-input');
-            const file = fileInput.files[0];
-            
-            if (!file) {
-                alert('업로드할 로고 파일을 선택해주세요.');
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('logo_file', file);
-
-            const btn = document.getElementById('btn-upload-logo');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 업로드 중...';
-            logoStatus.innerHTML = '';
-
-            try {
-                const response = await fetch(logoUploadUrl, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrfToken
-                    },
-                    body: formData
-                });
-                const data = await response.json();
-
-                if (!response.ok || data.status === 'error') {
-                    throw new Error(data.message || '업로드 실패');
-                }
-
-                logoStatus.innerHTML = `<div class="alert alert-success mt-2">${data.message}</div>`;
-
-            } catch (error) {
-                console.error('Logo upload error:', error);
-                logoStatus.innerHTML = `<div class="alert alert-danger mt-2">오류: ${error.message}</div>`;
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-upload me-1"></i>로고 업로드';
             }
         });
     }

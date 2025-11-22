@@ -23,11 +23,14 @@ def get_product_image_status():
         page = request.args.get('page', 1, type=int)
         limit = request.args.get('limit', 50, type=int)
         tab_type = request.args.get('tab', 'all')
-        search_query = request.args.get('query', '').strip()
         
-        # [신규] 현재 배치 목록 필터링 (콤마로 구분된 품번 리스트)
+        # [수정] 다중 품번 및 상세 검색 파라미터 처리
+        multi_codes_str = request.args.get('multi_codes', '')
         batch_codes_str = request.args.get('batch_codes', '')
-        batch_codes = [c.strip() for c in batch_codes_str.split(',') if c.strip()]
+        
+        search_name = request.args.get('product_name', '').strip()
+        search_year = request.args.get('release_year', '').strip()
+        search_category = request.args.get('item_category', '').strip()
 
         query = db.session.query(
             Product.product_number,
@@ -42,13 +45,33 @@ def get_product_image_status():
          .filter(Product.brand_id == current_user.current_brand_id)\
          .group_by(Product.id)
 
-        # [신규] 상단 탭(현재 작업)일 경우, 배치 코드들에 대해서만 조회
-        if batch_codes:
-            # LIKE로 부분 일치 검색 (품번% 패턴)
-            conditions = [Product.product_number.like(f"{code}%") for code in batch_codes]
-            query = query.filter(or_(*conditions))
+        # 1. 현재 작업 배치 필터링 (상단 탭용)
+        if batch_codes_str:
+            batch_codes = [c.strip() for c in batch_codes_str.split(',') if c.strip()]
+            if batch_codes:
+                # 배치 코드로 시작하는 것 검색 (LIKE prefix)
+                conditions = [Product.product_number.like(f"{code}%") for code in batch_codes]
+                query = query.filter(or_(*conditions))
 
-        # 탭별 상태 필터링
+        # 2. 상세 검색 필터링 (하단 탭용)
+        if multi_codes_str:
+            # 줄바꿈으로 분리된 다중 품번
+            codes = [c.strip() for c in multi_codes_str.split('\n') if c.strip()]
+            if codes:
+                # 입력된 코드로 시작하는 품번 검색
+                conditions = [Product.product_number.like(f"{code}%") for code in codes]
+                query = query.filter(or_(*conditions))
+        
+        if search_name:
+            query = query.filter(Product.product_name_cleaned.like(f"%{search_name}%"))
+        if search_year:
+            try:
+                query = query.filter(Product.release_year == int(search_year))
+            except: pass
+        if search_category:
+            query = query.filter(Product.item_category == search_category)
+
+        # 3. 탭 상태 필터링
         if tab_type == 'processing':
             query = query.filter(Product.image_status == 'PROCESSING')
         elif tab_type == 'ready':
@@ -57,14 +80,6 @@ def get_product_image_status():
             query = query.filter(Product.image_status == 'FAILED')
         elif tab_type == 'completed':
             query = query.filter(Product.image_status == 'COMPLETED')
-        
-        # 하단 탭(전체 목록) 검색어 필터링
-        if search_query:
-            search_term = f"%{search_query.upper()}%"
-            query = query.filter(or_(
-                Product.product_number.ilike(search_term),
-                Product.product_name.ilike(search_term)
-            ))
 
         pagination = query.order_by(
             case(
@@ -120,7 +135,6 @@ def trigger_image_process():
         return jsonify({'status': 'error', 'message': '선택된 품번이 없습니다.'}), 400
 
     try:
-        # [신규] 옵션 저장 로직 호출 (자동 저장)
         save_options_logic(current_user.id, current_user.current_brand_id, options)
 
         for code in style_codes:
@@ -151,7 +165,6 @@ def trigger_image_process():
         traceback.print_exc()
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# [신규] 사용자 옵션 저장 로직 (내부 호출용)
 def save_options_logic(user_id, brand_id, options):
     key = f'USER_OPTS_{user_id}'
     value_str = json.dumps(options, ensure_ascii=False)
@@ -164,7 +177,6 @@ def save_options_logic(user_id, brand_id, options):
         db.session.add(setting)
     db.session.commit()
 
-# [신규] 사용자 옵션 불러오기 API
 @api_bp.route('/api/product/options', methods=['GET'])
 @login_required
 def get_user_options():
@@ -182,7 +194,6 @@ def get_user_options():
             
     return jsonify({'status': 'success', 'options': options})
 
-# [신규] 폴더 이미지 목록 조회 API
 @api_bp.route('/api/product/folder/<style_code>', methods=['GET'])
 @login_required
 def get_product_folder_images(style_code):
@@ -200,8 +211,7 @@ def get_product_folder_images(style_code):
             for file in files:
                 if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
                     full_path = os.path.join(root, file)
-                    rel_path = os.path.relpath(full_path, current_app.root_path) # static/...
-                    # 웹 접근 경로로 변환
+                    rel_path = os.path.relpath(full_path, current_app.root_path)
                     web_path = '/' + rel_path.replace('\\', '/')
                     images.append({
                         'name': file,
@@ -214,7 +224,6 @@ def get_product_folder_images(style_code):
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# 기존 API들 (reset, reset_all, download, delete) 유지...
 @api_bp.route('/api/product/images/reset', methods=['POST'])
 @login_required
 def reset_image_process_status():
