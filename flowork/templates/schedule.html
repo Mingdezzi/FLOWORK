@@ -12,10 +12,10 @@
         .fc-event { font-size: 0.85em; padding: 2px 5px; }
     </style>
 </head>
-<body data-api-schedule-events-url="{{ url_for('api.get_schedule_events') }}"
-      data-api-schedule-add-url="{{ url_for('api.add_schedule_event') }}"
-      data-api-schedule-update-url-prefix="{{ url_for('api.update_schedule_event', event_id=0)[:-1] }}"
-      data-api-schedule-delete-url-prefix="{{ url_for('api.delete_schedule_event', event_id=0)[:-1] }}">
+<body data-api-schedule-events-url="{{ url_for('admin.api_get_schedule_events') }}"
+      data-api-schedule-add-url="{{ url_for('admin.api_add_schedule_event') }}"
+      data-api-schedule-update-url-prefix="{{ url_for('admin.api_update_schedule_event', event_id=0)[:-1] }}"
+      data-api-schedule-delete-url-prefix="{{ url_for('admin.api_delete_schedule_event', event_id=0)[:-1] }}">
     
     <div class="container my-4">
         {% include '_header.html' %}

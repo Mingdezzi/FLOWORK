@@ -1,10 +1,10 @@
 import io
 import openpyxl
-from openpyxl.utils import get_column_letter, column_index_from_string
 from datetime import datetime
 from flowork.models import db, Product, Variant, StoreStock
 
 def export_db_to_excel(brand_id):
+    """브랜드의 전체 상품 및 재고 데이터를 엑셀로 백업"""
     try:
         query = db.session.query(
             Product.product_number, Product.product_name, Product.release_year, Product.item_category,
@@ -27,6 +27,7 @@ def export_db_to_excel(brand_id):
         return None, None, str(e)
 
 def export_stock_check_excel(store_id, brand_id):
+    """재고 실사를 위한 엑셀 파일 생성"""
     try:
         variants = db.session.query(Variant).join(Product).filter(Product.brand_id == brand_id).all()
         stocks = db.session.query(StoreStock).filter_by(store_id=store_id).all()
@@ -40,7 +41,12 @@ def export_stock_check_excel(store_id, brand_id):
             st = stock_map.get(v.id)
             qty = st.quantity if st else 0
             actual = st.actual_stock if st and st.actual_stock is not None else ''
-            diff = (qty - actual) if isinstance(actual, int) else ''
+            
+            # 차이 계산 (실사 - 전산)
+            diff = ''
+            if isinstance(actual, int):
+                 diff = actual - qty
+
             ws.append([v.product.product_number, v.product.product_name, v.color, v.size, v.barcode, qty, actual, diff])
             
         output = io.BytesIO()
@@ -51,12 +57,15 @@ def export_stock_check_excel(store_id, brand_id):
         return None, None, str(e)
 
 def analyze_excel_file(file_storage):
+    """엑셀 파일 업로드 시 컬럼 미리보기 분석"""
     try:
         file_bytes = file_storage.read()
         wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
         ws = wb.active
         
         max_col = min(ws.max_column, 26)
+        # A, B, C ... 컬럼 알파벳 생성
+        from openpyxl.utils import get_column_letter, column_index_from_string
         letters = [get_column_letter(i) for i in range(1, max_col + 1)]
         
         preview = {}

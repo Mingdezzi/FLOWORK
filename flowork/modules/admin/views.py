@@ -41,3 +41,10 @@ def setting_page():
                            my_store_id=sid, all_stores=stores, staff_list=staffs,
                            category_config=cat_conf, expected_settings_file=exp_file,
                            loaded_settings_file=load_file)
+
+@admin_bp.route('/schedule')
+@login_required
+def schedule():
+    if not current_user.store_id: abort(403)
+    staff_list = Staff.query.filter_by(store_id=current_user.store_id, is_active=True).order_by(Staff.name).all()
+    return render_template('schedule.html', active_page='schedule', staff_list=staff_list)
