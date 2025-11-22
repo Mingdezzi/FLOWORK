@@ -3,13 +3,9 @@ setlocal enabledelayedexpansion
 chcp 65001 > nul
 cls
 
-:: ====================================================
-:: [설정] 서버 정보
-:: ====================================================
 set SERVER_IP=212.47.68.72
 set USER=root
 set PROJECT_DIR=~/flowork
-:: ====================================================
 
 :MAIN_MENU
 cls
@@ -43,9 +39,6 @@ if "%choice%"=="4" goto SYSTEM_MENU
 if "%choice%"=="0" exit
 goto MAIN_MENU
 
-:: ====================================================
-:: 1. 배포 메뉴
-:: ====================================================
 :DEPLOY_MENU
 cls
 echo.
@@ -81,15 +74,12 @@ goto DEPLOY_MENU
 :DEPLOY_RESET
 echo.
 echo [서버] 캐시 초기화 및 재배포 중...
-ssh %USER%@%SERVER_IP% "cd %PROJECT_DIR% && docker compose down && docker builder prune -af && git pull origin main && docker compose build --no-cache && docker compose up -d"
+ssh %USER%@%SERVER_IP% "cd %PROJECT_DIR% && (docker compose down || true) && git pull origin main && docker builder prune -af && docker compose build --no-cache && docker compose up -d"
 echo.
 echo ✅ 완료.
 pause
 goto DEPLOY_MENU
 
-:: ====================================================
-:: 2. 데이터 메뉴
-:: ====================================================
 :DATA_MENU
 cls
 echo.
@@ -135,9 +125,6 @@ ssh %USER%@%SERVER_IP% "cd %PROJECT_DIR% && docker exec flowork_app flask --app 
 pause
 goto DATA_MENU
 
-:: ====================================================
-:: 3. 로그 메뉴
-:: ====================================================
 :LOG_MENU
 cls
 echo.
@@ -170,7 +157,6 @@ if "%l_choice%"=="4" (
     echo.
     echo [서버] 상태 점검 결과:
     echo ---------------------------------------------------
-    :: [수정됨] 명령어를 한 줄로 통합하여 실행 오류 방지
     ssh %USER%@%SERVER_IP% "echo '[DISK]' && df -h | grep '/$' && echo '' && echo '[MEMORY]' && free -h && echo '' && echo '[CONTAINERS]' && docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
     echo ---------------------------------------------------
     pause
@@ -179,9 +165,6 @@ if "%l_choice%"=="4" (
 if "%l_choice%"=="0" goto MAIN_MENU
 goto LOG_MENU
 
-:: ====================================================
-:: 4. 시스템 메뉴
-:: ====================================================
 :SYSTEM_MENU
 cls
 echo.
@@ -255,12 +238,8 @@ echo 🔄 재부팅 명령 전송 완료. 잠시 후 접속하세요.
 pause
 goto SYSTEM_MENU
 
-:: ====================================================
-:: [백업 기능]
-:: ====================================================
 :RUN_BACKUP
 echo.
-:: [수정됨] 날짜 형식 오류 방지를 위해 WMIC 사용 (모든 PC 호환)
 for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set datetime=%%I
 set YEAR=%datetime:~0,4%
 set MONTH=%datetime:~4,2%
@@ -293,7 +272,6 @@ echo.
 set /p confirm="정말 복구하시겠습니까? (y/n): "
 if not "%confirm%"=="y" goto DATA_MENU
 
-:: 최신 백업 폴더 찾기 (PowerShell 활용)
 for /f "delims=" %%i in ('powershell -Command "Get-ChildItem -Path ([System.Environment]::GetFolderPath('Desktop')) -Directory -Filter 'FLOWORK_BACKUP_*' | Sort-Object CreationTime -Descending | Select-Object -First 1 | Select-Object -ExpandProperty FullName"') do set LATEST_BACKUP=%%i
 
 if "%LATEST_BACKUP%"=="" (
@@ -308,7 +286,6 @@ if exist "%LATEST_BACKUP%\backup_db.sql" (
     echo.
     echo [1/2] DB 복구 중...
     scp "%LATEST_BACKUP%\backup_db.sql" %USER%@%SERVER_IP%:~/flowork/backup_db.sql
-    :: [수정됨] 명령어를 한 줄로 통합하여 실행 오류 방지
     ssh -t %USER%@%SERVER_IP% "cat ~/flowork/backup_db.sql | docker exec -i flowork_db psql -U flowork_user flowork_db"
 )
 
