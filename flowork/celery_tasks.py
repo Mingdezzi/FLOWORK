@@ -1,7 +1,7 @@
 import traceback
 import os
 from flask import current_app
-from flowork.celery_worker import celery
+from flowork.extensions import celery
 from flowork.services.excel import process_stock_upsert_excel, import_excel_file
 from flowork.services.image_process import process_style_code_group
 
