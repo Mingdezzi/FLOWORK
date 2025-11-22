@@ -159,7 +159,7 @@ def process_stock_upsert(file, form, mode, brand_id, store_id=None, callback=Non
             'sale_price': ('col_sprice', False), 'is_favorite': ('col_favorite', False)
         }
         
-        if mode == 'hq':
+        if mode == 'hq' or mode == 'db_import':
             if not is_horiz:
                 fields.update({'size': ('col_size', True), 'hq_stock': ('col_hq_stock', True)})
         elif mode == 'store':
@@ -234,7 +234,7 @@ def process_stock_upsert(file, form, mode, brand_id, store_id=None, callback=Non
                     if row['original_price'] > 0: var.original_price = row['original_price']
                     if row['sale_price'] > 0: var.sale_price = row['sale_price']
                     
-                if mode == 'hq' and 'hq_stock' in row:
+                if (mode == 'hq' or mode == 'db_import') and 'hq_stock' in row:
                     var.hq_quantity = row['hq_stock']
                     cnt_upd += 1
                 elif mode == 'store' and 'store_stock' in row:

@@ -5,36 +5,6 @@
     <title>FLOWORK - 재고관리</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/journal/bootstrap.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <style>
-        /* stock.js의 UI 로직을 위한 스타일 */
-        .file-upload-wrapper {
-            border: 2px dashed #dee2e6;
-            border-radius: 0.5rem;
-            padding: 2rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        .file-upload-wrapper:hover { background-color: #f8f9fa; border-color: #adb5bd; }
-        .file-upload-wrapper.loading { opacity: 0.6; pointer-events: none; }
-        .file-upload-wrapper.success { border-color: #198754; background-color: #f0fff4; }
-        .file-upload-wrapper.error { border-color: #dc3545; background-color: #fff5f5; }
-        
-        .column-mapping-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
-            padding: 1rem;
-            background: #f8f9fa;
-            border-radius: 0.5rem;
-            display: none; /* 초기에는 숨김 */
-        }
-        .mapping-item label { font-size: 0.85rem; font-weight: bold; margin-bottom: 0.25rem; }
-        .col-preview { font-size: 0.75rem; color: #6c757d; margin-top: 0.25rem; min-height: 1.2em; }
-        
-        .progress-wrapper { display: none; margin-top: 1rem; }
-    </style>
 </head>
 <body data-analyze-excel-url="{{ url_for('product.api_analyze_excel_route') }}">
     <div class="container my-4">
@@ -42,188 +12,282 @@
         {% include '_navigation.html' %}
 
         <div class="mb-4">
-            <h2 class="section-title">재고 데이터 관리</h2>
+            <h2 class="section-title">재고 데이터</h2>
 
             {% if not current_user.store_id %}
-            <div class="row g-4">
-                <div class="col-md-12">
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">데이터 백업</h5>
-                            <a href="{{ url_for('product.api_export_db') }}" class="btn btn-success btn-sm">
-                                <i class="bi bi-download me-1"></i>현재 DB 다운로드
-                            </a>
-                        </div>
-                    </div>
+            <div class="card mb-3">
+                <div class="card-header"><h3>백업</h3></div>
+                <div class="card-body">
+                    <a href="{{ url_for('product.api_export_db') }}" class="btn btn-success">DB 다운로드</a>
                 </div>
+            </div>
 
-                <div class="col-md-6">
-                    <div class="card h-100 border-danger">
-                        <div class="card-header bg-danger text-white">
-                            <h5 class="mb-0">1. DB 초기화 및 전체 업로드</h5>
+            <div class="card mb-3">
+                <div class="card-header bg-danger text-white"><h3>DB 초기화 및 전체 업로드</h3></div>
+                <div class="card-body">
+                    <p class="text-danger small fw-bold mb-3">
+                        * 주의: 이 작업은 기존의 모든 재고 데이터를 삭제하고 엑셀 데이터로 덮어씁니다.<br>
+                        * 브랜드 초기 설정이나 데이터 전체 리셋 시에만 사용하세요.
+                    </p>
+                    <form action="{{ url_for('product.api_inventory_upsert') }}" method="POST" enctype="multipart/form-data" id="form-import-db" class="management-form">
+                        <input type="hidden" name="upload_mode" value="db">
+                        <input type="hidden" name="is_full_import" value="true">
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input horizontal-mode-switch" type="checkbox" id="db_is_horizontal" name="is_horizontal">
+                            <label class="form-check-label fw-bold" for="db_is_horizontal">가로형(Matrix) 엑셀 (사이즈가 가로로 나열된 경우)</label>
                         </div>
-                        <div class="card-body">
-                            <p class="card-text small text-muted">기존 데이터를 모두 삭제하고 엑셀 파일로 새로 구축합니다.</p>
-                            
-                            <form action="{{ url_for('product.api_inventory_upsert') }}" method="POST" enctype="multipart/form-data" id="form-import-db">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <input type="hidden" name="upload_mode" value="db">
-                                <input type="hidden" name="is_full_import" value="true">
 
-                                <div class="file-upload-wrapper" id="wrapper-db-file" onclick="document.getElementById('db_excel_file').click()">
-                                    <i class="bi bi-cloud-upload fs-2"></i>
-                                    <div class="mt-2 fw-bold">엑셀 파일 선택</div>
-                                    <div class="small text-muted" id="status-db-file">클릭하여 업로드 (드래그 가능)</div>
-                                    <input type="file" name="excel_file" id="db_excel_file" accept=".xlsx, .xls, .csv" required>
-                                </div>
-
-                                <div class="column-mapping-grid" id="grid-import-db">
-                                    <div class="mapping-item"><label>품번 (필수)</label><select name="col_pn" class="form-select form-select-sm"></select><div class="col-preview"></div></div>
-                                    <div class="mapping-item"><label>색상 (필수)</label><select name="col_color" class="form-select form-select-sm"></select><div class="col-preview"></div></div>
-                                    <div class="mapping-item"><label>품명</label><select name="col_pname" class="form-select form-select-sm"></select><div class="col-preview"></div></div>
-                                    <div class="mapping-item"><label>연도</label><select name="col_year" class="form-select form-select-sm"></select><div class="col-preview"></div></div>
-                                    <div class="mapping-item"><label>카테고리</label><select name="col_category" class="form-select form-select-sm"></select><div class="col-preview"></div></div>
-                                    <div class="mapping-item"><label>정상가</label><select name="col_oprice" class="form-select form-select-sm"></select><div class="col-preview"></div></div>
-                                    <div class="mapping-item"><label>판매가</label><select name="col_sprice" class="form-select form-select-sm"></select><div class="col-preview"></div></div>
-                                </div>
-
-                                <div class="progress-wrapper">
-                                    <div class="progress">
-                                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
-                                    </div>
-                                    <div class="text-center small mt-1 progress-status">준비 중...</div>
-                                </div>
-
-                                <div class="d-grid mt-3">
-                                    <button type="submit" class="btn btn-danger" style="display: none;">
-                                        <i class="bi bi-exclamation-triangle-fill me-1"></i> 초기화 및 업로드 시작
-                                    </button>
-                                </div>
-                            </form>
+                        <div class="file-upload-wrapper mb-3" id="wrapper-db-file">
+                            <label for="db_excel_file" class="form-label btn btn-outline-secondary">
+                                <i class="bi bi-file-earmark-spreadsheet me-1"></i> 엑셀 파일 선택
+                            </label>
+                            <input type="file" name="excel_file" id="db_excel_file" accept=".xlsx, .xls, .csv">
+                            <div class="file-status-text" id="status-db-file">선택된 파일 없음</div>
                         </div>
-                    </div>
+
+                        <div class="column-mapping-grid" id="grid-import-db" style="display:none;">
+                            <div class="mapping-item-wrapper">
+                                <div class="mapping-item">
+                                    <label>품번 (필수)</label>
+                                    <select name="col_pn" class="form-select form-select-sm" required></select>
+                                    <div class="col-preview"></div>
+                                </div>
+                            </div>
+                            <div class="mapping-item-wrapper">
+                                <div class="mapping-item">
+                                    <label>컬러 (필수)</label>
+                                    <select name="col_color" class="form-select form-select-sm" required></select>
+                                    <div class="col-preview"></div>
+                                </div>
+                            </div>
+                            <div class="mapping-item-wrapper conditional-field" data-show-if="vertical">
+                                <div class="mapping-item">
+                                    <label>사이즈</label>
+                                    <select name="col_size" class="form-select form-select-sm"></select>
+                                    <div class="col-preview"></div>
+                                </div>
+                            </div>
+                            <div class="mapping-item-wrapper conditional-field" data-show-if="vertical">
+                                <div class="mapping-item">
+                                    <label>본사 재고량</label>
+                                    <select name="col_hq_stock" class="form-select form-select-sm"></select>
+                                    <div class="col-preview"></div>
+                                </div>
+                            </div>
+                            <div class="mapping-item-wrapper">
+                                <div class="mapping-item">
+                                    <label>판매가</label>
+                                    <select name="col_sprice" class="form-select form-select-sm"></select>
+                                    <div class="col-preview"></div>
+                                </div>
+                            </div>
+                            <div class="mapping-item-wrapper">
+                                <div class="mapping-item">
+                                    <label>정상가</label>
+                                    <select name="col_oprice" class="form-select form-select-sm"></select>
+                                    <div class="col-preview"></div>
+                                </div>
+                            </div>
+                            <div class="mapping-item-wrapper">
+                                <div class="mapping-item">
+                                    <label>출시년도</label>
+                                    <select name="col_year" class="form-select form-select-sm"></select>
+                                    <div class="col-preview"></div>
+                                </div>
+                            </div>
+                            <div class="mapping-item-wrapper">
+                                <div class="mapping-item">
+                                    <label>카테고리</label>
+                                    <select name="col_category" class="form-select form-select-sm"></select>
+                                    <div class="col-preview"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="progress-wrapper mt-3" style="display:none;">
+                            <div class="progress">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">0%</div>
+                            </div>
+                            <div class="text-center mt-1 small progress-status">대기 중...</div>
+                        </div>
+
+                        <button type="submit" class="btn btn-danger w-100 mt-3" style="display:none;">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i> DB 초기화 및 업로드 시작
+                        </button>
+                    </form>
                 </div>
+            </div>
 
-                <div class="col-md-6">
-                    <div class="card h-100">
-                        <div class="card-header">
-                            <h5 class="mb-0">2. 본사 재고 업데이트</h5>
+            <div class="card mb-3">
+                <div class="card-header"><h3>본사재고 추가 입고</h3></div>
+                <div class="card-body">
+                    <form action="{{ url_for('product.api_inventory_upsert') }}" method="POST" enctype="multipart/form-data" id="form-update-hq-full">
+                        <input type="hidden" name="upload_mode" value="hq">
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input horizontal-mode-switch" type="checkbox" id="hq_is_horizontal" name="is_horizontal">
+                            <label class="form-check-label" for="hq_is_horizontal">가로형(Matrix) 엑셀</label>
                         </div>
-                        <div class="card-body">
-                            <p class="card-text small text-muted">기존 상품 정보는 유지하고 본사 재고 수량만 갱신합니다.</p>
-                            
-                            <form action="{{ url_for('product.api_inventory_upsert') }}" method="POST" enctype="multipart/form-data" id="form-update-hq-full">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <input type="hidden" name="upload_mode" value="hq">
 
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input horizontal-mode-switch" type="checkbox" name="is_horizontal" id="hq_is_horizontal">
-                                    <label class="form-check-label" for="hq_is_horizontal">가로형(사이즈가 컬럼인 경우)</label>
-                                </div>
-
-                                <div class="file-upload-wrapper" id="wrapper-hq-file-full" onclick="document.getElementById('hq_stock_excel_file_full').click()">
-                                    <i class="bi bi-file-earmark-spreadsheet fs-2"></i>
-                                    <div class="mt-2 fw-bold">엑셀 파일 선택</div>
-                                    <div class="small text-muted" id="status-hq-file-full">.xlsx, .csv 지원</div>
-                                    <input type="file" name="excel_file" id="hq_stock_excel_file_full" accept=".xlsx, .xls, .csv" required>
-                                </div>
-
-                                <div class="column-mapping-grid" id="grid-update-hq-full">
-                                    <div class="mapping-item"><label>품번 (필수)</label><select name="col_pn" class="form-select form-select-sm"></select><div class="col-preview"></div></div>
-                                    <div class="mapping-item"><label>색상 (필수)</label><select name="col_color" class="form-select form-select-sm"></select><div class="col-preview"></div></div>
-                                    <div class="mapping-item conditional-field" data-show-if="vertical"><label>사이즈</label><select name="col_size" class="form-select form-select-sm"></select><div class="col-preview"></div></div>
-                                    <div class="mapping-item conditional-field" data-show-if="vertical"><label>재고수량</label><select name="col_hq_stock" class="form-select form-select-sm"></select><div class="col-preview"></div></div>
-                                </div>
-
-                                <div class="progress-wrapper">
-                                    <div class="progress">
-                                        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
-                                    </div>
-                                    <div class="text-center small mt-1 progress-status"></div>
-                                </div>
-
-                                <div class="d-grid mt-3">
-                                    <button type="submit" class="btn btn-primary" style="display: none;">업데이트 시작</button>
-                                </div>
-                            </form>
+                        <div class="file-upload-wrapper mb-3" id="wrapper-hq-file-full">
+                            <label for="hq_stock_excel_file_full" class="form-label btn btn-outline-secondary">
+                                <i class="bi bi-file-earmark-spreadsheet me-1"></i> 엑셀 파일 선택
+                            </label>
+                            <input type="file" name="excel_file" id="hq_stock_excel_file_full" accept=".xlsx, .xls, .csv">
+                            <div class="file-status-text" id="status-hq-file-full">선택된 파일 없음</div>
                         </div>
-                    </div>
+
+                        <div class="column-mapping-grid" id="grid-update-hq-full" style="display:none;">
+                            <div class="mapping-item-wrapper">
+                                <div class="mapping-item">
+                                    <label>품번 (필수)</label>
+                                    <select name="col_pn" class="form-select form-select-sm" required></select>
+                                    <div class="col-preview"></div>
+                                </div>
+                            </div>
+                            <div class="mapping-item-wrapper">
+                                <div class="mapping-item">
+                                    <label>컬러 (필수)</label>
+                                    <select name="col_color" class="form-select form-select-sm" required></select>
+                                    <div class="col-preview"></div>
+                                </div>
+                            </div>
+                            <div class="mapping-item-wrapper conditional-field" data-show-if="vertical">
+                                <div class="mapping-item">
+                                    <label>사이즈</label>
+                                    <select name="col_size" class="form-select form-select-sm"></select>
+                                    <div class="col-preview"></div>
+                                </div>
+                            </div>
+                            <div class="mapping-item-wrapper conditional-field" data-show-if="vertical">
+                                <div class="mapping-item">
+                                    <label>입고 수량</label>
+                                    <select name="col_hq_stock" class="form-select form-select-sm"></select>
+                                    <div class="col-preview"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="progress-wrapper mt-3" style="display:none;">
+                            <div class="progress">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">0%</div>
+                            </div>
+                            <div class="text-center mt-1 small progress-status">대기 중...</div>
+                        </div>
+
+                        <button class="btn btn-primary w-100 mt-3" type="submit" style="display:none;">
+                            <i class="bi bi-arrow-clockwise me-1"></i> 검토 및 업로드
+                        </button>
+                    </form>
                 </div>
             </div>
             {% endif %}
 
-            <div class="card mt-4 border-primary">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">매장 재고 업데이트</h5>
-                </div>
+            <div class="card mb-3">
+                <div class="card-header"><h3>매장재고 업데이트</h3></div>
                 <div class="card-body">
                     <form action="{{ url_for('product.api_update_store_stock_excel') }}" method="POST" enctype="multipart/form-data" id="form-update-store">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        
                         {% if not current_user.store_id %}
                         <div class="mb-3">
-                            <label class="form-label fw-bold">대상 매장 선택</label>
+                            <label class="form-label fw-bold">대상 매장</label>
                             <select name="target_store_id" class="form-select" required>
-                                <option value="">-- 매장을 선택하세요 --</option>
-                                {% for s in all_stores %}
-                                <option value="{{ s.id }}">{{ s.store_name }}</option>
-                                {% endfor %}
+                                <option value="">-- 매장 선택 --</option>
+                                {% for s in all_stores %}<option value="{{ s.id }}">{{ s.store_name }}</option>{% endfor %}
                             </select>
                         </div>
                         {% endif %}
-
-                        <div class="form-check mb-2">
-                            <input class="form-check-input horizontal-mode-switch" type="checkbox" name="is_horizontal" id="store_is_horizontal">
-                            <label class="form-check-label" for="store_is_horizontal">가로형(사이즈가 컬럼인 경우)</label>
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input horizontal-mode-switch" type="checkbox" id="store_is_horizontal" name="is_horizontal">
+                            <label class="form-check-label" for="store_is_horizontal">가로형(Matrix) 엑셀</label>
                         </div>
 
-                        <div class="file-upload-wrapper" id="wrapper-store-file" onclick="document.getElementById('store_stock_excel_file').click()">
-                            <i class="bi bi-upload fs-2"></i>
-                            <div class="mt-2 fw-bold">매장 재고 엑셀 선택</div>
-                            <div class="small text-muted" id="status-store-file">여기를 클릭하세요</div>
-                            <input type="file" name="excel_file" id="store_stock_excel_file" accept=".xlsx, .xls, .csv" required>
+                        <div class="file-upload-wrapper mb-3" id="wrapper-store-file">
+                            <label for="store_stock_excel_file" class="form-label btn btn-outline-secondary">
+                                <i class="bi bi-file-earmark-spreadsheet me-1"></i> 엑셀 파일 선택
+                            </label>
+                            <input type="file" name="excel_file" id="store_stock_excel_file" accept=".xlsx, .xls, .csv">
+                            <div class="file-status-text" id="status-store-file">선택된 파일 없음</div>
                         </div>
 
-                        <div class="column-mapping-grid" id="grid-update-store">
-                            <div class="mapping-item"><label>품번</label><select name="col_pn" class="form-select form-select-sm"></select><div class="col-preview"></div></div>
-                            <div class="mapping-item"><label>색상</label><select name="col_color" class="form-select form-select-sm"></select><div class="col-preview"></div></div>
-                            <div class="mapping-item conditional-field" data-show-if="vertical"><label>사이즈</label><select name="col_size" class="form-select form-select-sm"></select><div class="col-preview"></div></div>
-                            <div class="mapping-item conditional-field" data-show-if="vertical"><label>수량</label><select name="col_store_stock" class="form-select form-select-sm"></select><div class="col-preview"></div></div>
-                        </div>
-
-                        <div class="progress-wrapper">
-                            <div class="progress">
-                                <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                        <div class="column-mapping-grid" id="grid-update-store" style="display:none;">
+                            <div class="mapping-item-wrapper">
+                                <div class="mapping-item">
+                                    <label>품번 (필수)</label>
+                                    <select name="col_pn" class="form-select form-select-sm" required></select>
+                                    <div class="col-preview"></div>
+                                </div>
                             </div>
-                            <div class="text-center small mt-1 progress-status"></div>
+                            <div class="mapping-item-wrapper">
+                                <div class="mapping-item">
+                                    <label>컬러 (필수)</label>
+                                    <select name="col_color" class="form-select form-select-sm" required></select>
+                                    <div class="col-preview"></div>
+                                </div>
+                            </div>
+                            <div class="mapping-item-wrapper conditional-field" data-show-if="vertical">
+                                <div class="mapping-item">
+                                    <label>사이즈</label>
+                                    <select name="col_size" class="form-select form-select-sm"></select>
+                                    <div class="col-preview"></div>
+                                </div>
+                            </div>
+                            <div class="mapping-item-wrapper conditional-field" data-show-if="vertical">
+                                <div class="mapping-item">
+                                    <label>재고 수량</label>
+                                    <select name="col_store_stock" class="form-select form-select-sm"></select>
+                                    <div class="col-preview"></div>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="d-grid mt-3">
-                            <button type="submit" class="btn btn-primary" style="display: none;">매장 재고 반영</button>
+                        <div class="progress-wrapper mt-3" style="display:none;">
+                            <div class="progress">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">0%</div>
+                            </div>
+                            <div class="text-center mt-1 small progress-status">대기 중...</div>
                         </div>
+
+                        <button class="btn btn-primary w-100 mt-3" type="submit" style="display:none;">
+                            <i class="bi bi-arrow-clockwise me-1"></i> 검토 및 업로드
+                        </button>
                     </form>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="modal fade" id="verification-modal" tabindex="-1" data-bs-backdrop="static">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal fade" id="verification-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header bg-warning">
                     <h5 class="modal-title text-dark"><i class="bi bi-exclamation-triangle-fill me-2"></i>데이터 검증 알림</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="fw-bold">다음 <span id="suspicious-count" class="text-danger"></span>개의 행에서 문제가 발견되었습니다.</p>
-                    <p class="small text-muted">문제가 된 행을 클릭하여 <strong>제외(취소선 표시)</strong>하거나, 무시하고 그대로 진행할 수 있습니다.</p>
-                    <table class="table table-sm table-hover border">
-                        <thead class="table-light"><tr><th>행 번호</th><th>데이터 미리보기</th><th>사유</th><th>제외</th></tr></thead>
-                        <tbody id="suspicious-rows-tbody"></tbody>
-                    </table>
+                    <p class="fw-bold">다음 행들에서 문제가 발견되었습니다.</p>
+                    <p class="small text-muted">해당 행을 제외하고 업로드하려면 [제외하기] 버튼을 누른 후 확인을 클릭하세요.</p>
+                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 60px;">Excel 행</th>
+                                    <th>내용 (미리보기)</th>
+                                    <th>원인</th>
+                                    <th style="width: 80px;">제외</th>
+                                </tr>
+                            </thead>
+                            <tbody id="suspicious-rows-tbody"></tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3 text-end">
+                        <span class="me-2">총 <strong id="suspicious-count" class="text-danger">0</strong>건의 문제</span>
+                    </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="btn-cancel-verification">취소</button>
-                    <button type="button" class="btn btn-primary" id="btn-confirm-upload">선택한 행 제외하고 진행</button>
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-verification" data-bs-dismiss="modal">취소</button>
+                    <button type="button" class="btn btn-primary" id="btn-confirm-upload">확인 후 진행</button>
                 </div>
             </div>
         </div>
