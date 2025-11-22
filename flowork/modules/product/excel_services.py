@@ -67,17 +67,19 @@ def _optimize_df(df, settings, mode):
         df['product_name_cleaned'] = df['product_name'].apply(clean_string_upper)
         df['product_name_choseong'] = df['product_name'].apply(get_choseong)
     
-    df['is_favorite'] = pd.to_numeric(df.get('is_favorite', 0), errors='coerce').fillna(0).astype(int)
+    if 'is_favorite' in df.columns:
+        df['is_favorite'] = pd.to_numeric(df['is_favorite'], errors='coerce').fillna(0).astype(int)
+    else:
+        df['is_favorite'] = 0
+        
     return df.drop_duplicates(subset=['barcode_cleaned'], keep='last')
 
 def _transform_horizontal(file, settings, indices):
-    # [수정] 파일 객체일 때만 seek(0) 호출
     if hasattr(file, 'seek'): 
         file.seek(0)
         
     try: df = pd.read_excel(file, dtype=str)
     except: 
-        # [수정] CSV 재시도 시에도 seek 확인
         if hasattr(file, 'seek'): 
             file.seek(0)
         df = pd.read_csv(file, dtype=str)
