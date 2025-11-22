@@ -67,10 +67,11 @@ def upload_brand_logo():
         return jsonify({'status': 'error', 'message': '선택된 파일이 없습니다.'}), 400
 
     try:
-        static_folder = os.path.join(current_app.root_path, 'static')
+        # [수정] 로고 저장 경로를 Worker와 공유되는 'product_images' 폴더로 변경
+        static_folder = os.path.join(current_app.root_path, 'static', 'product_images')
         os.makedirs(static_folder, exist_ok=True)
         
-        # 썸네일 생성 전용 로고 파일명으로 저장 (기존 사이트 로고와 구분)
+        # 썸네일 생성 전용 로고 파일명으로 저장
         file_path = os.path.join(static_folder, 'thumbnail_logo.png')
         file.save(file_path)
         

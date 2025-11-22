@@ -479,10 +479,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(`${API_FOLDER}${styleCode}`);
             const json = await res.json();
             if (json.status === 'success') {
-                if (json.images.length === 0) container.innerHTML = '<div class="text-center p-3 text-muted">폴더가 비어있거나 존재하지 않습니다.</div>';
+                // [수정] json.images -> json.items (백엔드 반환 키 값 불일치 수정)
+                if (json.items.length === 0) container.innerHTML = '<div class="text-center p-3 text-muted">폴더가 비어있거나 존재하지 않습니다.</div>';
                 else {
                     let html = '';
-                    json.images.forEach(img => {
+                    // [수정] json.images -> json.items
+                    json.items.forEach(img => {
                         // 아이콘 설정
                         let iconClass = 'bi-file-earmark';
                         if (img.type === 'dir') iconClass = 'bi-folder-fill text-warning';
@@ -492,11 +494,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         // 클릭 이벤트 (폴더 진입 vs 파일 보기)
                         let clickAction = '';
                         if (img.type === 'dir') {
-                            // 하위 폴더 진입 (현재 경로 + 폴더명)
-                            // API 호출 시 path 파라미터를 전달해야 함 (별도 함수 필요 또는 API 수정 필요)
-                            // 여기서는 단순화를 위해 현재 구조상 파일만 리스트된다고 가정하거나, 
-                            // API가 재귀적이 아닌 플랫한 리스트를 준다면 그대로 표시.
-                            // 만약 트리 구조라면 별도 로직 필요. 현재 API는 해당 품번 폴더 내 파일만 스캔함.
+                            // 하위 폴더 진입 (현재 API 구조상 미지원, 필요시 추가 구현)
                         }
 
                         html += `
@@ -512,7 +510,10 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 container.innerHTML = `<div class="alert alert-danger">${json.message}</div>`;
             }
-        } catch (e) { container.innerHTML = `<div class="alert alert-danger">오류 발생</div>`; }
+        } catch (e) { 
+            console.error(e);
+            container.innerHTML = `<div class="alert alert-danger">오류 발생</div>`; 
+        }
     };
 
     window.downloadImages = (styleCode) => { window.location.href = `${API_DOWNLOAD}${styleCode}`; };
