@@ -1,0 +1,81 @@
+<div class="nav-container mb-4">
+    <div class="nav-category-grid" id="nav-accordion">
+        
+        <div class="nav-group">
+            <button class="btn btn-nav-category collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-sales">판매관리</button>
+            <div class="collapse nav-sub-items" id="nav-sales" data-bs-parent="#nav-accordion">
+                <a href="{{ url_for('sales.sales_register_view') }}" class="btn btn-nav-item {{ 'active' if active_page == 'sales' else '' }}">판매등록</a>
+                <a href="{{ url_for('sales.sales_record_view') }}" class="btn btn-nav-item {{ 'active' if active_page == 'sales_record' else '' }}">판매조회</a>
+                <a href="{{ url_for('order.order_list_view') }}" class="btn btn-nav-item {{ 'active' if active_page == 'order' else '' }}">고객주문</a>
+            </div>
+        </div>
+
+        <div class="nav-group">
+            <button class="btn btn-nav-category collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-online">온라인몰</button>
+            <div class="collapse nav-sub-items" id="nav-online" data-bs-parent="#nav-accordion">
+                <a href="{{ url_for('online.online_management_view') }}" class="btn btn-nav-item {{ 'active' if active_page == 'online_mgmt' else '' }}">품번관리</a>
+            </div>
+        </div>
+
+        <div class="nav-group">
+            <button class="btn btn-nav-category collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-return">주문반품</button>
+            <div class="collapse nav-sub-items" id="nav-return" data-bs-parent="#nav-accordion">
+                <a href="{{ url_for('order.store_order_list_view') }}" class="btn btn-nav-item {{ 'active' if active_page == 'store_orders' else '' }}">주문등록</a>
+                <a href="{{ url_for('order.store_return_list_view') }}" class="btn btn-nav-item {{ 'active' if active_page == 'store_returns' else '' }}">반품등록</a>
+            </div>
+        </div>
+
+        <div class="nav-group">
+            <button class="btn btn-nav-category collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-stock">재고관리</button>
+            <div class="collapse nav-sub-items" id="nav-stock" data-bs-parent="#nav-accordion">
+                <a href="{{ url_for('product.search_page_view') }}" class="btn btn-nav-item {{ 'active' if active_page == 'search' else '' }}">상품검색</a>
+                <a href="{{ url_for('product.product_list_view') }}" class="btn btn-nav-item {{ 'active' if active_page == 'list' else '' }}">상세검색</a>
+                <a href="{{ url_for('product.check_page_view') }}" class="btn btn-nav-item {{ 'active' if active_page == 'check' else '' }}">재고실사</a>
+            </div>
+        </div>
+
+        <div class="nav-group">
+            <button class="btn btn-nav-category collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-move">수평이동</button>
+            <div class="collapse nav-sub-items" id="nav-move" data-bs-parent="#nav-accordion">
+                <a href="{{ url_for('stock_transfer.stock_transfer_out_view') }}" class="btn btn-nav-item {{ 'active' if active_page == 'transfer_out' else '' }}">수평출고</a>
+                <a href="{{ url_for('stock_transfer.stock_transfer_in_view') }}" class="btn btn-nav-item {{ 'active' if active_page == 'transfer_in' else '' }}">수평입고</a>
+                <a href="{{ url_for('stock_transfer.stock_transfer_status_view') }}" class="btn btn-nav-item {{ 'active' if active_page == 'transfer_status' else '' }}">수평현황</a>
+            </div>
+        </div>
+
+        <div class="nav-group">
+            <button class="btn btn-nav-category collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-customer">고객관리</button>
+            <div class="collapse nav-sub-items" id="nav-customer" data-bs-parent="#nav-accordion">
+                <a href="{{ url_for('crm.customer_list_view') }}" class="btn btn-nav-item {{ 'active' if active_page == 'customer_list' else '' }}">고객등록</a>
+                <a href="{{ url_for('crm.repair_list_view') }}" class="btn btn-nav-item {{ 'active' if active_page == 'repair_list' else '' }}">수선접수</a>
+            </div>
+        </div>
+
+        <div class="nav-group">
+            <button class="btn btn-nav-category collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-ops">매장운영</button>
+            <div class="collapse nav-sub-items" id="nav-ops" data-bs-parent="#nav-accordion">
+                <a href="{{ url_for('admin.schedule') }}" class="btn btn-nav-item {{ 'active' if active_page == 'schedule' else '' }}">매장일정</a>
+                <a href="{{ url_for('operations.attendance_page') }}" class="btn btn-nav-item {{ 'active' if active_page == 'attendance' else '' }}">근태등록</a>
+                <a href="{{ url_for('operations.competitor_sales_page') }}" class="btn btn-nav-item {{ 'active' if active_page == 'competitor_sales' else '' }}">타사매출</a>
+            </div>
+        </div>
+
+        <div class="nav-group">
+            <button class="btn btn-nav-category collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-network">네트워크</button>
+            <div class="collapse nav-sub-items" id="nav-network" data-bs-parent="#nav-accordion">
+                <a href="{{ url_for('network.announcement_list') }}" class="btn btn-nav-item {{ 'active' if active_page == 'announcements' else '' }}">공지사항</a>
+                <a href="{{ url_for('network.suggestion_list') }}" class="btn btn-nav-item {{ 'active' if active_page == 'suggestion' else '' }}">건의사항</a>
+                <a href="{{ url_for('network.mail_box') }}" class="btn btn-nav-item {{ 'active' if active_page == 'mail' else '' }}">점간메일</a>
+            </div>
+        </div>
+
+        <div class="nav-group">
+            <button class="btn btn-nav-category collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#nav-settings">전체설정</button>
+            <div class="collapse nav-sub-items" id="nav-settings" data-bs-parent="#nav-accordion">
+                <a href="{{ url_for('product.stock_management_view') }}" class="btn btn-nav-item {{ 'active' if active_page == 'stock' else '' }}">재고설정</a>
+                <a href="{{ url_for('admin.setting_page') }}" class="btn btn-nav-item {{ 'active' if active_page == 'setting' else '' }}">일반설정</a>
+            </div>
+        </div>
+
+    </div>
+</div>

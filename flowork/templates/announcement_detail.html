@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>공지사항</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/journal/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container my-4">
+        {% include '_header.html' %}
+        {% include '_navigation.html' %}
+        <div class="card mb-3">
+            <div class="card-header"><h2>공지사항</h2></div>
+            <form method="POST" action="{{ url_for('network.announcement_detail', id=item.id if item else 'new') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label>제목</label>
+                        <input type="text" class="form-control" name="title" value="{{ item.title if item else '' }}" {{ 'readonly' if not is_hq_admin else '' }}>
+                    </div>
+                    <div class="mb-3">
+                        <label>내용</label>
+                        <textarea class="form-control" name="content" rows="10" {{ 'readonly' if not is_hq_admin else '' }}>{{ item.content if item else '' }}</textarea>
+                    </div>
+                </div>
+                <div class="card-footer d-flex justify-content-between">
+                    {% if is_hq_admin and item %}
+                    <button type="button" class="btn btn-danger" onclick="document.getElementById('del-form').submit()">삭제</button>
+                    {% endif %}
+                    <a href="{{ url_for('network.announcement_list') }}" class="btn btn-secondary">목록</a>
+                    {% if is_hq_admin %}
+                    <button type="submit" class="btn btn-primary">저장</button>
+                    {% endif %}
+                </div>
+            </form>
+            {% if item %}
+            <form id="del-form" method="POST" action="{{ url_for('network.delete_announcement', id=item.id) }}" style="display:none;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

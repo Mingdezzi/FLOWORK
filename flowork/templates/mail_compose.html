@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>메일쓰기</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/journal/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body data-api-send-url="{{ url_for('network.api_send_mail') }}">
+    <div class="container my-4">
+        {% include '_header.html' %}
+        {% include '_navigation.html' %}
+        <div class="card">
+            <div class="card-header">메일 쓰기</div>
+            <div class="card-body">
+                <form id="mail-form">
+                    <div class="mb-3">
+                        <label>받는사람</label>
+                        <select class="form-select" id="receiver">
+                            <option value="">선택</option>
+                            {% if current_user.store_id %}<option value="HQ">본사</option>{% endif %}
+                            {% for s in stores %}<option value="{{ s.id }}">{{ s.store_name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3"><label>제목</label><input type="text" class="form-control" id="title" required></div>
+                    <div class="mb-3"><label>내용</label><textarea class="form-control" id="content" rows="10" required></textarea></div>
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('network.mail_box') }}" class="btn btn-secondary">취소</a>
+                        <button type="submit" class="btn btn-primary">보내기</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/network.js') }}"></script>
+</body>
+</html>
