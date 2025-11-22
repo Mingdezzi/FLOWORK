@@ -15,7 +15,7 @@ set PROJECT_DIR=~/flowork
 cls
 echo.
 echo ======================================================
-echo        FLOWORK 서버 매니저 (v3.1 Auto-Login)
+echo        FLOWORK 서버 매니저 (v3.2 Fixed)
 echo        Target: %SERVER_IP% (%USER%)
 echo ======================================================
 echo.
@@ -170,6 +170,7 @@ if "%l_choice%"=="4" (
     echo.
     echo [서버] 상태 점검 결과:
     echo ---------------------------------------------------
+    :: [수정됨] 명령어를 한 줄로 통합하여 실행 오류 방지
     ssh %USER%@%SERVER_IP% "echo '[DISK]' && df -h | grep '/$' && echo '' && echo '[MEMORY]' && free -h && echo '' && echo '[CONTAINERS]' && docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
     echo ---------------------------------------------------
     pause
@@ -259,12 +260,13 @@ goto SYSTEM_MENU
 :: ====================================================
 :RUN_BACKUP
 echo.
-set YEAR=%date:~0,4%
-set MONTH=%date:~5,2%
-set DAY=%date:~8,2%
-set HOUR=%time:~0,2%
-set MIN=%time:~3,2%
-set HOUR=%HOUR: =0%
+:: [수정됨] 날짜 형식 오류 방지를 위해 WMIC 사용 (모든 PC 호환)
+for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set datetime=%%I
+set YEAR=%datetime:~0,4%
+set MONTH=%datetime:~4,2%
+set DAY=%datetime:~6,2%
+set HOUR=%datetime:~8,2%
+set MIN=%datetime:~10,2%
 
 set BACKUP_FOLDER=%USERPROFILE%\Desktop\FLOWORK_BACKUP_%YEAR%%MONTH%%DAY%_%HOUR%%MIN%
 mkdir "%BACKUP_FOLDER%"
@@ -306,6 +308,7 @@ if exist "%LATEST_BACKUP%\backup_db.sql" (
     echo.
     echo [1/2] DB 복구 중...
     scp "%LATEST_BACKUP%\backup_db.sql" %USER%@%SERVER_IP%:~/flowork/backup_db.sql
+    :: [수정됨] 명령어를 한 줄로 통합하여 실행 오류 방지
     ssh -t %USER%@%SERVER_IP% "cat ~/flowork/backup_db.sql | docker exec -i flowork_db psql -U flowork_user flowork_db"
 )
 

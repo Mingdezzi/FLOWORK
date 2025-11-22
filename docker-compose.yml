@@ -1,0 +1,77 @@
+services:
+  web:
+    build: .
+    container_name: flowork_app
+    restart: always
+    ports:
+      - "80:5000"
+    environment:
+      - PORT=5000
+      - SECRET_KEY=change_this_to_a_secure_secret_key
+      - DATABASE_URL=postgresql://flowork_user:flowork_pass@db:5432/flowork_db
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - TZ=Asia/Seoul
+    volumes:
+      - ./flowork/static/product_images:/app/flowork/static/product_images
+      - flowork_tmp:/tmp
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    build: .
+    container_name: flowork_worker
+    restart: always
+    command: celery -A flowork.celery_worker.celery worker --loglevel=info --concurrency=2
+    environment:
+      - SECRET_KEY=change_this_to_a_secure_secret_key
+      - DATABASE_URL=postgresql://flowork_user:flowork_pass@db:5432/flowork_db
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - TZ=Asia/Seoul
+    volumes:
+      - ./flowork/static/product_images:/app/flowork/static/product_images
+      - flowork_tmp:/tmp
+    depends_on:
+      - db
+      - redis
+
+  db:
+    image: postgres:15
+    container_name: flowork_db
+    restart: always
+    command: >
+      postgres 
+      -c shared_buffers=2GB 
+      -c effective_cache_size=6GB 
+      -c maintenance_work_mem=256MB 
+      -c checkpoint_completion_target=0.9 
+      -c wal_buffers=16MB 
+      -c default_statistics_target=100 
+      -c random_page_cost=1.1 
+      -c effective_io_concurrency=200
+      -c work_mem=16MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+    environment:
+      POSTGRES_USER: flowork_user
+      POSTGRES_PASSWORD: flowork_pass
+      POSTGRES_DB: flowork_db
+      TZ: Asia/Seoul
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - /dev/shm:/dev/shm
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: flowork_redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:
+  flowork_tmp:

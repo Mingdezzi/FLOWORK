@@ -5,6 +5,9 @@
     <title>설정</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/journal/bootstrap.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script>
+        window.initialCategoryConfig = {{ category_config|tojson|safe if category_config else 'null' }};
+    </script>
 </head>
 <body data-api-stores-url="{{ url_for('admin.api_get_stores') }}"
       data-api-stores-add-url="{{ url_for('admin.api_add_store') }}"
@@ -48,8 +51,30 @@
                     </form>
                     <div id="brand-name-status"></div>
                     <hr>
-                    <button class="btn btn-info btn-sm" id="btn-load-settings">설정 파일 로드</button>
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <button class="btn btn-info btn-sm" id="btn-load-settings">설정 파일 로드</button>
+                        </div>
+                        <div class="col">
+                            <span class="small text-muted">{{ loaded_settings_file if loaded_settings_file else '로드된 파일 없음' }}</span>
+                        </div>
+                    </div>
                     <div id="load-settings-status" class="mt-2"></div>
+                    
+                    <hr class="my-4">
+                    <h5 class="card-title">검색 카테고리 버튼 설정</h5>
+                    <form id="form-category-config">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">한 줄당 버튼 개수</label>
+                            <input type="number" id="cat-columns" class="form-control form-control-sm" style="width: 100px;" value="5" min="1" max="10">
+                        </div>
+                        <div id="cat-buttons-container"></div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="btn-add-cat-row">+ 버튼 추가</button>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-sm" id="btn-save-cat-config">설정 저장</button>
+                        </div>
+                        <div id="category-config-status"></div>
+                    </form>
                 </div>
             </div>
 
@@ -65,16 +90,36 @@
                     <div id="add-store-status"></div>
                     <div class="table-responsive">
                         <table class="table table-sm table-hover" id="all-stores-table">
-                            <thead><tr><th>코드</th><th>이름</th><th>연락처</th><th>상태</th><th>작업</th></tr></thead>
+                            <thead><tr><th>코드</th><th>이름</th><th>연락처</th><th>담당자</th><th>승인</th><th>상태</th><th>작업</th></tr></thead>
                             <tbody>
                                 {% for s in all_stores %}
                                 <tr id="store-row-{{ s.id }}">
                                     <td data-field="code">{{ s.store_code }}</td>
                                     <td data-field="name">{{ s.store_name }}</td>
                                     <td data-field="phone">{{ s.phone_number }}</td>
-                                    <td>{{ '활성' if s.is_active else '비활성' }}</td>
-                                    <td><button class="btn btn-sm btn-danger btn-delete-store" data-id="{{ s.id }}" data-name="{{ s.store_name }}">삭제</button></td>
+                                    <td data-field="manager">{{ s.manager_name or '-' }}</td>
+                                    <td class="text-center">
+                                        {% if s.is_approved %}
+                                        <span class="badge bg-success">승인됨</span>
+                                        {% else %}
+                                        <button class="btn btn-sm btn-outline-primary btn-approve-store" data-id="{{ s.id }}" data-name="{{ s.store_name }}">승인하기</button>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm {{ 'btn-success' if s.is_active else 'btn-secondary' }} btn-toggle-active-store" data-id="{{ s.id }}" data-name="{{ s.store_name }}">
+                                            {{ '활성' if s.is_active else '비활성' }}
+                                        </button>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <button class="btn btn-sm btn-info btn-edit-store" data-id="{{ s.id }}" data-code="{{ s.store_code }}" data-name="{{ s.store_name }}" data-phone="{{ s.phone_number }}">수정</button>
+                                            <button class="btn btn-sm btn-warning btn-reset-store" data-id="{{ s.id }}" data-name="{{ s.store_name }}">초기화</button>
+                                            <button class="btn btn-sm btn-danger btn-delete-store" data-id="{{ s.id }}" data-name="{{ s.store_name }}">삭제</button>
+                                        </div>
+                                    </td>
                                 </tr>
+                                {% else %}
+                                <tr id="no-other-stores"><td colspan="7" class="text-center">등록된 매장이 없습니다.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -82,6 +127,18 @@
                     <div id="delete-store-status"></div>
                 </div>
             </div>
+            
+            <div class="card mb-3 border-danger">
+                <div class="card-header bg-danger text-white">시스템 초기화 (위험)</div>
+                <div class="card-body">
+                    <p class="card-text text-danger fw-bold">주의: 모든 매장, 상품, 판매 데이터를 삭제하고 초기 상태로 되돌립니다.</p>
+                    <form action="{{ url_for('admin.api_reset_system') }}" method="POST" onsubmit="return confirm('정말 시스템 전체를 초기화하시겠습니까? 돌이킬 수 없습니다!');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline-danger w-100">시스템 전체 초기화</button>
+                    </form>
+                </div>
+            </div>
+            
             {% endif %}
 
             {% if current_user.store_id %}
@@ -104,7 +161,10 @@
                                     <td data-field="name">{{ s.name }}</td>
                                     <td data-field="position">{{ s.position }}</td>
                                     <td data-field="contact">{{ s.contact }}</td>
-                                    <td><button class="btn btn-sm btn-danger btn-delete-staff" data-id="{{ s.id }}" data-name="{{ s.name }}">삭제</button></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-info btn-edit-staff" data-id="{{ s.id }}" data-name="{{ s.name }}" data-position="{{ s.position }}" data-contact="{{ s.contact }}">수정</button>
+                                        <button class="btn btn-sm btn-danger btn-delete-staff" data-id="{{ s.id }}" data-name="{{ s.name }}">삭제</button>
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -116,6 +176,41 @@
             {% endif %}
         </div>
     </div>
+
+    <div class="modal fade" id="edit-store-modal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title">매장 수정</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <form id="form-edit-store">
+                        <div class="mb-3"><label>코드</label><input type="text" class="form-control" id="edit_store_code"></div>
+                        <div class="mb-3"><label>이름</label><input type="text" class="form-control" id="edit_store_name"></div>
+                        <div class="mb-3"><label>연락처</label><input type="text" class="form-control" id="edit_store_phone"></div>
+                    </form>
+                    <div id="edit-store-status"></div>
+                </div>
+                <div class="modal-footer"><button class="btn btn-primary" id="btn-save-edit-store">저장</button></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="edit-staff-modal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title">직원 수정</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <form id="form-edit-staff">
+                        <div class="mb-3"><label>이름</label><input type="text" class="form-control" id="edit_staff_name"></div>
+                        <div class="mb-3"><label>직책</label><input type="text" class="form-control" id="edit_staff_position"></div>
+                        <div class="mb-3"><label>연락처</label><input type="text" class="form-control" id="edit_staff_contact"></div>
+                    </form>
+                    <div id="edit-staff-status"></div>
+                </div>
+                <div class="modal-footer"><button class="btn btn-primary" id="btn-save-edit-staff">저장</button></div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/setting.js') }}"></script>
 </body>

@@ -1,6 +1,6 @@
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload, joinedload
-from flowork.models import db, Product, Variant, Store, StoreStock, Setting, StockHistory
+from flowork.models import db, Product, Variant, Store, StoreStock, Setting, StockHistory, SaleItem
 from flowork.utils import clean_string_upper, get_sort_key, get_choseong
 from flowork.services.db import get_filter_options_from_db
 import json
@@ -202,6 +202,12 @@ def delete_product_data(product_id, brand_id):
         product = Product.query.filter_by(id=product_id, brand_id=brand_id).first()
         if not product: return False, "상품 없음"
         
+        variant_ids = [v.id for v in product.variants]
+        if variant_ids:
+            sale_exists = db.session.query(SaleItem).filter(SaleItem.variant_id.in_(variant_ids)).first()
+            if sale_exists:
+                return False, "판매 기록이 존재하는 상품은 삭제할 수 없습니다. (데이터 무결성 보호)"
+
         db.session.delete(product)
         db.session.commit()
         return True, None

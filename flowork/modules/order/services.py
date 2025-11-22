@@ -98,14 +98,14 @@ def update_customer_order(order_id, store_id, form_data):
         order.tracking_number = form_data.get('tracking_number')
         order.remarks = form_data.get('remarks')
         
-        for step in order.processing_steps: db.session.delete(step)
+        OrderProcessing.query.filter_by(order_id=order.id).delete()
         
         src_ids = form_data.get('processing_source', [])
         src_res = form_data.get('processing_result', [])
         for sid, res in zip(src_ids, src_res):
             if sid:
-                step = OrderProcessing(source_store_id=int(sid), source_result=res if res else None)
-                order.processing_steps.append(step)
+                step = OrderProcessing(order_id=order.id, source_store_id=int(sid), source_result=res if res else None)
+                db.session.add(step)
                 
         db.session.commit()
         return True, None
@@ -180,12 +180,12 @@ def process_store_request_status(model_class, req_id, status, conf_qty, user_id)
                 stock = StoreStock(store_id=req.store_id, variant_id=req.variant_id, quantity=0)
                 db.session.add(stock)
             
-            if model_class == StoreOrder: # 매장 입고 (본사 출고)
+            if model_class == StoreOrder:
                 variant.hq_quantity -= conf_qty
                 stock.quantity += conf_qty
                 change_type = 'ORDER_IN'
                 qty_change = conf_qty
-            else: # 매장 반품 (본사 입고)
+            else:
                 stock.quantity -= conf_qty
                 variant.hq_quantity += conf_qty
                 change_type = 'RETURN_OUT'

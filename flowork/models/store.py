@@ -9,19 +9,19 @@ class Store(db.Model):
     phone_number = db.Column(db.String(50), nullable=True)
     brand_id = db.Column(db.Integer, db.ForeignKey('brands.id'), nullable=False, index=True)
     brand = db.relationship('Brand', back_populates='stores')
-    users = db.relationship('User', back_populates='store', lazy='dynamic', foreign_keys='User.store_id')
+    users = db.relationship('User', back_populates='store', lazy='dynamic', foreign_keys='User.store_id', cascade="all, delete-orphan")
     store_code = db.Column(db.String(100), nullable=True, index=True) 
     manager_name = db.Column(db.String(100), nullable=True) 
     is_registered = db.Column(db.Boolean, default=False, nullable=False, index=True)
     is_approved = db.Column(db.Boolean, default=False, nullable=False, index=True)  
     is_active = db.Column(db.Boolean, default=True, nullable=False, index=True)     
     
-    orders = db.relationship('Order', backref='store', lazy='dynamic')
-    stock_levels = db.relationship('StoreStock', backref='store', lazy='dynamic', foreign_keys='StoreStock.store_id')
+    orders = db.relationship('Order', backref='store', lazy='dynamic', cascade="all, delete-orphan")
+    stock_levels = db.relationship('StoreStock', backref='store', lazy='dynamic', foreign_keys='StoreStock.store_id', cascade="all, delete-orphan")
     staff_members = db.relationship('Staff', backref='store', lazy='dynamic', cascade="all, delete-orphan")
     schedule_events = db.relationship('ScheduleEvent', backref='store', lazy='dynamic', cascade="all, delete-orphan") 
     received_processings = db.relationship('OrderProcessing', backref='source_store', lazy='dynamic', foreign_keys='OrderProcessing.source_store_id')
-    sales = db.relationship('Sale', back_populates='store', lazy='dynamic')
+    sales = db.relationship('Sale', back_populates='store', lazy='dynamic', cascade="all, delete-orphan")
     
     __table_args__ = (UniqueConstraint('brand_id', 'store_code', name='uq_brand_id_store_code'),)
 
