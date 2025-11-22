@@ -3,10 +3,11 @@ import os
 import io
 import shutil
 import zipfile
+import json
 from flask import request, jsonify, current_app, send_file
 from flask_login import login_required, current_user
 from sqlalchemy import text, func, or_, case
-from flowork.models import db, Product, Variant
+from flowork.models import db, Product, Variant, Setting
 from . import api_bp
 from flowork.celery_tasks import task_process_images
 
@@ -21,6 +22,10 @@ def get_product_image_status():
         limit = request.args.get('limit', 50, type=int)
         tab_type = request.args.get('tab', 'all')
         search_query = request.args.get('query', '').strip()
+        
+        # [신규] 현재 배치 목록 필터링 (콤마로 구분된 품번 리스트)
+        batch_codes_str = request.args.get('batch_codes', '')
+        batch_codes = [c.strip() for c in batch_codes_str.split(',') if c.strip()]
 
         query = db.session.query(
             Product.product_number,
@@ -35,18 +40,23 @@ def get_product_image_status():
          .filter(Product.brand_id == current_user.current_brand_id)\
          .group_by(Product.id)
 
+        # [신규] 상단 탭(현재 작업)일 경우, 배치 코드들에 대해서만 조회
+        if batch_codes:
+            # LIKE로 부분 일치 검색 (품번% 패턴)
+            conditions = [Product.product_number.like(f"{code}%") for code in batch_codes]
+            query = query.filter(or_(*conditions))
+
+        # 탭별 상태 필터링
         if tab_type == 'processing':
             query = query.filter(Product.image_status == 'PROCESSING')
         elif tab_type == 'ready':
-            query = query.filter(or_(
-                Product.image_status == 'READY',
-                Product.image_status == None
-            ))
+            query = query.filter(or_(Product.image_status == 'READY', Product.image_status == None))
         elif tab_type == 'failed':
             query = query.filter(Product.image_status == 'FAILED')
         elif tab_type == 'completed':
             query = query.filter(Product.image_status == 'COMPLETED')
         
+        # 하단 탭(전체 목록) 검색어 필터링
         if search_query:
             search_term = f"%{search_query.upper()}%"
             query = query.filter(or_(
@@ -108,6 +118,9 @@ def trigger_image_process():
         return jsonify({'status': 'error', 'message': '선택된 품번이 없습니다.'}), 400
 
     try:
+        # 옵션 저장 로직 호출 (자동 저장)
+        save_options_logic(current_user.id, current_user.current_brand_id, options)
+
         for code in style_codes:
             db.session.query(Product).filter(
                 Product.brand_id == current_user.current_brand_id,
@@ -136,33 +149,87 @@ def trigger_image_process():
         traceback.print_exc()
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+# [신규] 사용자 옵션 저장 로직 (내부 호출용)
+def save_options_logic(user_id, brand_id, options):
+    key = f'USER_OPTS_{user_id}'
+    value_str = json.dumps(options, ensure_ascii=False)
+    
+    setting = Setting.query.filter_by(brand_id=brand_id, key=key).first()
+    if setting:
+        setting.value = value_str
+    else:
+        setting = Setting(brand_id=brand_id, key=key, value=value_str)
+        db.session.add(setting)
+    db.session.commit()
+
+# [신규] 사용자 옵션 불러오기 API
+@api_bp.route('/api/product/options', methods=['GET'])
+@login_required
+def get_user_options():
+    if not current_user.brand_id: return jsonify({'status': 'error'}), 403
+    
+    key = f'USER_OPTS_{current_user.id}'
+    setting = Setting.query.filter_by(brand_id=current_user.current_brand_id, key=key).first()
+    
+    options = {}
+    if setting and setting.value:
+        try:
+            options = json.loads(setting.value)
+        except:
+            pass
+            
+    return jsonify({'status': 'success', 'options': options})
+
+# [신규] 폴더 이미지 목록 조회 API
+@api_bp.route('/api/product/folder/<style_code>', methods=['GET'])
+@login_required
+def get_product_folder_images(style_code):
+    if not current_user.brand_id: return jsonify({'status': 'error'}), 403
+    
+    try:
+        brand_name = current_user.brand.brand_name
+        base_path = os.path.join(current_app.root_path, 'static', 'product_images', brand_name, style_code)
+        
+        if not os.path.exists(base_path):
+            return jsonify({'status': 'error', 'message': '폴더를 찾을 수 없습니다.'}), 404
+            
+        images = []
+        for root, dirs, files in os.walk(base_path):
+            for file in files:
+                if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+                    full_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(full_path, current_app.root_path) # static/...
+                    # 웹 접근 경로로 변환
+                    web_path = '/' + rel_path.replace('\\', '/')
+                    images.append({
+                        'name': file,
+                        'path': web_path,
+                        'type': 'processed' if '_nobg' in file else 'original'
+                    })
+                    
+        return jsonify({'status': 'success', 'images': images})
+        
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# 기존 API들 (reset, reset_all, download, delete) 유지...
 @api_bp.route('/api/product/images/reset', methods=['POST'])
 @login_required
 def reset_image_process_status():
-    if not current_user.brand_id:
-         return jsonify({'status': 'error', 'message': '권한이 없습니다.'}), 403
-
+    if not current_user.brand_id: return jsonify({'status': 'error'}), 403
     data = request.json
     style_codes = data.get('style_codes', [])
-
-    if not style_codes:
-        return jsonify({'status': 'error', 'message': '선택된 품번이 없습니다.'}), 400
-
+    if not style_codes: return jsonify({'status': 'error'}), 400
     try:
-        updated_count = 0
+        count = 0
         for code in style_codes:
             res = db.session.query(Product).filter(
                 Product.brand_id == current_user.current_brand_id,
                 Product.product_number.like(f"{code}%")
-            ).update({
-                Product.image_status: 'READY',
-                Product.last_message: '사용자에 의해 초기화됨'
-            }, synchronize_session=False)
-            updated_count += res
-            
+            ).update({Product.image_status: 'READY', Product.last_message: '초기화됨'}, synchronize_session=False)
+            count += res
         db.session.commit()
-        return jsonify({'status': 'success', 'message': f'{updated_count}개 상품의 상태를 초기화했습니다.'})
-
+        return jsonify({'status': 'success', 'message': f'{count}건 초기화'})
     except Exception as e:
         db.session.rollback()
         return jsonify({'status': 'error', 'message': str(e)}), 500
@@ -170,21 +237,14 @@ def reset_image_process_status():
 @api_bp.route('/api/product/images/reset_all_processing', methods=['POST'])
 @login_required
 def reset_all_processing_status():
-    if not current_user.brand_id:
-         return jsonify({'status': 'error', 'message': '권한이 없습니다.'}), 403
-
+    if not current_user.brand_id: return jsonify({'status': 'error'}), 403
     try:
         res = db.session.query(Product).filter(
             Product.brand_id == current_user.current_brand_id,
             Product.image_status == 'PROCESSING'
-        ).update({
-            Product.image_status: 'READY',
-            Product.last_message: '일괄 초기화됨'
-        }, synchronize_session=False)
-        
+        ).update({Product.image_status: 'READY', Product.last_message: '일괄 초기화'}, synchronize_session=False)
         db.session.commit()
-        return jsonify({'status': 'success', 'message': f'진행 중이던 {res}개 상품을 모두 대기 상태로 초기화했습니다.'})
-
+        return jsonify({'status': 'success', 'message': f'{res}건 초기화'})
     except Exception as e:
         db.session.rollback()
         return jsonify({'status': 'error', 'message': str(e)}), 500
@@ -192,79 +252,50 @@ def reset_all_processing_status():
 @api_bp.route('/api/product/download/<style_code>', methods=['GET'])
 @login_required
 def download_product_images(style_code):
-    if not current_user.brand_id:
-        return jsonify({'status': 'error', 'message': '권한 없음'}), 403
-
+    if not current_user.brand_id: return jsonify({'status': 'error'}), 403
     try:
         brand_name = current_user.brand.brand_name
         base_path = os.path.join(current_app.root_path, 'static', 'product_images', brand_name, style_code)
-        
-        if not os.path.exists(base_path):
-            return jsonify({'status': 'error', 'message': '이미지 폴더를 찾을 수 없습니다.'}), 404
-            
-        zip_filename = f"{style_code}_images.zip"
+        if not os.path.exists(base_path): return jsonify({'status': 'error', 'message': '폴더 없음'}), 404
         zip_io = io.BytesIO()
-        
         with zipfile.ZipFile(zip_io, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for root, dirs, files in os.walk(base_path):
                 for file in files:
                     file_path = os.path.join(root, file)
                     arcname = os.path.relpath(file_path, base_path)
                     zipf.write(file_path, arcname)
-        
         zip_io.seek(0)
-        
-        return send_file(
-            zip_io,
-            mimetype='application/zip',
-            as_attachment=True,
-            download_name=zip_filename
-        )
-        
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return send_file(zip_io, mimetype='application/zip', as_attachment=True, download_name=f"{style_code}_images.zip")
+    except Exception as e: return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @api_bp.route('/api/product/delete_image_data', methods=['POST'])
 @login_required
 def delete_product_image_data():
-    if not current_user.brand_id:
-        return jsonify({'status': 'error', 'message': '권한 없음'}), 403
-        
+    if not current_user.brand_id: return jsonify({'status': 'error'}), 403
     data = request.json
     style_codes = data.get('style_codes', [])
-    
-    if not style_codes:
-        return jsonify({'status': 'error', 'message': '선택된 항목이 없습니다.'}), 400
-        
+    if not style_codes: return jsonify({'status': 'error'}), 400
     try:
         count = 0
         brand_name = current_user.brand.brand_name
-        
         for code in style_codes:
             products = Product.query.filter(
                 Product.brand_id == current_user.current_brand_id,
                 Product.product_number.like(f"{code}%")
             ).all()
-            
             for p in products:
                 p.image_status = 'READY'
                 p.thumbnail_url = None
                 p.detail_image_url = None
                 p.image_drive_link = None
                 p.last_message = None
-                
             folder_path = os.path.join(current_app.root_path, 'static', 'product_images', brand_name, code)
             if os.path.exists(folder_path):
-                try:
-                    shutil.rmtree(folder_path)
-                except Exception as fs_err:
-                    print(f"File delete error: {fs_err}")
-            
+                try: shutil.rmtree(folder_path)
+                except: pass
             count += 1
-            
         db.session.commit()
-        return jsonify({'status': 'success', 'message': f'{count}건의 이미지 데이터 및 파일을 삭제했습니다.'})
-        
+        return jsonify({'status': 'success', 'message': f'{count}건 삭제 완료'})
     except Exception as e:
         db.session.rollback()
         return jsonify({'status': 'error', 'message': str(e)}), 500

@@ -17,9 +17,6 @@ RESAMPLE_LANCZOS = Image.Resampling.LANCZOS
 
 _REMBG_SESSION = None
 
-def _log(message):
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [ImageProcess] {message}")
-
 def _get_rembg_session():
     global _REMBG_SESSION
     if _REMBG_SESSION is None:
@@ -316,7 +313,7 @@ def _paste_logo(final_image, logo_path, logo_config):
         final_image.paste(logo, (x, y), logo)
         
     except Exception as e:
-        print(f"Logo paste error: {e}")
+        pass
 
 def _create_thumbnail(variants, temp_dir, style_code, logo_path=None, options=None):
     try:
