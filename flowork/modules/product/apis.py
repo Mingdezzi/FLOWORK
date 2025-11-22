@@ -1,16 +1,18 @@
 import uuid
 import os
 import traceback
-from flask import request, jsonify, send_file, abort, flash, redirect, url_for, current_app
+from flask import request, jsonify, send_file, abort, flash, redirect, url_for
 from flask_login import login_required, current_user
-from sqlalchemy import or_, delete, exc
+from sqlalchemy import or_, delete
 from sqlalchemy.orm import selectinload
 
 from flowork.models import db, Product, Variant, StoreStock, Setting, StockHistory, Store
 from flowork.utils import clean_string_upper, get_choseong, generate_barcode, get_sort_key
 from flowork.modules.product import product_bp
 from flowork.modules.product.services import update_stock_quantity, update_actual_stock_quantity, toggle_product_favorite, delete_product_data
-from flowork.modules.product.excel_services import verify_stock_excel, export_db_to_excel, export_stock_check_excel, analyze_excel_file
+# [수정됨] verify_stock_excel, analyze_excel_file은 excel_services에서, export_*는 export_services에서 import
+from flowork.modules.product.excel_services import verify_stock_excel
+from flowork.modules.product.export_services import export_db_to_excel, export_stock_check_excel, analyze_excel_file
 from flowork.modules.product.tasks import task_upsert_inventory, task_import_db, task_process_images
 from flowork.modules.product.image_services import save_options_logic
 
@@ -331,7 +333,7 @@ def api_delete_product_route(pid):
     ok, err = delete_product_data(pid, current_user.current_brand_id)
     if ok:
         flash('삭제되었습니다.', 'success')
-        return redirect(url_for('product.product_list_view')) # 뷰 함수명 변경 반영
+        return redirect(url_for('product.product_list_view'))
     flash(f'삭제 실패: {err}', 'error')
     return redirect(url_for('product.product_detail_view', product_id=pid))
 

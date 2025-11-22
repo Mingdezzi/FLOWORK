@@ -1,11 +1,7 @@
 import pandas as pd
 import numpy as np
 import json
-import io
-import traceback
-from datetime import datetime
 from openpyxl.utils import column_index_from_string
-from openpyxl import Workbook
 from sqlalchemy.orm import selectinload
 from flowork.models import db, Product, Variant, StoreStock, Setting, Store
 from flowork.utils import clean_string_upper, get_choseong, generate_barcode
@@ -38,7 +34,7 @@ def _read_excel(file, indices):
         if field not in df.columns: df[field] = np.nan
     return df
 
-def _optimize_df(df, settings):
+def _optimize_df(df, settings, mode):
     if df.empty: return df
     df = df.dropna(subset=['product_number', 'color', 'size'])
     
@@ -121,6 +117,37 @@ def _transform_horizontal(file, settings, indices):
     final = final.rename(columns={'Real_Size': 'size', 'DB_Category': 'item_category'})
     
     return final[['product_number', 'product_name', 'color', 'size', 'hq_stock', 'sale_price', 'original_price', 'item_category', 'release_year']]
+
+def verify_stock_excel(file_path, form, upload_mode):
+    """엑셀 파일 검증 로직 (apis.py에서 호출됨)"""
+    try:
+        # 검증 시에는 품번 열만 확인
+        field_map = {'product_number': ('col_pn', True)}
+        column_map_indices = _get_column_indices(form, field_map)
+        
+        with open(file_path, 'rb') as f:
+            df = _read_excel(f, column_map_indices)
+            
+        if df.empty:
+            return {'status': 'success', 'suspicious_rows': []}
+
+        df['_row_index'] = df.index + 2
+        suspicious_rows = []
+        
+        for _, row in df.iterrows():
+            pn = row.get('product_number')
+            # 품번이 없거나 비어있으면 의심 행으로 간주
+            if pd.isna(pn) or str(pn).strip() == "":
+                suspicious_rows.append({
+                    'row_index': int(row['_row_index']), 
+                    'preview': '(품번없음)', 
+                    'reasons': '품번 누락'
+                })
+                
+        return {'status': 'success', 'suspicious_rows': suspicious_rows[:100]}
+
+    except Exception as e:
+        return {'status': 'error', 'message': f"검증 중 오류: {e}"}
 
 def process_stock_upsert(file, form, mode, brand_id, store_id=None, callback=None, allow_create=True):
     try:
