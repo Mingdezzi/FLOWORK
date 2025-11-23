@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>FLOWORK</title>
+    <link rel="icon" href="{{ url_for('static', filename='symbol.png') }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/journal/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container my-4">
+        {% include '_header.html' %}
+        {% include '_navigation.html' %}
+        <h2 class="section-title">수평이동 전체 현황</h2>
+        <div class="table-responsive">
+            <table class="table table-sm table-striped">
+                <thead><tr><th>날짜</th><th>유형</th><th>보낸곳</th><th>받는곳</th><th>상품</th><th>수량</th><th>상태</th></tr></thead>
+                <tbody>
+                    {% for t in transfers %}
+                    <tr>
+                        <td>{{ t.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td>{{ t.transfer_type }}</td>
+                        <td>{{ t.source_store.store_name }}</td>
+                        <td>{{ t.target_store.store_name }}</td>
+                        <td>{{ t.variant.product.product_name }} ({{ t.variant.color }}/{{ t.variant.size }})</td>
+                        <td>{{ t.quantity }}</td>
+                        <td>{{ t.status }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
