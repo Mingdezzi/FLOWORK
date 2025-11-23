@@ -1,154 +1,192 @@
 import traceback
-from sqlalchemy.orm import selectinload
+from datetime import datetime
+from sqlalchemy import select
 from flowork.extensions import db
-from flowork.models import Product, Variant, StoreStock, Store
+from flowork.models import Product, Variant, StoreStock, Store, StockHistory
 from flowork.utils import clean_string_upper, get_choseong
+from flowork.constants import StockChangeType
 
 class InventoryService:
     @staticmethod
     def process_stock_data(records, upload_mode, brand_id, target_store_id=None, allow_create=True, progress_callback=None):
-        """
-        정제된 데이터(records)를 받아 DB에 반영합니다.
-        """
-        cnt_prod = 0
-        cnt_var = 0
-        cnt_update = 0
-        total_items = len(records)
-
         try:
-            # 1. 기존 데이터 로드 (Bulk 처리를 위한 메모리 캐싱)
-            # 업로드된 데이터에 있는 품번만 조회하여 최적화
-            pn_list = list(set(item['product_number_cleaned'] for item in records))
+            if not records:
+                return 0, 0, "데이터가 없습니다."
+
+            total_items = len(records)
             
-            products_in_db = Product.query.filter(
-                Product.brand_id == brand_id, 
+            pn_list = list(set(item['product_number_cleaned'] for item in records if item.get('product_number_cleaned')))
+            barcode_list = list(set(item['barcode_cleaned'] for item in records if item.get('barcode_cleaned')))
+
+            existing_products = db.session.query(Product).filter(
+                Product.brand_id == brand_id,
                 Product.product_number_cleaned.in_(pn_list)
-            ).options(
-                selectinload(Product.variants).selectinload(Variant.stock_levels)
             ).all()
-            
-            product_map = {p.product_number_cleaned: p for p in products_in_db}
-            
-            variant_map = {} 
-            for p in products_in_db:
-                for v in p.variants:
-                    variant_map[v.barcode_cleaned] = v
-            
-            store_stock_map = {}
-            if upload_mode == 'store' and target_store_id:
-                v_ids = [v.id for v in variant_map.values()]
-                if v_ids:
-                    stocks = db.session.query(StoreStock).filter(
-                        StoreStock.store_id == target_store_id, 
-                        StoreStock.variant_id.in_(v_ids)
-                    ).all()
-                    store_stock_map = {s.variant_id: s for s in stocks}
+            product_map = {p.product_number_cleaned: p for p in existing_products}
 
-            # 2. 데이터 처리 루프
-            for idx, item in enumerate(records):
-                if progress_callback and idx % 100 == 0:
-                    progress_callback(idx, total_items)
+            new_products_data = []
+            seen_new_pns = set()
+
+            for item in records:
+                pn_clean = item.get('product_number_cleaned')
+                if not pn_clean: continue
                 
-                try:
-                    pn_clean = item['product_number_cleaned']
-                    bc_clean = item['barcode_cleaned']
+                if pn_clean not in product_map and pn_clean not in seen_new_pns:
+                    if allow_create:
+                        pname = item.get('product_name') or item.get('product_number')
+                        new_products_data.append({
+                            'brand_id': brand_id,
+                            'product_number': item.get('product_number'),
+                            'product_name': pname,
+                            'product_number_cleaned': pn_clean,
+                            'product_name_cleaned': clean_string_upper(pname),
+                            'product_name_choseong': item.get('product_name_choseong'),
+                            'release_year': item.get('release_year'),
+                            'item_category': item.get('item_category'),
+                            'is_favorite': item.get('is_favorite', 0)
+                        })
+                        seen_new_pns.add(pn_clean)
 
-                    # Product 처리
-                    prod = product_map.get(pn_clean)
-                    if not prod:
-                        if not allow_create: continue
-                        
-                        pname = item.get('product_name') or item['product_number']
-                        pn_cleaned_val = item.get('product_number_cleaned')
-                        choseong_val = item.get('product_name_choseong')
+            if new_products_data:
+                db.session.bulk_insert_mappings(Product, new_products_data)
+                db.session.flush()
+                
+                created_products = db.session.query(Product).filter(
+                    Product.brand_id == brand_id,
+                    Product.product_number_cleaned.in_(seen_new_pns)
+                ).all()
+                for p in created_products:
+                    product_map[p.product_number_cleaned] = p
 
-                        prod = Product(
-                            brand_id=brand_id, 
-                            product_number=item['product_number'], 
-                            product_name=pname, 
-                            product_number_cleaned=pn_clean, 
-                            product_name_cleaned=clean_string_upper(pname), 
-                            product_name_choseong=choseong_val
-                        )
-                        db.session.add(prod)
-                        product_map[pn_clean] = prod
-                        cnt_prod += 1
-                    
-                    # Product 속성 업데이트
-                    if item.get('release_year') and item['release_year'] > 0: 
-                        prod.release_year = item['release_year']
-                    if item.get('item_category'): 
-                        prod.item_category = item['item_category']
-                    if item.get('is_favorite') == 1:
-                        prod.is_favorite = 1
-                    
-                    # Variant 처리
-                    var = variant_map.get(bc_clean)
-                    op = item.get('original_price', 0)
-                    sp = item.get('sale_price', 0)
+            existing_variants = db.session.query(Variant).join(Product).filter(
+                Product.brand_id == brand_id,
+                Variant.barcode_cleaned.in_(barcode_list)
+            ).all()
+            variant_map = {v.barcode_cleaned: v for v in existing_variants}
 
-                    if not var:
-                        if not allow_create: continue
-                        var = Variant(
-                            product=prod, 
-                            barcode=item['barcode'], 
-                            color=item['color'], 
-                            size=item['size'], 
-                            original_price=op, 
-                            sale_price=sp, 
-                            hq_quantity=0, 
-                            barcode_cleaned=bc_clean,
-                            color_cleaned=clean_string_upper(item['color']),
-                            size_cleaned=clean_string_upper(item['size'])
-                        )
-                        db.session.add(var)
-                        variant_map[bc_clean] = var
-                        cnt_var += 1
-                    else:
-                        if op > 0: var.original_price = op
-                        if sp > 0: var.sale_price = sp
+            new_variants_data = []
+            variants_to_update = []
+            seen_new_barcodes = set()
+
+            for item in records:
+                pn_clean = item.get('product_number_cleaned')
+                bc_clean = item.get('barcode_cleaned')
+                if not pn_clean or not bc_clean: continue
+
+                prod = product_map.get(pn_clean)
+                if not prod: continue 
+
+                if bc_clean not in variant_map and bc_clean not in seen_new_barcodes:
+                    if allow_create:
+                        new_variants_data.append({
+                            'product_id': prod.id,
+                            'barcode': item.get('barcode'),
+                            'color': item.get('color'),
+                            'size': item.get('size'),
+                            'original_price': item.get('original_price', 0),
+                            'sale_price': item.get('sale_price', 0),
+                            'hq_quantity': item.get('hq_stock', 0) if upload_mode == 'hq' else 0,
+                            'barcode_cleaned': bc_clean,
+                            'color_cleaned': clean_string_upper(item.get('color')),
+                            'size_cleaned': clean_string_upper(item.get('size'))
+                        })
+                        seen_new_barcodes.add(bc_clean)
+                elif bc_clean in variant_map:
+                    v = variant_map[bc_clean]
+                    update_dict = {'id': v.id}
+                    changed = False
                     
-                    # 재고 업데이트
+                    if item.get('original_price') and item['original_price'] > 0:
+                        update_dict['original_price'] = item['original_price']
+                        changed = True
+                    if item.get('sale_price') and item['sale_price'] > 0:
+                        update_dict['sale_price'] = item['sale_price']
+                        changed = True
+                    
                     if upload_mode == 'hq' and 'hq_stock' in item:
-                        var.hq_quantity = item['hq_stock']
-                        cnt_update += 1
+                        update_dict['hq_quantity'] = item['hq_stock']
+                        changed = True
                     
-                    elif upload_mode == 'store' and 'store_stock' in item:
-                        qty = item['store_stock']
-                        
-                        # 이미 로드된 재고 맵 사용
-                        if var.id in store_stock_map:
-                            store_stock_map[var.id].quantity = qty
-                            cnt_update += 1
-                        else:
-                            # 맵에 없으면 새로 생성하거나 product.variants 관계를 통해 확인 (이중 체크)
-                            found_in_rel = False
-                            if hasattr(var, 'stock_levels'):
-                                for s in var.stock_levels:
-                                    if s.store_id == target_store_id:
-                                        s.quantity = qty
-                                        store_stock_map[var.id] = s
-                                        found_in_rel = True
-                                        break
-                            
-                            if not found_in_rel:
-                                new_stk = StoreStock(store_id=target_store_id, variant_id=var.id, quantity=qty)
-                                # 아직 var.id가 없을 수 있으므로(신규 생성), 관계에 추가
-                                var.stock_levels.append(new_stk)
-                                # 맵에는 id가 생성된 후 추가 가능하므로 여기선 패스
-                            
-                            cnt_update += 1
+                    if changed:
+                        variants_to_update.append(update_dict)
 
-                except Exception as e:
-                    print(f"Row Error: {e}")
-                    continue
+            if new_variants_data:
+                db.session.bulk_insert_mappings(Variant, new_variants_data)
+                db.session.flush()
+                
+            if variants_to_update:
+                db.session.bulk_update_mappings(Variant, variants_to_update)
+                db.session.flush()
+
+            if upload_mode == 'store' and target_store_id:
+                all_variants_involved = db.session.query(Variant).join(Product).filter(
+                    Product.brand_id == brand_id,
+                    Variant.barcode_cleaned.in_(barcode_list)
+                ).all()
+                variant_id_map = {v.barcode_cleaned: v.id for v in all_variants_involved}
+                
+                variant_ids = list(variant_id_map.values())
+                existing_stocks = db.session.query(StoreStock).filter(
+                    StoreStock.store_id == target_store_id,
+                    StoreStock.variant_id.in_(variant_ids)
+                ).all()
+                stock_map = {s.variant_id: s for s in existing_stocks}
+
+                new_stocks_data = []
+                stocks_to_update = []
+                history_data = []
+
+                for item in records:
+                    bc_clean = item.get('barcode_cleaned')
+                    v_id = variant_id_map.get(bc_clean)
+                    
+                    if v_id and 'store_stock' in item:
+                        new_qty = int(item['store_stock'])
+                        
+                        if v_id in stock_map:
+                            current_stock = stock_map[v_id]
+                            if current_stock.quantity != new_qty:
+                                change_amt = new_qty - current_stock.quantity
+                                stocks_to_update.append({
+                                    'id': current_stock.id,
+                                    'quantity': new_qty
+                                })
+                                history_data.append({
+                                    'store_id': target_store_id,
+                                    'variant_id': v_id,
+                                    'change_type': StockChangeType.EXCEL_UPLOAD,
+                                    'quantity_change': change_amt,
+                                    'current_quantity': new_qty,
+                                    'created_at': datetime.now()
+                                })
+                        else:
+                            new_stocks_data.append({
+                                'store_id': target_store_id,
+                                'variant_id': v_id,
+                                'quantity': new_qty
+                            })
+                            history_data.append({
+                                'store_id': target_store_id,
+                                'variant_id': v_id,
+                                'change_type': StockChangeType.EXCEL_UPLOAD,
+                                'quantity_change': new_qty,
+                                'current_quantity': new_qty,
+                                'created_at': datetime.now()
+                            })
+
+                if new_stocks_data:
+                    db.session.bulk_insert_mappings(StoreStock, new_stocks_data)
+                if stocks_to_update:
+                    db.session.bulk_update_mappings(StoreStock, stocks_to_update)
+                if history_data:
+                    db.session.bulk_insert_mappings(StockHistory, history_data)
 
             db.session.commit()
             
-            if progress_callback: 
+            if progress_callback:
                 progress_callback(total_items, total_items)
-                
-            return cnt_update, cnt_var, f"완료: 상품 {cnt_prod} / 옵션 {cnt_var} 생성, {cnt_update}건 업데이트"
+
+            return len(variants_to_update) + (len(stocks_to_update) if upload_mode=='store' else 0), len(new_variants_data), f"처리가 완료되었습니다. (상품 {len(new_products_data)}건, 옵션 {len(new_variants_data)}건 신규)"
 
         except Exception as e:
             db.session.rollback()
@@ -157,87 +195,91 @@ class InventoryService:
 
     @staticmethod
     def full_import_db(records, brand_id, progress_callback=None):
-        """
-        기존 DB를 삭제하고 전체 데이터를 새로 넣습니다.
-        """
-        BATCH_SIZE = 5000
-        total_items = len(records)
-        
         try:
-            # 1. 기존 데이터 삭제
-            store_ids = db.session.query(Store.id).filter_by(brand_id=brand_id)
-            db.session.query(StoreStock).filter(StoreStock.store_id.in_(store_ids)).delete(synchronize_session=False)
-            product_ids = db.session.query(Product.id).filter_by(brand_id=brand_id)
-            db.session.query(Variant).filter(Variant.product_id.in_(product_ids)).delete(synchronize_session=False)
+            if not records:
+                return True, "데이터가 없습니다."
+
+            total_items = len(records)
+            BATCH_SIZE = 2000
+            
+            store_ids = db.session.query(Store.id).filter_by(brand_id=brand_id).all()
+            store_ids = [s[0] for s in store_ids]
+            
+            if store_ids:
+                db.session.query(StoreStock).filter(StoreStock.store_id.in_(store_ids)).delete(synchronize_session=False)
+                db.session.query(StockHistory).filter(StockHistory.store_id.in_(store_ids)).delete(synchronize_session=False)
+            
+            product_ids = db.session.query(Product.id).filter_by(brand_id=brand_id).all()
+            product_ids = [p[0] for p in product_ids]
+            
+            if product_ids:
+                db.session.query(Variant).filter(Variant.product_id.in_(product_ids)).delete(synchronize_session=False)
+            
             db.session.query(Product).filter_by(brand_id=brand_id).delete(synchronize_session=False)
             db.session.commit()
-            
-            # 2. 데이터 삽입
-            products_id_map = {} 
-            total_products = 0
-            total_variants = 0
-            
-            for i in range(0, total_items, BATCH_SIZE):
-                if progress_callback: progress_callback(i, total_items)
-                batch = records[i:i+BATCH_SIZE]
-                
-                products_to_add = []
-                new_products_in_batch = {} 
 
-                for item in batch:
-                    pn = item['product_number_cleaned']
-                    if pn not in products_id_map and pn not in new_products_in_batch:
-                        
-                        pname = item.get('product_name') or item['product_number']
-                        
-                        p = Product(
-                            brand_id=brand_id,
-                            product_number=item['product_number'],
-                            product_name=pname,
-                            release_year=item.get('release_year'),
-                            item_category=item.get('item_category'),
-                            is_favorite=item.get('is_favorite', 0),
-                            product_number_cleaned=pn,
-                            product_name_cleaned=clean_string_upper(pname),
-                            product_name_choseong=item.get('product_name_choseong')
-                        )
-                        new_products_in_batch[pn] = p
-                        products_to_add.append(p)
-                
-                if products_to_add:
-                    db.session.add_all(products_to_add)
-                    db.session.flush()
-                    for pn, p_obj in new_products_in_batch.items():
-                        products_id_map[pn] = p_obj.id
-                    total_products += len(products_to_add)
-                
-                variants_to_add = []
-                for item in batch:
-                    pid = products_id_map.get(item['product_number_cleaned'])
-                    if pid:
-                        v = Variant(
-                            product_id=pid,
-                            barcode=item['barcode'],
-                            color=item['color'],
-                            size=item['size'],
-                            original_price=item['original_price'],
-                            sale_price=item['sale_price'],
-                            hq_quantity=item.get('hq_stock', 0), 
-                            barcode_cleaned=item['barcode_cleaned'],
-                            color_cleaned=item.get('color_cleaned', clean_string_upper(item['color'])),
-                            size_cleaned=item.get('size_cleaned', clean_string_upper(item['size']))
-                        )
-                        variants_to_add.append(v)
-                
-                if variants_to_add:
-                    db.session.bulk_save_objects(variants_to_add)
-                    total_variants += len(variants_to_add)
-                
-                db.session.commit()
-                
-            if progress_callback: progress_callback(total_items, total_items)
-            return True, f"초기화 완료: 상품 {total_products}개, 옵션 {total_variants}개"
+            unique_products = {}
+            for item in records:
+                pn_clean = item.get('product_number_cleaned')
+                if pn_clean and pn_clean not in unique_products:
+                    pname = item.get('product_name') or item.get('product_number')
+                    unique_products[pn_clean] = {
+                        'brand_id': brand_id,
+                        'product_number': item.get('product_number'),
+                        'product_name': pname,
+                        'product_number_cleaned': pn_clean,
+                        'product_name_cleaned': clean_string_upper(pname),
+                        'product_name_choseong': item.get('product_name_choseong'),
+                        'release_year': item.get('release_year'),
+                        'item_category': item.get('item_category'),
+                        'is_favorite': item.get('is_favorite', 0)
+                    }
             
+            product_list = list(unique_products.values())
+            for i in range(0, len(product_list), BATCH_SIZE):
+                batch = product_list[i:i+BATCH_SIZE]
+                db.session.bulk_insert_mappings(Product, batch)
+                db.session.commit()
+                if progress_callback:
+                    progress_callback(i, total_items)
+
+            all_products = db.session.query(Product.product_number_cleaned, Product.id).filter_by(brand_id=brand_id).all()
+            product_id_map = {p[0]: p[1] for p in all_products}
+
+            variant_list = []
+            seen_barcodes = set()
+            
+            for item in records:
+                pn_clean = item.get('product_number_cleaned')
+                bc_clean = item.get('barcode_cleaned')
+                
+                if pn_clean in product_id_map and bc_clean and bc_clean not in seen_barcodes:
+                    variant_list.append({
+                        'product_id': product_id_map[pn_clean],
+                        'barcode': item.get('barcode'),
+                        'color': item.get('color'),
+                        'size': item.get('size'),
+                        'original_price': item.get('original_price', 0),
+                        'sale_price': item.get('sale_price', 0),
+                        'hq_quantity': item.get('hq_stock', 0),
+                        'barcode_cleaned': bc_clean,
+                        'color_cleaned': clean_string_upper(item.get('color')),
+                        'size_cleaned': clean_string_upper(item.get('size'))
+                    })
+                    seen_barcodes.add(bc_clean)
+
+            for i in range(0, len(variant_list), BATCH_SIZE):
+                batch = variant_list[i:i+BATCH_SIZE]
+                db.session.bulk_insert_mappings(Variant, batch)
+                db.session.commit()
+                if progress_callback:
+                    progress_callback(min(i + len(product_list), total_items), total_items)
+
+            if progress_callback:
+                progress_callback(total_items, total_items)
+
+            return True, f"초기화 완료: 상품 {len(product_list)}개, 옵션 {len(variant_list)}개 등록"
+
         except Exception as e:
             db.session.rollback()
             traceback.print_exc()
