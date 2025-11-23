@@ -15,7 +15,7 @@ set PROJECT_DIR=~/flowork
 cls
 echo.
 echo ==========================================================
-echo        FLOWORK 서버 매니저 (v4.0 Refactored)
+echo        FLOWORK 서버 매니저 (v4.1 Fix & Init)
 echo        Target: %SERVER_IP% (%USER%)
 echo ==========================================================
 echo.
@@ -53,10 +53,10 @@ echo ==========================================================
 echo           🚀 배포 및 설정 관리
 echo ==========================================================
 echo.
-echo  [1] 스마트 배포 (Git Pull + Restart)
-echo      - 코드 변경사항 반영 및 컨테이너 재시작
+echo  [1] 스마트 배포 (Git Pull + Rebuild) ★필수
+echo      - 코드 변경사항 반영 및 라이브러리 설치 (재시작)
 echo.
-echo  [2] 🔒 .env 환경변수 파일 업로드 (필수)
+echo  [2] 🔒 .env 환경변수 파일 업로드 ★필수
 echo      - PC의 .env 파일을 서버로 전송합니다.
 echo.
 echo  [3] 🧹 캐시 초기화 재배포 (Clean Deploy)
@@ -75,7 +75,7 @@ goto DEPLOY_MENU
 
 :DEPLOY_SMART
 echo.
-echo [서버] Git Pull 및 컨테이너 재시작 중...
+echo [서버] Git Pull 및 컨테이너 재빌드 중...
 ssh %USER%@%SERVER_IP% "cd %PROJECT_DIR% && git pull origin main && docker compose up -d --build"
 echo.
 echo ✅ 배포 완료.
@@ -85,14 +85,15 @@ goto DEPLOY_MENU
 :UPLOAD_ENV
 echo.
 if not exist ".env" (
-    echo ❌ 현재 폴더에 .env 파일이 없습니다. 파일을 생성 후 다시 시도하세요.
+    echo ❌ PC의 현재 폴더에 .env 파일이 없습니다. 
+    echo    프로젝트 루트에 .env 파일을 생성했는지 확인하세요.
     pause
     goto DEPLOY_MENU
 )
 echo [PC -> 서버] .env 파일 전송 중...
 scp .env %USER%@%SERVER_IP%:%PROJECT_DIR%/.env
 echo.
-echo ✅ 전송 완료. 변경사항 적용을 위해 '스마트 배포'를 한 번 실행해주세요.
+echo ✅ 전송 완료. 반드시 [1]번 '스마트 배포'를 실행하여 적용하세요.
 pause
 goto DEPLOY_MENU
 
@@ -116,16 +117,19 @@ echo ==========================================================
 echo           💾 데이터베이스 관리 (Flask-Migrate)
 echo ==========================================================
 echo.
-echo  [1] 🏗️  DB 변경사항 적용 (Upgrade)
-echo      - 마이그레이션 파일을 DB에 적용합니다. (일반적 사용)
+echo  [1] 🏁  DB 마이그레이션 초기화 (Init) ★최초 1회
+echo      - 'migrations' 폴더를 생성합니다. (처음에만 실행)
 echo.
 echo  [2] 📝  새 마이그레이션 생성 (Migrate)
 echo      - 모델 변경사항을 감지하여 스크립트를 생성합니다.
 echo.
-echo  [3] 📥  통합 백업 (DB + 이미지)
+echo  [3] 🏗️  DB 변경사항 적용 (Upgrade)
+echo      - 생성된 마이그레이션을 DB에 실제 반영합니다.
+echo.
+echo  [4] 📥  통합 백업 (DB + 이미지)
 echo      - 현재 상태를 PC 바탕화면으로 백업합니다.
 echo.
-echo  [4] ♻️  DB 전체 초기화 (Hard Reset)
+echo  [5] ♻️  DB 전체 초기화 (Hard Reset)
 echo      - [주의] 모든 데이터를 삭제하고 테이블을 재생성합니다.
 echo.
 echo  [0] 메인 메뉴로
@@ -133,19 +137,20 @@ echo.
 echo ==========================================================
 set /p db_choice="선택: "
 
-if "%db_choice%"=="1" goto DB_UPGRADE
+if "%db_choice%"=="1" goto DB_INIT_MIGRATE
 if "%db_choice%"=="2" goto DB_MIGRATE
-if "%db_choice%"=="3" goto DB_BACKUP
-if "%db_choice%"=="4" goto DB_RESET
+if "%db_choice%"=="3" goto DB_UPGRADE
+if "%db_choice%"=="4" goto DB_BACKUP
+if "%db_choice%"=="5" goto DB_RESET
 if "%db_choice%"=="0" goto MAIN_MENU
 goto DB_MENU
 
-:DB_UPGRADE
+:DB_INIT_MIGRATE
 echo.
-echo [서버] DB 스키마 업그레이드 (flask db upgrade)...
-ssh %USER%@%SERVER_IP% "cd %PROJECT_DIR% && docker compose exec web flask db upgrade"
+echo [서버] 마이그레이션 저장소 초기화 (flask db init)...
+ssh %USER%@%SERVER_IP% "cd %PROJECT_DIR% && docker compose exec web flask --app run.py db init"
 echo.
-echo ✅ 적용 완료.
+echo ✅ 초기화 완료. (이미 존재한다는 에러가 나면 정상입니다)
 pause
 goto DB_MENU
 
@@ -153,9 +158,18 @@ goto DB_MENU
 echo.
 set /p msg="마이그레이션 메시지 (예: add_column): "
 echo [서버] 마이그레이션 스크립트 생성 중...
-ssh %USER%@%SERVER_IP% "cd %PROJECT_DIR% && docker compose exec web flask db migrate -m '%msg%'"
+ssh %USER%@%SERVER_IP% "cd %PROJECT_DIR% && docker compose exec web flask --app run.py db migrate -m '%msg%'"
 echo.
-echo ✅ 생성 완료. 반드시 'DB 변경사항 적용(1번)'을 실행해야 반영됩니다.
+echo ✅ 생성 완료. 반드시 '3번 DB 변경사항 적용'을 실행해야 반영됩니다.
+pause
+goto DB_MENU
+
+:DB_UPGRADE
+echo.
+echo [서버] DB 스키마 업그레이드 (flask db upgrade)...
+ssh %USER%@%SERVER_IP% "cd %PROJECT_DIR% && docker compose exec web flask --app run.py db upgrade"
+echo.
+echo ✅ 적용 완료.
 pause
 goto DB_MENU
 
@@ -188,7 +202,7 @@ set /p confirm="정말 초기화하시겠습니까? (yes/no): "
 if not "%confirm%"=="yes" goto DB_MENU
 
 echo [서버] DB 초기화 (init-db command)...
-ssh %USER%@%SERVER_IP% "cd %PROJECT_DIR% && docker compose exec web flask init-db"
+ssh %USER%@%SERVER_IP% "cd %PROJECT_DIR% && docker compose exec web flask --app run.py init-db"
 echo.
 echo ✅ 초기화 완료.
 pause
