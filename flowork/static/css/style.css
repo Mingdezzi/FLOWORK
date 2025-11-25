@@ -1,6 +1,6 @@
 html {
     overflow-y: scroll;
-    -webkit-overflow-scrolling: touch; /* 모바일 스크롤 부드럽게 */
+    -webkit-overflow-scrolling: touch;
 }
 
 .container {
@@ -1192,7 +1192,6 @@ body[data-page-mode="edit"] #btn-enable-edit {
     color: #dc3545 !important;
 }
 
-/* Online Management & Options Panel */
 .status-badge { font-size: 0.85rem; width: 80px; cursor: help; }
 .status-badge.bg-danger { cursor: pointer; }
 .img-preview { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #dee2e6; }
@@ -1200,14 +1199,11 @@ body[data-page-mode="edit"] #btn-enable-edit {
 .options-panel { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; }
 .options-panel label { font-size: 0.85rem; font-weight: bold; margin-bottom: 0.25rem; display: block; }
 
-/* --- [신규] 레이아웃 리뉴얼 스타일 --- */
-
-/* 데스크탑 메인 컨텐츠 영역 (사이드바만큼 밀기) */
 @media (min-width: 992px) {
     .main-content-wrapper {
-        margin-left: 260px; /* 사이드바 너비 */
+        margin-left: 260px;
         min-height: 100vh;
-        background-color: #f8f9fa; /* 전체 배경색을 밝은 회색으로 */
+        background-color: #f8f9fa;
     }
     
     .container, .container-fluid {
@@ -1216,18 +1212,17 @@ body[data-page-mode="edit"] #btn-enable-edit {
     }
 }
 
-/* 모바일 메인 컨텐츠 영역 (하단 탭 바만큼 띄우기) */
 @media (max-width: 991.98px) {
     .main-content-wrapper {
         margin-left: 0;
-        padding-bottom: 80px; /* 하단 탭 바 높이 확보 */
+        padding-bottom: calc(80px + env(safe-area-inset-bottom, 20px));
         background-color: #fff;
     }
     
     .bottom-tab-bar {
         box-shadow: 0 -1px 10px rgba(0,0,0,0.05);
         z-index: 1030;
-        height: 60px; /* 고정 높이 */
+        height: 60px;
     }
     
     .bottom-tab-bar .nav-link {
@@ -1236,7 +1231,7 @@ body[data-page-mode="edit"] #btn-enable-edit {
     }
     
     .bottom-tab-bar .nav-link.active {
-        color: #eb6864 !important; /* 브랜드 컬러 */
+        color: #eb6864 !important;
         font-weight: 600;
     }
     
@@ -1245,7 +1240,6 @@ body[data-page-mode="edit"] #btn-enable-edit {
     }
 }
 
-/* 스크롤바 커스텀 (사이드바용) */
 .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
 }
@@ -1257,7 +1251,6 @@ body[data-page-mode="edit"] #btn-enable-edit {
     border-radius: 3px;
 }
 
-/* 사이드바 아코디언 스타일 */
 .sidebar-desktop .accordion-button {
     background-color: transparent;
     color: #495057;
@@ -1288,6 +1281,6 @@ body[data-page-mode="edit"] #btn-enable-edit {
     color: #eb6864;
     background-color: transparent;
     font-weight: bold;
-    border-left: 3px solid #eb6864; /* 활성 메뉴 표시 */
+    border-left: 3px solid #eb6864;
     padding-left: calc(1.5rem - 3px) !important;
 }

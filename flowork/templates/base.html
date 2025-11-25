@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>FLOWORK - {{ shop_name }}</title>
     <link rel="icon" href="{{ url_for('static', filename='symbol.png') }}">
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
@@ -16,18 +16,15 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body {% block body_attrs %}{% endblock %}>
-
     <aside class="sidebar-desktop d-none d-lg-flex flex-column border-end bg-light h-100 position-fixed top-0 start-0" style="width: 260px; z-index: 1020;">
         <div class="p-3 border-bottom text-center bg-white">
             <a href="{{ url_for('ui.home') }}" class="text-decoration-none">
                 <img src="{{ url_for('static', filename='logo.png') }}" alt="FLOWORK" style="height: 35px;">
             </a>
         </div>
-        
         <div class="flex-grow-1 overflow-auto custom-scrollbar">
             {% include '_navigation.html' %}
         </div>
-        
         <div class="p-3 border-top bg-white">
             <div class="d-flex align-items-center justify-content-between">
                 <div class="d-flex flex-column">
@@ -40,7 +37,6 @@
             </div>
         </div>
     </aside>
-
     <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileMenuSidebar">
         <div class="offcanvas-header bg-light border-bottom">
             <img src="{{ url_for('static', filename='logo.png') }}" alt="FLOWORK" style="height: 30px;">
@@ -53,7 +49,6 @@
             {% include '_navigation.html' %}
         </div>
     </div>
-
     <main class="main-content-wrapper">
         <div class="d-lg-none mobile-top-header bg-white border-bottom py-2 px-3 sticky-top mb-3 d-flex justify-content-between align-items-center">
             <a href="{{ url_for('ui.home') }}">
@@ -61,7 +56,6 @@
             </a>
             <span class="text-primary fw-bold small">{{ today_date }}</span>
         </div>
-
         <div class="container-fluid p-3 p-lg-4" style="max-width: 1600px;">
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
@@ -73,15 +67,11 @@
                     {% endfor %}
                 {% endif %}
             {% endwith %}
-
             {% block content %}{% endblock %}
         </div>
     </main>
-
     {% include '_bottom_nav.html' %}
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    
     <script>
         const Flowork = {
             getCsrfToken: () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
@@ -106,7 +96,6 @@
         };
         window.Flowork = Flowork;
     </script>
-
     {% block scripts %}{% endblock %}
 </body>
 </html>
