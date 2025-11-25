@@ -23,6 +23,7 @@
 
     <div class="main-wrapper">
         
+        {% if request.args.get('iframe') != '1' %}
         <aside class="sidebar-area sidebar-desktop">
             <div class="p-3 border-bottom text-center bg-white" style="height: 60px; display: flex; align-items: center; justify-content: center;">
                 <a href="{{ url_for('ui.home') }}" class="text-decoration-none">
@@ -64,9 +65,10 @@
                 </div>
             </div>
         </div>
-
+        {% endif %}
         <main class="content-area">
             
+            {% if request.args.get('iframe') != '1' %}
             <div class="tab-bar-container" id="tab-bar">
             </div>
 
@@ -76,7 +78,7 @@
                 </a>
                 <span class="text-primary fw-bold small">{{ today_date }}</span>
             </div>
-
+            {% endif %}
             <div class="tab-content-container main-content-wrapper" id="tab-content">
                 
                 <div class="tab-pane active" id="tab-initial">
@@ -100,7 +102,9 @@
         </main>
     </div>
 
-    {% include '_bottom_nav.html' %}
+    {% if request.args.get('iframe') != '1' %}
+        {% include '_bottom_nav.html' %}
+    {% endif %}
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
