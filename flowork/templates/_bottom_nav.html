@@ -1,0 +1,62 @@
+<style>
+    .bottom-tab-bar {
+        /* 아이폰 하단 제스처 영역(Safe Area) 대응 */
+        padding-bottom: env(safe-area-inset-bottom, 20px) !important; 
+        padding-bottom: constant(safe-area-inset-bottom, 20px) !important; /* 구형 iOS 대응 */
+        background-color: white;
+        border-top: 1px solid #dee2e6;
+        /* 다른 요소보다 위에 뜨도록 높게 설정 */
+        z-index: 1050; 
+        /* 높이 자동 조절 (내부 콘텐츠 + 패딩) */
+        height: auto !important;
+        min-height: 60px;
+    }
+    /* 네비게이션 아이템 정렬 보정 */
+    .bottom-tab-bar .nav-link {
+        padding-top: 8px;
+        padding-bottom: 4px;
+    }
+</style>
+
+<nav class="navbar fixed-bottom navbar-light bg-white border-top d-lg-none bottom-tab-bar">
+    <div class="container-fluid px-0">
+        <div class="row w-100 mx-0 text-center">
+            
+            <div class="col px-0">
+                <a href="{{ url_for('ui.sales_register') }}" class="nav-link {{ 'active text-primary' if active_page == 'sales' else 'text-secondary' }}">
+                    <i class="bi bi-cart-plus fs-4 d-block mb-0"></i>
+                    <span style="font-size: 10px;">판매등록</span>
+                </a>
+            </div>
+
+            <div class="col px-0">
+                <a href="{{ url_for('ui.search_page') }}" class="nav-link {{ 'active text-primary' if active_page == 'search' else 'text-secondary' }}">
+                    <i class="bi bi-search fs-4 d-block mb-0"></i>
+                    <span style="font-size: 10px;">상품검색</span>
+                </a>
+            </div>
+
+            <div class="col px-0">
+                <a href="{{ url_for('ui.home') }}" class="nav-link {{ 'active text-primary' if active_page == 'home' else 'text-secondary' }}">
+                    <i class="bi bi-house-door-fill fs-3 d-block mb-0"></i>
+                    <span style="font-size: 10px; font-weight:bold;">홈</span>
+                </a>
+            </div>
+
+            <div class="col px-0">
+                <a href="{{ url_for('ui.mail_box') }}" class="nav-link {{ 'active text-primary' if active_page == 'mail' else 'text-secondary' }}">
+                    <i class="bi bi-envelope fs-4 d-block mb-0"></i>
+                    <span style="font-size: 10px;">점간메일</span>
+                </a>
+            </div>
+
+            <div class="col px-0">
+                <button class="nav-link w-100 text-secondary border-0 bg-transparent" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenuSidebar">
+                    <i class="bi bi-list fs-4 d-block mb-0"></i>
+                    <span style="font-size: 10px;">전체메뉴</span>
+                </button>
+            </div>
+
+        </div>
+    </div>
+</nav>

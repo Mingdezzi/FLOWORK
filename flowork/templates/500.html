@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container my-4">
+        
+            
+        
+        {% if current_user.is_authenticated %}
+            
+        {% endif %}
+
+        <div class="card mb-3 text-center text-danger border-danger">
+            <div class="card-body" style="min-height: 400px; padding-top: 4rem;">
+                <h1 class="display-1"><i class="bi bi-bug-fill text-danger"></i></h1>
+                <h2 class="card-title mt-3">500 - 서버 내부 오류</h2>
+                <p class="card-text text-muted">요청을 처리하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.</p>
+                <p class="card-text text-muted small">오류가 지속되면 관리자에게 문의하세요.</p>
+                <a href="{{ url_for('ui.home') }}" class="btn btn-primary mt-3">
+                    <i class="bi bi-house-door me-1"></i> 홈으로 돌아가기
+                </a>
+            </div>
+        </div>
+        
+    </div>
+{% endblock %}

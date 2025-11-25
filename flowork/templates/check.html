@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block body_attrs %}
+data-api-fetch-variant-url="{{ url_for('api.api_fetch_variant') }}"
+data-bulk-update-actual-stock-url="{{ url_for('api.bulk_update_actual_stock') }}"
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="mb-4">
+        <h2 class="section-title"><i class="bi bi-clipboard-check me-2"></i>재고 실사</h2>
+
+        {% if not current_user.store_id %}
+        <div class="card mb-3 border-primary shadow-sm">
+            <div class="card-body p-3 d-flex align-items-center bg-light">
+                <i class="bi bi-shop fs-4 text-primary me-3"></i>
+                <div class="flex-grow-1">
+                    <label for="target_store_select" class="form-label fw-bold mb-1 text-primary">작업 대상 매장 선택 (본사 관리자)</label>
+                    <select class="form-select" id="target_store_select">
+                        <option value="">-- 작업을 수행할 매장을 선택하세요 --</option>
+                        {% for store in all_stores %}
+                        <option value="{{ store.id }}">{{ store.store_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="card mb-3 management-section">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3 class="mb-0"><i class="bi bi-upc-scan me-2"></i>바코드 리딩</h3>
+                <button class="btn btn-success btn-sm" id="toggle-scan-btn">
+                    <i class="bi bi-power me-1"></i> 리딩 ON
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="card-description">
+                    <strong>재고 실사를 바코드 리딩을 통해 쉽게 진행합니다.</strong>
+                    <span>우측 상단의 '리딩 ON' 버튼을 누르고, 바코드를 리딩하세요.<br>하단의 '최종 저장' 버튼을 누르면 저장 됩니다.</span>
+                </div>
+                <div class="mb-2">
+                    <input type="text" class="form-control" id="barcode-input" placeholder="리딩 OFF 상태..." autocomplete="off" disabled>
+                </div>
+                <div class="alert alert-danger alert-dismissible fade show" id="scan-status-alert" role="alert">
+                    <span id="scan-status-message"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                <div class="table-responsive mb-2" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-sm table-hover" id="scan-table">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>품번/품명</th>
+                                <th>컬러</th>
+                                <th>사이즈</th>
+                                <th>매장재고</th>
+                                <th>실사재고(스캔)</th>
+                                <th>과부족</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scan-table-body">
+                            </tbody>
+                    </table>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span id="scan-total-status" class="text-muted small">총 <strong>0</strong> 개 품목 (<strong>0</strong>개)</span>
+                    <div>
+                        <button class="btn btn-warning" id="clear-scan-btn"><i class="bi bi-arrow-counterclockwise me-1"></i>목록 초기화</button>
+                        <button class="btn btn-primary" id="submit-scan-btn"><i class="bi bi-send-check me-1"></i>최종 저장</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3 management-section">
+                <div class="card-header">
+                <h3 class="mb-0"><i class="bi bi-file-earmark-excel-fill me-2"></i>재고 실사 엑셀 출력</h3>
+            </div>
+            <div class="card-body">
+                <div class="card-description">
+                    <strong>재고 실사 결과를 엑셀로 출력합니다.</strong>
+                    <span>하단의 '엑셀 다운로드' 버튼을 누르면 재고 실사 결과가 엑셀로 출력 됩니다.</span>
+                </div>
+                <a href="{{ url_for('api.export_stock_check') }}" class="btn btn-success export-button" id="btn-export-excel"><i class="bi bi-download me-1"></i>엑셀 다운로드</a>
+            </div>
+        </div>
+
+        <div class="card mb-3 management-section">
+                <div class="card-header">
+                    <h3 class="mb-0"><i class="bi bi-eraser-fill me-2"></i>재고 실사 전체 초기화</h3>
+            </div>
+            <div class="card-body">
+                <div class="card-description">
+                    <strong>재고 실사 내역을 모두 초기화 합니다.</strong>
+                    <span>하단의 '재고 실사 전체 초기화' 버튼을 누르면 모든 재고 실사 내역이 삭제 됩니다.</span>
+                </div>
+                <form action="{{ url_for('api.reset_actual_stock') }}" method="POST" id="form-reset-stock" onsubmit="return confirm('경고! 모든 상품의 실사재고 기록을 초기화(삭제)합니다.\n이 작업은 되돌릴 수 없습니다.\n계속하시겠습니까?');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <input type="hidden" name="target_store_id" id="reset_target_store_id">
+                    <button type="submit" class="btn reset-button"><i class="bi bi-trash3-fill me-1"></i>초기화</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/hangul-js"></script>
+<script src="{{ url_for('static', filename='js/check.js') }}" defer></script>
+{% endblock %}

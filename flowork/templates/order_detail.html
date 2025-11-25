@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+
+{% block body_attrs %}
+data-product-lookup-url="{{ url_for('api.api_find_product_details') }}"
+data-product-search-url="{{ url_for('api.api_order_product_search') }}"
+data-current-color="{{ data.color or '' }}"
+data-current-size="{{ data.size or '' }}"
+data-page-mode="{{ 'view' if is_view_mode else 'edit' }}"
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h2 class="mb-0">{% if order and order.id %}<i class="bi bi-pencil-square me-2"></i>주문 수정 (ID: {{ order.id }}){% else %}<i class="bi bi-plus-square me-2"></i>신규 주문 등록{% endif %}</h2>
+        </div>
+        <form method="POST" action="{{ url_for('ui.order_detail', order_id=order.id) if order and order.id else url_for('ui.new_order') }}" id="order-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="card-body" id="order-form-body">
+                <h5 class="section-title mt-2">주문 등록</h5>
+                <div class="row g-3">
+                    <div class="col-md-6"><label for="created_at" class="form-label">주문 등록 일자*</label><input type="date" class="form-control editable-on-demand" id="created_at" name="created_at" value="{{ (data.created_at or default_created_at).strftime('%Y-%m-%d') if (data or default_created_at) else '' }}" required {{ 'readonly' if is_view_mode else '' }}></div>
+                </div>
+                <hr class="my-4">
+                <h5 class="section-title">수령 방법*</h5>
+                <div class="row g-3" id="reception-method-toggles">
+                    <div class="col-auto"><div class="form-check"><input class="form-check-input editable-on-demand" type="radio" name="reception_method" id="reception_method_visit" value="방문수령" {{ 'checked' if (not data) or (data and data.reception_method == '방문수령') else '' }} {{ 'disabled' if is_view_mode else '' }}><label class="form-check-label" for="reception_method_visit">방문수령</label></div></div>
+                    <div class="col-auto"><div class="form-check"><input class="form-check-input editable-on-demand" type="radio" name="reception_method" id="reception_method_delivery" value="택배수령" {{ 'checked' if data and data.reception_method == '택배수령' else '' }} {{ 'disabled' if is_view_mode else '' }}><label class="form-check-label" for="reception_method_delivery">택배수령</label></div></div>
+                </div>
+                <hr class="my-4">
+                <h5 class="section-title">고객 정보</h5>
+                <div class="row g-3">
+                    <div class="col-md-6"><label class="form-label">고객명*</label><input type="text" class="form-control editable-on-demand" id="customer_name" name="customer_name" value="{{ data.customer_name or '' }}" required {{ 'readonly' if is_view_mode else '' }}></div>
+                    <div class="col-md-6"><label class="form-label">연락처*</label><input type="tel" class="form-control editable-on-demand" id="customer_phone" name="customer_phone" value="{{ data.customer_phone or '' }}" required {{ 'readonly' if is_view_mode else '' }}></div>
+                    <div class="col-12" id="address-fields-wrapper">
+                        <div class="row g-3">
+                            <div class="col-md-4"><label class="form-label">우편번호</label><div class="input-group"><input type="text" class="form-control editable-on-demand" id="postcode" name="postcode" value="{{ data.postcode or '' }}" {{ 'readonly' if is_view_mode else '' }}><button class="btn btn-outline-secondary editable-on-demand" type="button" id="btn-search-address" {{ 'disabled' if is_view_mode else '' }}>주소검색</button></div></div>
+                            <div class="col-md-8"><label class="form-label">기본주소</label><input type="text" class="form-control editable-on-demand" id="address1" name="address1" value="{{ data.address1 or '' }}" {{ 'readonly' if is_view_mode else '' }}></div>
+                            <div class="col-12"><label class="form-label">상세주소</label><input type="text" class="form-control editable-on-demand" id="address2" name="address2" value="{{ data.address2 or '' }}" {{ 'readonly' if is_view_mode else '' }}></div>
+                        </div>
+                        <div class="form-text" id="address-required-text">택배수령 시 주소는 필수입니다.</div>
+                    </div>
+                </div>
+                <hr class="my-4">
+                <h5 class="section-title">상품 정보</h5>
+                <div class="row g-3">
+                    <div class="col-md-6 position-relative"><label class="form-label">품번 (부분 검색 가능)*</label><div class="input-group"><input type="text" class="form-control editable-on-demand" id="product_number" name="product_number" value="{{ data.product_number or '' }}" required autocomplete="off" {{ 'readonly' if is_view_mode else '' }}><button class="btn btn-outline-secondary editable-on-demand" type="button" id="btn-product-search" {{ 'disabled' if is_view_mode else '' }}><i class="bi bi-search"></i></button></div><div id="product-search-results" class="list-group position-absolute w-100" style="z-index: 1000; max-height: 300px; overflow-y: auto; display: none;"></div><div class="form-text" id="product-lookup-status"></div></div>
+                    <div class="col-md-6"><label class="form-label">품명 (자동입력)*</label><input type="text" class="form-control" id="product_name" name="product_name" value="{{ data.product_name or '' }}" readonly required></div>
+                    <div class="col-md-6"><label class="form-label">컬러*</label><select class="form-select editable-on-demand" id="color" name="color" required {{ 'disabled' if is_view_mode else '' }}><option value="">-- 품번 먼저 조회 --</option>{% if data and data.color %}<option value="{{ data.color }}" selected>{{ data.color }}</option>{% endif %}</select></div>
+                    <div class="col-md-6"><label class="form-label">사이즈*</label><select class="form-select editable-on-demand" id="size" name="size" required {{ 'disabled' if is_view_mode else '' }}><option value="">-- 품번 먼저 조회 --</option>{% if data and data.size %}<option value="{{ data.size }}" selected>{{ data.size }}</option>{% endif %}</select></div>
+                </div>
+                <hr class="my-4">
+                <div class="d-flex justify-content-between align-items-center mb-2"><h5 class="section-title mb-0">상품 처리</h5><div><button type="button" class="btn btn-sm btn-success editable-on-demand" id="btn-add-processing-row" {{ 'disabled' if is_view_mode else '' }}><i class="bi bi-plus-lg me-1"></i> 행 추가</button></div></div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light"><tr><th>주문처*</th><th>주문 결과</th><th style="width: 50px;">삭제</th></tr></thead>
+                        <tbody id="processing-table-body">
+                            {% set processing_steps = data.processing_steps.all() if (data and data.id) else (form_data.processing_source | zip(form_data.processing_result)) if form_data else [] %}
+                            {% if processing_steps %}
+                                {% for step in processing_steps %}
+                                <tr>
+                                    <td><select name="processing_source" class="form-select form-select-sm editable-on-demand" required {{ 'disabled' if is_view_mode else '' }}><option value="">-- 선택 --</option>{% for source in order_sources %}<option value="{{ source.id }}" {{ 'selected' if (step.source_store_id == source.id) or (form_data and step[0] | string == source.id | string) else '' }}>{{ source.store_name }}</option>{% endfor %}</select></td>
+                                    <td>{% set result = step.source_result if (step and step.id) else step[1] if (form_data and step) else '' %}<select name="processing_result" class="form-select form-select-sm"><option value="" {{ 'selected' if not result else '' }}>-- 선택 --</option><option value="완료" {{ 'selected' if result == '완료' else '' }}>완료</option><option value="불가" {{ 'selected' if result == '불가' else '' }}>불가</option></select></td>
+                                    <td class="text-center"><button type="button" class="btn btn-danger btn-sm py-0 px-1 btn-delete-row editable-on-demand" {{ 'disabled' if is_view_mode else '' }}><i class="bi bi-trash"></i></button></td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr><td><select name="processing_source" class="form-select form-select-sm editable-on-demand" required {{ 'disabled' if is_view_mode else '' }}><option value="">-- 선택 --</option>{% for source in order_sources %}<option value="{{ source.id }}">{{ source.store_name }}</option>{% endfor %}</select></td><td><select name="processing_result" class="form-select form-select-sm"><option value="">-- 선택 --</option><option value="완료">완료</option><option value="불가">불가</option></select></td><td class="text-center"><button type="button" class="btn btn-danger btn-sm py-0 px-1 btn-delete-row editable-on-demand" {{ 'disabled' if is_view_mode else '' }}><i class="bi bi-trash"></i></button></td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+                <hr class="my-4">
+                <h5 class="section-title">처리 현황</h5>
+                <div class="row g-3">
+                    <div class="col-md-6"><label class="form-label">현재 상태*</label><select class="form-select" id="order_status" name="order_status" required>{% for status in order_statuses %}<option value="{{ status }}" {{ 'selected' if (data and data.order_status == status) or (not data and status == '고객주문') else '' }}>{{ status }}</option>{% endfor %}</select></div>
+                    <div class="col-md-6" id="completion-date-wrapper"><label class="form-label">주문 완료 일자</label><input type="date" class="form-control" id="completed_at" name="completed_at" value="{{ data.completed_at.strftime('%Y-%m-%d') if data and data.completed_at else '' }}"></div>
+                    <div class="col-12" id="shipping-fields-wrapper"><div class="row g-3"><div class="col-md-6"><label class="form-label">택배사</label><input type="text" class="form-control editable-on-demand" id="courier" name="courier" value="{{ data.courier or '' }}" {{ 'readonly' if is_view_mode else '' }}></div><div class="col-md-6"><label class="form-label">송장번호</label><input type="text" class="form-control editable-on-demand" id="tracking_number" name="tracking_number" value="{{ data.tracking_number or '' }}" {{ 'readonly' if is_view_mode else '' }}></div></div></div>
+                </div>
+                <div class="row g-3 mt-3"><div class="col-12"><label class="form-label">비고 (선택사항)</label><textarea class="form-control" id="remarks" name="remarks" rows="3">{{ data.remarks or '' }}</textarea></div></div>
+            </div> 
+            <hr class="my-0">
+            <div class="card-footer"><div class="d-flex justify-content-between"><div>{% if order and order.id %}<button type="button" class="btn btn-danger" id="btn-delete-order"><i class="bi bi-trash me-1"></i> 주문 삭제</button>{% endif %}</div><div><a href="{{ url_for('ui.order_list') }}" class="btn btn-secondary"><i class="bi bi-list-ul me-1"></i> 목록으로</a><button type="button" class="btn btn-info" id="btn-enable-edit"><i class="bi bi-pencil-fill me-1"></i> 주문 수정</button><button type="submit" class="btn btn-primary" id="btn-submit-order"><i class="bi bi-check-lg me-1"></i> {% if order and order.id %}주문 수정{% else %}신규 등록{% endif %}</button></div></div></div>
+        </form>
+        {% if order and order.id %}
+        <form method="POST" action="{{ url_for('ui.delete_order', order_id=order.id) }}" id="delete-order-form" class="d-none">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<template id="processing-row-template">
+    <tr>
+        <td><select name="processing_source" class="form-select form-select-sm editable-on-demand" required><option value="">-- 선택 --</option>{% for source in order_sources %}<option value="{{ source.id }}">{{ source.store_name }}</option>{% endfor %}</select></td>
+        <td><select name="processing_result" class="form-select form-select-sm"><option value="">-- 선택 --</option><option value="완료">완료</option><option value="불가">불가</option></select></td>
+        <td class="text-center"><button type="button" class="btn btn-danger btn-sm py-0 px-1 btn-delete-row editable-on-demand"><i class="bi bi-trash"></i></button></td>
+    </tr>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+<script src="{{ url_for('static', filename='js/common.js') }}"></script>
+<script src="{{ url_for('static', filename='js/order.js') }}"></script>
+{% endblock %}

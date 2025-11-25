@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block body_attrs %}
+data-api-send-url="{{ url_for('api.send_mail') }}"
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-pencil-square me-2"></i>메일 쓰기</h5>
+        </div>
+        <div class="card-body">
+            <form id="mail-form">
+                <div class="mb-3">
+                    <label class="form-label">받는 사람</label>
+                    <select class="form-select" id="receiver" required>
+                        <option value="">-- 선택 --</option>
+                        {% if current_user.store_id %}
+                        <option value="HQ">본사</option>
+                        {% endif %}
+                        {% for s in stores %}
+                        <option value="{{ s.id }}">{{ s.store_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">제목</label>
+                    <input type="text" class="form-control" id="title" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">내용</label>
+                    <textarea class="form-control" id="content" rows="10" required></textarea>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('ui.mail_box') }}" class="btn btn-secondary">취소</a>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-send-fill me-1"></i> 보내기</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/network.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+
+{% block body_attrs %}
+data-product-search-url="{{ url_for('api.api_order_product_search') }}" 
+data-product-lookup-url="{{ url_for('api.api_find_product_details') }}"
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="section-title mb-0"><i class="bi bi-box-arrow-in-down me-2"></i>수평입고 관리</h2>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#requestModal">
+            <i class="bi bi-plus-lg me-1"></i> 재고이동 요청
+        </button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>요청일</th>
+                    <th>보낸 매장</th>
+                    <th>상품정보</th>
+                    <th>수량</th>
+                    <th>상태</th>
+                    <th>작업</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in transfers %}
+                <tr>
+                    <td>{{ t.created_at.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ t.source_store.store_name }}</td>
+                    <td>
+                        <div class="fw-bold">{{ t.variant.product.product_name }}</div>
+                        <small class="text-muted">{{ t.variant.product.product_number }} ({{ t.variant.color }}/{{ t.variant.size }})</small>
+                    </td>
+                    <td>{{ t.quantity }}</td>
+                    <td>
+                        {% if t.status == 'REQUESTED' %}<span class="badge bg-secondary">요청중(상대방 확인전)</span>
+                        {% elif t.status == 'SHIPPED' %}<span class="badge bg-warning text-dark">입고대기(출고됨)</span>
+                        {% elif t.status == 'RECEIVED' %}<span class="badge bg-success">입고확정</span>
+                        {% elif t.status == 'REJECTED' %}<span class="badge bg-danger">거절됨</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if t.status == 'SHIPPED' %}
+                        <button class="btn btn-sm btn-success btn-receive" data-id="{{ t.id }}">입고확정</button>
+                        {% else %}
+                        <span class="text-muted small">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center py-4 text-muted">입고 내역이 없습니다.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="requestModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">재고 이동 요청</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-transfer-request">
+                    <div class="mb-3">
+                        <label class="form-label">요청할 매장</label>
+                        <select class="form-select" id="req-source-store" required>
+                            <option value="">-- 매장 선택 --</option>
+                            {% for s in stores %}
+                            <option value="{{ s.id }}">{{ s.store_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3 position-relative">
+                        <label class="form-label">상품 품번</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="req-pn" required placeholder="품번 검색">
+                            <button class="btn btn-outline-secondary" type="button" id="btn-search-prod"><i class="bi bi-search"></i></button>
+                        </div>
+                        <div id="search-results" class="list-group position-absolute w-100" style="z-index: 1050; display:none;"></div>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label">컬러</label>
+                            <select class="form-select" id="req-color" required disabled><option value="">선택</option></select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">사이즈</label>
+                            <select class="form-select" id="req-size" required disabled><option value="">선택</option></select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">요청 수량</label>
+                        <input type="number" class="form-control" id="req-qty" value="1" min="1" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="btn-submit-request">요청하기</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/stock_transfer.js') }}"></script>
+{% endblock %}
