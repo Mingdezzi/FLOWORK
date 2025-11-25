@@ -142,6 +142,10 @@ html, body {
     display: none;
     width: 100%;
     height: 100%;
+    /* [핵심 수정] 컨텐츠가 길어지면 이 영역 안에서만 스크롤 생성 */
+    overflow-y: auto;
+    /* 모바일 터치 스크롤 부드럽게 */
+    -webkit-overflow-scrolling: touch;
 }
 
 .tab-pane.active {
@@ -177,17 +181,17 @@ body.iframe-mode .tab-bar-container {
 
 body.iframe-mode .main-content-wrapper {
     margin-left: 0 !important;
-    /* 상단 패딩을 0으로 변경하여 위쪽 여백 제거 */
+    /* [수정] 상단 패딩을 0으로 변경하여 위쪽 여백 제거 */
     padding: 0 1rem 1rem 1rem !important;
     min-height: auto !important;
     background-color: transparent;
 }
 
-/* Iframe 내부의 모든 컨테이너 상단 여백 강제 제거 */
+/* [추가] Iframe 내부의 모든 컨테이너 상단 여백 강제 제거 */
 body.iframe-mode .container, 
 body.iframe-mode .container-fluid {
     margin-top: 0 !important;      /* my-4 클래스로 인한 여백 제거 */
-    padding-top: 10px !important;  /* 최소한의 여백 */
+    padding-top: 10px !important;  /* 최소한의 여백 (필요시 0으로 수정 가능) */
     max-width: 100% !important;
     padding-left: 10px !important;
     padding-right: 10px !important;
