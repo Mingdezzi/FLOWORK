@@ -1,4 +1,4 @@
-// 이미지 폴백 함수 (전역 범위에 정의하여 HTML inline 이벤트에서 호출 가능하도록 함)
+// 이미지 폴백 함수 (전역)
 if (!window.imgFallback) {
     window.imgFallback = function(img) {
         const src = img.src;
@@ -12,8 +12,6 @@ if (!window.imgFallback) {
     };
 }
 
-let currentIndexApp = null;
-
 class IndexApp {
     constructor() {
         this.csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
@@ -21,6 +19,23 @@ class IndexApp {
         this.debounceTimer = null;
         this.isKorShiftActive = false;
 
+        this.korKeyMap = {
+            'ㅂ': 'ㅃ', 'ㅈ': 'ㅉ', 'ㄷ': 'ㄸ', 'ㄱ': 'ㄲ', 'ㅅ': 'ㅆ',
+            'ㅐ': 'ㅒ', 'ㅔ': 'ㅖ'
+        };
+        this.korReverseKeyMap = {
+            'ㅃ': 'ㅂ', 'ㅉ': 'ㅈ', 'ㄸ': 'ㄷ', 'ㄲ': 'ㄱ', 'ㅆ': 'ㅅ',
+            'ㅒ': 'ㅐ', 'ㅖ': 'ㅔ'
+        };
+
+        // DOM 요소 캐싱을 init 시점으로 지연시킴
+        this.dom = {}; 
+        
+        this.init();
+    }
+
+    init() {
+        // DOM 요소 가져오기
         this.dom = {
             searchInput: document.getElementById('search-query-input'),
             clearTopBtn: document.getElementById('keypad-clear-top'),
@@ -39,46 +54,31 @@ class IndexApp {
             productListHeader: document.getElementById('product-list-header'),
             paginationUL: document.getElementById('search-pagination'),
             searchForm: document.getElementById('search-form'),
-            korShiftBtn: document.querySelector('#keypad-kor [data-key="shift-kor"]')
+            korShiftBtn: document.querySelector('[data-key="shift-kor"]') // 셀렉터 수정
         };
 
-        this.korKeyMap = {
-            'ㅂ': 'ㅃ', 'ㅈ': 'ㅉ', 'ㄷ': 'ㄸ', 'ㄱ': 'ㄲ', 'ㅅ': 'ㅆ',
-            'ㅐ': 'ㅒ', 'ㅔ': 'ㅖ'
-        };
-        this.korReverseKeyMap = {
-            'ㅃ': 'ㅂ', 'ㅉ': 'ㅈ', 'ㄸ': 'ㄷ', 'ㄲ': 'ㄱ', 'ㅆ': 'ㅅ',
-            'ㅒ': 'ㅐ', 'ㅖ': 'ㅔ'
-        };
+        if (!this.dom.searchInput) return; // 검색 페이지가 아니면 종료
 
-        this.init();
-    }
-
-    init() {
         this.checkMobile();
         this.bindEvents();
-        this.showKeypad('num');
+        this.showKeypad('num'); // 초기 키패드 설정
         
-        const currentCategory = this.dom.hiddenCategoryInput.value || '전체';
-        this.dom.categoryButtons.forEach(btn => {
-            if (btn.dataset.category === currentCategory) {
-                btn.classList.add('active');
-            }
-        });
-        
-        // 초기 로드 시 검색 실행
-        this.performSearch(1);
-    }
-
-    destroy() {
-        if (this.debounceTimer) {
-            clearTimeout(this.debounceTimer);
-            this.debounceTimer = null;
+        const currentCategory = this.dom.hiddenCategoryInput ? this.dom.hiddenCategoryInput.value : '전체';
+        if(this.dom.categoryButtons) {
+            this.dom.categoryButtons.forEach(btn => {
+                if (btn.dataset.category === currentCategory) {
+                    btn.classList.add('active');
+                    btn.classList.remove('btn-outline-secondary');
+                    btn.classList.add('btn-primary');
+                }
+            });
         }
+        
+        // 초기 로드 시 검색 실행 (필요한 경우)
+        // this.performSearch(1); 
     }
 
     checkMobile() {
-        // 모바일에서는 키패드 대신 기본 키보드를 막기 위해 readonly 처리
         const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
         if (isMobile && this.dom.searchInput) {
             this.dom.searchInput.setAttribute('readonly', true);
@@ -87,6 +87,7 @@ class IndexApp {
     }
 
     bindEvents() {
+        // 1. 상품 리스트 클릭
         if (this.dom.productListUl) {
             this.dom.productListUl.addEventListener('click', (e) => {
                 const link = e.target.closest('a.product-item');
@@ -94,41 +95,55 @@ class IndexApp {
                     e.preventDefault();
                     const targetUrl = link.getAttribute('href');
                     const detailUrl = targetUrl + (targetUrl.includes('?') ? '&' : '?') + 'partial=1';
+                    
                     if (this.dom.detailIframe) this.dom.detailIframe.src = detailUrl;
-                    if (this.dom.listContainer && this.dom.detailContainer) {
-                        this.dom.listContainer.style.display = 'none';
-                        this.dom.detailContainer.style.display = 'flex';
-                    }
+                    
+                    if (this.dom.listContainer) this.dom.listContainer.style.display = 'none';
+                    if (this.dom.detailContainer) this.dom.detailContainer.style.display = 'flex';
                 }
             });
         }
 
+        // 2. 뒤로가기 버튼
         if (this.dom.backButton) {
             this.dom.backButton.addEventListener('click', () => {
-                if (this.dom.listContainer && this.dom.detailContainer) {
-                    this.dom.listContainer.style.display = 'flex';
-                    this.dom.detailContainer.style.display = 'none';
-                }
+                if (this.dom.listContainer) this.dom.listContainer.style.display = 'flex';
+                if (this.dom.detailContainer) this.dom.detailContainer.style.display = 'none';
                 if (this.dom.detailIframe) this.dom.detailIframe.src = 'about:blank';
             });
         }
 
+        // 3. 키패드 클릭 (이벤트 위임)
         if (this.dom.keypadContainer) {
             this.dom.keypadContainer.addEventListener('click', (e) => this.handleKeypadClick(e));
+            
+            // 모바일 터치 지연 방지
+            this.dom.keypadContainer.addEventListener('touchstart', (e) => {
+                // 필요한 경우 preventDefault 처리 등을 추가
+            }, {passive: true});
         }
 
+        // 4. 카테고리 버튼
         if (this.dom.categoryBar) {
             this.dom.categoryBar.addEventListener('click', (e) => {
                 const target = e.target.closest('.category-btn');
                 if (!target) return;
-                this.dom.categoryButtons.forEach(btn => btn.classList.remove('active'));
-                target.classList.add('active');
-                this.dom.hiddenCategoryInput.value = target.dataset.category;
-                this.performSearch(1);
-                this.dom.searchInput.focus();
+                
+                this.dom.categoryButtons.forEach(btn => {
+                    btn.classList.remove('active', 'btn-primary');
+                    btn.classList.add('btn-outline-secondary');
+                });
+                target.classList.add('active', 'btn-primary');
+                target.classList.remove('btn-outline-secondary');
+                
+                if(this.dom.hiddenCategoryInput) {
+                    this.dom.hiddenCategoryInput.value = target.dataset.category;
+                    this.performSearch(1);
+                }
             });
         }
 
+        // 5. 상단 Clear 버튼
         if (this.dom.clearTopBtn) {
             this.dom.clearTopBtn.addEventListener('click', () => {
                 this.dom.searchInput.value = '';
@@ -137,6 +152,7 @@ class IndexApp {
             });
         }
 
+        // 6. 검색 인풋
         if (this.dom.searchInput) {
             this.dom.searchInput.addEventListener('input', (e) => {
                 if (e.isTrusted && !e.target.readOnly) this.triggerSearch();
@@ -149,6 +165,7 @@ class IndexApp {
             });
         }
 
+        // 7. 폼 제출 (엔터키 등 방지 및 처리)
         if (this.dom.searchForm) {
             this.dom.searchForm.addEventListener('submit', (e) => {
                 e.preventDefault();
@@ -158,93 +175,107 @@ class IndexApp {
         }
     }
 
+    showKeypad(mode) {
+        if(this.dom.keypadNum) this.dom.keypadNum.classList.add('keypad-hidden');
+        if(this.dom.keypadKor) this.dom.keypadKor.classList.add('keypad-hidden');
+        if(this.dom.keypadEng) this.dom.keypadEng.classList.add('keypad-hidden');
+
+        if (mode === 'kor') {
+            if(this.dom.keypadKor) this.dom.keypadKor.classList.remove('keypad-hidden');
+            document.body.dataset.inputMode = 'kor';
+        } else if (mode === 'eng') {
+            if(this.dom.keypadEng) this.dom.keypadEng.classList.remove('keypad-hidden');
+            document.body.dataset.inputMode = 'eng';
+        } else {
+            if(this.dom.keypadNum) this.dom.keypadNum.classList.remove('keypad-hidden');
+            document.body.dataset.inputMode = 'num';
+        }
+    }
+
     updateKorKeypadVisuals() {
+        if(!this.dom.keypadKor) return;
+        
         if (this.isKorShiftActive) {
-            this.dom.korShiftBtn.classList.add('active', 'btn-primary');
-            this.dom.korShiftBtn.classList.remove('btn-outline-secondary');
+            if(this.dom.korShiftBtn) {
+                this.dom.korShiftBtn.classList.add('active');
+                this.dom.korShiftBtn.style.backgroundColor = '#e2e6ea';
+            }
             for (const [base, shifted] of Object.entries(this.korKeyMap)) {
                 const keyEl = this.dom.keypadKor.querySelector(`[data-key="${base}"]`);
                 if (keyEl) {
+                    keyEl.dataset.originalKey = base; // 원래 키 저장
                     keyEl.dataset.key = shifted;
                     keyEl.textContent = shifted;
                 }
             }
         } else {
-            this.dom.korShiftBtn.classList.remove('active', 'btn-primary');
-            this.dom.korShiftBtn.classList.add('btn-outline-secondary');
-            for (const [shifted, base] of Object.entries(this.korReverseKeyMap)) {
-                const keyEl = this.dom.keypadKor.querySelector(`[data-key="${shifted}"]`);
-                if (keyEl) {
-                    keyEl.dataset.key = base;
-                    keyEl.textContent = base;
-                }
+            if(this.dom.korShiftBtn) {
+                this.dom.korShiftBtn.classList.remove('active');
+                this.dom.korShiftBtn.style.backgroundColor = '';
             }
-        }
-    }
-
-    showKeypad(mode) {
-        this.dom.keypadNum.classList.add('keypad-hidden');
-        this.dom.keypadKor.classList.add('keypad-hidden');
-        this.dom.keypadEng.classList.add('keypad-hidden');
-
-        if (mode === 'kor') {
-            this.dom.keypadKor.classList.remove('keypad-hidden');
-            document.body.dataset.inputMode = 'kor';
-        } else if (mode === 'eng') {
-            this.dom.keypadEng.classList.remove('keypad-hidden');
-            document.body.dataset.inputMode = 'eng';
-        } else {
-            this.dom.keypadNum.classList.remove('keypad-hidden');
-            document.body.dataset.inputMode = 'num';
+            // 모든 키를 원래대로 복구 (ReverseMap 사용보다 안전)
+            const changedKeys = this.dom.keypadKor.querySelectorAll('[data-original-key]');
+            changedKeys.forEach(keyEl => {
+                const original = keyEl.dataset.originalKey;
+                if(original) {
+                    keyEl.dataset.key = original;
+                    keyEl.textContent = original;
+                    delete keyEl.dataset.originalKey;
+                }
+            });
         }
     }
 
     handleKeypadClick(e) {
-        const key = e.target.closest('.keypad-btn, .qwerty-key');
-        if (!key) return;
+        // 버튼이나, 버튼 내부 아이콘 클릭 시 처리
+        const keyBtn = e.target.closest('button');
+        if (!keyBtn) return;
 
-        const dataKey = key.dataset.key;
+        const dataKey = keyBtn.dataset.key;
         if (!dataKey) return;
 
+        e.preventDefault(); // 포커스 잃는 것 방지
+
         if (dataKey === 'backspace') {
-            let currentValue = this.dom.searchInput.value;
-            if (currentValue.length > 0) {
-                this.dom.searchInput.value = currentValue.slice(0, -1);
+            let val = this.dom.searchInput.value;
+            if (val.length > 0) {
+                // 한글 라이브러리가 있고 한글이 포함된 경우 자모 분리 후 삭제 시도
+                if (window.Hangul && Hangul.isComplete(val.slice(-1))) {
+                     let disassembled = Hangul.disassemble(val);
+                     disassembled.pop();
+                     this.dom.searchInput.value = Hangul.assemble(disassembled);
+                } else {
+                    this.dom.searchInput.value = val.slice(0, -1);
+                }
             }
             this.triggerSearch();
         } else if (dataKey === 'mode-kor') {
             this.showKeypad('kor');
         } else if (dataKey === 'mode-eng') {
             this.showKeypad('eng');
-            if (this.isKorShiftActive) {
-                this.isKorShiftActive = false;
-                this.updateKorKeypadVisuals();
-            }
+            this.isKorShiftActive = false;
+            this.updateKorKeypadVisuals();
         } else if (dataKey === 'mode-num') {
             this.showKeypad('num');
-            if (this.isKorShiftActive) {
-                this.isKorShiftActive = false;
-                this.updateKorKeypadVisuals();
-            }
+            this.isKorShiftActive = false;
+            this.updateKorKeypadVisuals();
         } else if (dataKey === 'shift-kor') {
             this.isKorShiftActive = !this.isKorShiftActive;
             this.updateKorKeypadVisuals();
         } else if (dataKey === 'shift-eng') {
-            // 영어 Shift 기능은 현재 구현되지 않음 (필요시 추가)
-        } else if (dataKey === ' ') {
-            this.dom.searchInput.value += ' ';
-            this.triggerSearch();
+            // 영어 Shift (대문자 토글) - 필요 시 구현
         } else {
-            // 한글 조립 (Hangul.js 라이브러리 필요)
+            // 일반 문자 입력
+            let char = dataKey;
+            
             if (window.Hangul) {
-                this.dom.searchInput.value = Hangul.assemble(this.dom.searchInput.value + dataKey);
+                // 기존 값 + 입력 값 합쳐서 조립
+                this.dom.searchInput.value = Hangul.assemble(this.dom.searchInput.value + char);
             } else {
-                // 라이브러리가 없을 경우 단순 추가
-                this.dom.searchInput.value += dataKey;
+                this.dom.searchInput.value += char;
             }
             this.triggerSearch();
         }
-        this.dom.searchInput.focus();
     }
 
     triggerSearch() {
@@ -254,11 +285,15 @@ class IndexApp {
 
     async performSearch(page = 1) {
         const query = this.dom.searchInput.value;
-        const category = this.dom.hiddenCategoryInput.value;
+        const category = this.dom.hiddenCategoryInput ? this.dom.hiddenCategoryInput.value : '전체';
         const perPage = 10;
 
-        this.dom.productListUl.innerHTML = '<li class="list-group-item text-center text-muted p-4">검색 중...</li>';
-        this.dom.paginationUL.innerHTML = '';
+        if(this.dom.productListUl) {
+            this.dom.productListUl.innerHTML = '<li class="list-group-item text-center text-muted p-4">검색 중...</li>';
+        }
+        if(this.dom.paginationUL) {
+            this.dom.paginationUL.innerHTML = '';
+        }
 
         try {
             const response = await fetch(this.liveSearchUrl, {
@@ -274,6 +309,7 @@ class IndexApp {
                     per_page: perPage
                 })
             });
+            
             if (!response.ok) throw new Error('Network response was not ok');
             const data = await response.json();
             
@@ -292,12 +328,16 @@ class IndexApp {
                 throw new Error(data.message || 'API error'); 
             }
         } catch (error) {
-            console.error('실시간 검색 오류:', error);
-            this.dom.productListUl.innerHTML = '<li class="list-group-item text-center text-danger p-4">검색 중 오류가 발생했습니다.</li>';
+            console.error('Search Error:', error);
+            if(this.dom.productListUl) {
+                this.dom.productListUl.innerHTML = '<li class="list-group-item text-center text-danger p-4">오류가 발생했습니다.</li>';
+            }
         }
     }
 
     renderResults(products, showingFavorites, selectedCategory) {
+        if(!this.dom.productListHeader || !this.dom.productListUl) return;
+
         if (showingFavorites) {
             this.dom.productListHeader.innerHTML = '<i class="bi bi-star-fill me-2 text-warning"></i>즐겨찾기 목록';
         } else {
@@ -307,24 +347,28 @@ class IndexApp {
             }
             this.dom.productListHeader.innerHTML = `<i class="bi bi-card-list me-2"></i>상품 검색 결과 ${categoryBadge}`;
         }
+        
         this.dom.productListUl.innerHTML = '';
-        if (products.length === 0) {
+        
+        if (!products || products.length === 0) {
             const message = showingFavorites ? '즐겨찾기 상품 없음.' : '검색된 상품 없음.';
             this.dom.productListUl.innerHTML = `<li class="list-group-item text-center text-muted p-4">${message}</li>`;
             return;
         }
+        
         products.forEach(product => {
+            const salePrice = product.sale_price || '0';
             const productHtml = `
                 <li class="list-group-item">
                     <a href="/product/${product.product_id}" class="product-item d-flex align-items-center text-decoration-none text-body">
-                        <img src="${product.image_url}" alt="${product.product_name}" class="item-image rounded border flex-shrink-0" onerror="imgFallback(this)">
+                        <img src="${product.image_url}" alt="${product.product_name}" class="item-image rounded border flex-shrink-0" style="width:60px; height:60px; object-fit:contain; background:#fff;" onerror="imgFallback(this)">
                         <div class="item-details flex-grow-1 ms-3">
-                            <div class="product-name fw-bold">${product.product_name}</div>
-                            <div class="product-meta small text-muted">
-                                <span class="meta-item me-2">${product.product_number}</span>
-                                ${product.colors ? `<span class="meta-item d-block d-sm-inline me-2"><i class="bi bi-palette"></i> ${product.colors}</span>` : ''}
-                                <span class="meta-item me-2 fw-bold text-dark">${product.sale_price}</span>
-                                <span class="meta-item discount ${product.original_price > 0 ? 'text-danger' : 'text-secondary'}">${product.discount}</span>
+                            <div class="product-name fw-bold text-dark">${product.product_name}</div>
+                            <div class="product-meta small text-muted mt-1">
+                                <span class="meta-item me-2 badge bg-light text-dark border">${product.product_number}</span>
+                                ${product.colors ? `<span class="meta-item d-inline-block me-2 text-secondary"><i class="bi bi-palette"></i> ${product.colors}</span>` : ''}
+                                <span class="meta-item me-2 fw-bold text-primary">${salePrice}</span>
+                                <span class="meta-item discount small ${product.original_price > 0 ? 'text-danger' : 'text-secondary'}">${product.discount}</span>
                             </div>
                         </div>
                     </a>
@@ -335,6 +379,8 @@ class IndexApp {
     }
 
     renderPagination(totalPages, currentPage) {
+        if(!this.dom.paginationUL) return;
+        
         this.dom.paginationUL.innerHTML = '';
         if (totalPages <= 1) return;
 
@@ -376,18 +422,19 @@ class IndexApp {
     }
 }
 
-document.addEventListener('turbo:load', () => {
+// Turbo Load 이벤트 또는 DOMContentLoaded
+function initIndex() {
     if (document.getElementById('search-query-input')) {
-        if (currentIndexApp) {
-            currentIndexApp.destroy();
-        }
-        currentIndexApp = new IndexApp();
+        // 기존 인스턴스 정리 (필요하다면)
+        window.currentIndexApp = new IndexApp();
     }
-});
+}
 
-document.addEventListener('turbo:before-cache', () => {
-    if (currentIndexApp) {
-        currentIndexApp.destroy();
-        currentIndexApp = null;
-    }
-});
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initIndex);
+} else {
+    initIndex();
+}
+
+// Turbo 사용하는 경우를 위한 리스너
+document.addEventListener('turbo:load', initIndex);
