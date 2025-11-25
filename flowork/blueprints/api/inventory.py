@@ -1,11 +1,11 @@
 import os
 import uuid
 import traceback
-import io
+import io  # [수정] 누락된 io 모듈 추가
 from flask import request, jsonify, send_file, flash, redirect, url_for, abort
 from flask_login import login_required, current_user
-from sqlalchemy import or_
-from sqlalchemy.orm import selectinload
+from sqlalchemy import or_  # [수정] 누락된 or_ 추가
+from sqlalchemy.orm import selectinload  # [수정] 누락된 selectinload 추가
 
 from flowork.models import db, Product, Variant, StoreStock, Setting
 from flowork.utils import clean_string_upper, generate_barcode, get_sort_key
