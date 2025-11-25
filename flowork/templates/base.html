@@ -19,7 +19,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     {% block extra_head %}{% endblock %}
 </head>
-<body {% block body_attrs %}{% endblock %}>
+<body class="{{ 'iframe-mode' if request.args.get('iframe') == '1' else '' }}" {% block body_attrs %}{% endblock %}>
 
     <div class="main-wrapper">
         

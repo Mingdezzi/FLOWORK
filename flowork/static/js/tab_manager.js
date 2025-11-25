@@ -118,25 +118,17 @@ class TabManager {
         pane.id = id;
 
         const iframe = document.createElement('iframe');
-        iframe.src = url;
+        const separator = url.includes('?') ? '&' : '?';
+        iframe.src = url + separator + 'iframe=1';
         iframe.className = 'tab-frame';
         iframe.frameBorder = '0';
         
         iframe.onload = () => {
             try {
-                const subTitle = iframe.contentDocument.title.split('-')[0].trim();
-                if (subTitle) {
-                    const btn = document.getElementById(id + '-btn');
-                    if (btn) btn.querySelector('.tab-title').textContent = subTitle;
-                }
-                
-                const innerBody = iframe.contentDocument.body;
-                innerBody.classList.add('iframe-mode');
-                
-                iframe.contentWindow.alert = window.alert;
-                iframe.contentWindow.confirm = window.confirm;
-                iframe.contentWindow.prompt = window.prompt;
-
+                const iframeWin = iframe.contentWindow;
+                iframeWin.alert = window.alert;
+                iframeWin.confirm = window.confirm;
+                iframeWin.prompt = window.prompt;
             } catch (e) {
                 console.log('Cross-origin iframe detected or error accessing content');
             }
