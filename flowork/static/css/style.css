@@ -1,5 +1,4 @@
 :root {
-    /* 디자인 통일성을 위한 전역 변수 */
     --bs-primary: #eb6864;
     --bs-primary-hover: #d6524e;
     --bs-secondary: #6c757d;
@@ -13,57 +12,50 @@
 }
 
 /* =========================================
-   1. 기본 레이아웃 (Shell) - 스크롤 제어 핵심
+   1. 기본 레이아웃 (Shell)
    ========================================= */
-
-/* [핵심] 브라우저 전체(Base) 스크롤 제거 */
 html, body {
     width: 100%;
     height: 100%;
     margin: 0;
     padding: 0;
-    overflow: hidden !important; /* 바깥쪽 스크롤 강제 차단 */
+    overflow: hidden !important; /* 메인 화면 스크롤 방지 */
     font-family: var(--font-family);
 }
 
-/* 전체 래퍼: 화면 꽉 채우고 내부 스크롤 없음 */
 .main-wrapper {
     display: flex;
     width: 100%;
-    height: 100vh; /* 뷰포트 높이 100% 고정 */
+    height: 100vh;
     background-color: #f5f7f9;
-    overflow: hidden; /* 래퍼 자체 스크롤 차단 */
+    overflow: hidden; /* 메인 래퍼 스크롤 방지 */
 }
 
-/* 사이드바 영역 */
 .sidebar-area {
     width: var(--sidebar-width);
-    height: 100%; /* 높이 꽉 채움 */
+    height: 100%;
     background-color: #fff;
     border-right: 1px solid var(--bs-border-color);
     display: flex;
     flex-direction: column;
     z-index: 1000;
-    flex-shrink: 0; /* 사이드바 줄어들지 않음 */
+    flex-shrink: 0;
 }
 
-/* 메인 컨텐츠 영역 (우측) */
 .content-area {
     flex: 1;
     display: flex;
     flex-direction: column;
-    height: 100%; /* 높이 꽉 채움 */
-    min-width: 0; /* Flexbox 오버플로우 방지 */
-    overflow: hidden; /* 컨텐츠 영역 자체 스크롤 차단 */
+    height: 100%;
+    min-width: 0;
+    overflow: hidden;
     position: relative;
     background-color: #f5f7f9;
 }
 
 /* =========================================
-   2. 탭 시스템 및 내부 스크롤
+   2. 탭 시스템
    ========================================= */
-
-/* 상단 탭 바 */
 .tab-bar-container {
     height: var(--tab-bar-height);
     background-color: #fff;
@@ -71,22 +63,16 @@ html, body {
     display: flex;
     align-items: center;
     padding: 0 10px;
-    flex-shrink: 0; /* 탭 바 높이 고정 */
+    flex-shrink: 0;
     overflow-x: auto;
     overflow-y: hidden;
     white-space: nowrap;
     box-shadow: 0 1px 2px rgba(0,0,0,0.03);
 }
 
-.tab-bar-container::-webkit-scrollbar {
-    height: 4px;
-}
-.tab-bar-container::-webkit-scrollbar-thumb {
-    background: #ccc;
-    border-radius: 2px;
-}
+.tab-bar-container::-webkit-scrollbar { height: 4px; }
+.tab-bar-container::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
 
-/* 개별 탭 아이템 */
 .tab-item {
     display: inline-flex;
     align-items: center;
@@ -104,11 +90,7 @@ html, body {
     position: relative;
     top: 4px;
 }
-
-.tab-item:hover {
-    background-color: #e9ecef;
-}
-
+.tab-item:hover { background-color: #e9ecef; }
 .tab-item.active {
     background-color: #fff;
     border-bottom-color: #fff;
@@ -117,7 +99,6 @@ html, body {
     z-index: 1;
     box-shadow: 0 -2px 5px rgba(0,0,0,0.02);
 }
-
 .tab-item .tab-title {
     margin-right: 8px;
     max-width: 120px;
@@ -125,48 +106,29 @@ html, body {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-
 .tab-item .btn-close-tab {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    color: #adb5bd;
-    transition: all 0.2s;
+    width: 16px; height: 16px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: #adb5bd; transition: all 0.2s;
 }
+.tab-item .btn-close-tab:hover { background-color: #dee2e6; color: #dc3545; }
 
-.tab-item .btn-close-tab:hover {
-    background-color: #dee2e6;
-    color: #dc3545;
-}
-
-/* 탭 컨텐츠 컨테이너 (Iframe 영역) */
 .tab-content-container {
-    flex: 1; /* 남은 공간 모두 차지 */
+    flex: 1;
     position: relative;
     background-color: #f5f7f9;
     padding: 0;
-    overflow: hidden; /* 컨테이너 자체 스크롤 차단 */
-    height: 100%; /* 높이 명시 */
+    overflow: hidden;
+    height: 100%;
 }
 
-/* [핵심] 실제 내용이 들어가는 영역 */
 .tab-pane {
     display: none;
     width: 100%;
     height: 100%;
-    /* 여기서만 스크롤 생기도록 설정 */
-    overflow-y: auto; 
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
+    overflow: hidden; /* 여기서는 스크롤 없앰 (iframe이 처리) */
 }
-
-.tab-pane.active {
-    display: block;
-}
+.tab-pane.active { display: block; }
 
 .tab-frame {
     width: 100%;
@@ -176,18 +138,17 @@ html, body {
 }
 
 /* =========================================
-   3. Iframe 내부 모드 (알맹이) 스타일
+   3. Iframe 내부 모드 (알맹이) 스타일 - [수정됨]
    ========================================= */
 
-/* Iframe 내부 페이지 모드 */
+/* Iframe 내부: Body가 스크롤을 담당 */
 body.iframe-mode {
     background-color: #f5f7f9;
-    /* 내부 스크롤 허용 */
-    overflow-y: auto !important; 
+    overflow-y: auto !important; /* 스크롤 허용 */
     padding-bottom: 20px;
 }
 
-/* Iframe 내부에서는 껍데기 요소 숨김 */
+/* Iframe 내부: 껍데기 요소 숨김 */
 body.iframe-mode .sidebar-desktop,
 body.iframe-mode .mobile-top-header,
 body.iframe-mode .bottom-tab-bar,
@@ -196,18 +157,27 @@ body.iframe-mode .tab-bar-container {
     display: none !important;
 }
 
-/* Iframe 내부 상단 여백 제거 */
-body.iframe-mode .main-content-wrapper {
-    margin-left: 0 !important;
-    padding: 0 1rem 1rem 1rem !important; /* padding-top: 0 */
-    height: auto !important; /* Iframe 내부는 auto로 설정하여 내용만큼 늘어남 */
-    min-height: auto !important;
-    background-color: transparent;
-    display: block !important; /* flex 해제 */
-    overflow: visible !important; /* 내용 잘림 방지 */
+/* [핵심 수정] Iframe 내부 레이아웃 래퍼들의 높이 제한 해제 */
+/* 이걸 해제해야 내용물이 길어졌을 때 Body 스크롤이 생깁니다 */
+body.iframe-mode .main-wrapper,
+body.iframe-mode .content-area,
+body.iframe-mode .tab-content-container {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
 }
 
-/* Iframe 내부 컨테이너 여백 제거 */
+body.iframe-mode .main-content-wrapper {
+    margin-left: 0 !important;
+    padding: 0 1rem 1rem 1rem !important;
+    height: auto !important;
+    min-height: auto !important;
+    background-color: transparent;
+    display: block !important;
+    overflow: visible !important;
+}
+
+/* 컨테이너 여백 정리 */
 body.iframe-mode .container, 
 body.iframe-mode .container-fluid {
     margin-top: 0 !important;
@@ -218,10 +188,8 @@ body.iframe-mode .container-fluid {
 }
 
 /* =========================================
-   4. 공통 UI 컴포넌트 (디자인 통일)
+   4. 공통 UI 컴포넌트
    ========================================= */
-
-/* 카드 스타일 통일 */
 .card {
     border: 1px solid var(--bs-border-color);
     border-radius: var(--bs-border-radius);
@@ -229,163 +197,91 @@ body.iframe-mode .container-fluid {
     background-color: #fff;
     margin-bottom: 1rem;
 }
-
 .card-header {
     background-color: #fff;
     border-bottom: 1px solid var(--bs-border-color);
     padding: 1rem 1.25rem;
     font-weight: 600;
     color: #343a40;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    display: flex; align-items: center; justify-content: space-between;
 }
+.card-header h2, .card-header h3, .card-header h5 { margin-bottom: 0; font-size: 1.1rem; font-weight: 600; }
+.card-body { padding: 1.25rem; }
 
-.card-header h2, .card-header h3, .card-header h5 {
-    margin-bottom: 0;
-    font-size: 1.1rem;
-    font-weight: 600;
-}
-
-.card-body {
-    padding: 1.25rem;
-}
-
-/* 테이블 스타일 통일 */
-.table {
-    margin-bottom: 0;
-    font-size: 0.9rem;
-}
-
+.table { margin-bottom: 0; font-size: 0.9rem; }
 .table thead th {
     background-color: #f8f9fa;
     border-bottom: 2px solid var(--bs-border-color);
     color: #495057;
     font-weight: 600;
-    text-align: center;
-    vertical-align: middle;
-    padding: 0.75rem 0.5rem;
+    text-align: center; vertical-align: middle; padding: 0.75rem 0.5rem;
 }
+.table tbody td { vertical-align: middle; padding: 0.75rem 0.5rem; border-bottom: 1px solid var(--bs-border-color); }
+.table-hover tbody tr:hover { background-color: rgba(235, 104, 100, 0.05); }
 
-.table tbody td {
-    vertical-align: middle;
-    padding: 0.75rem 0.5rem;
-    border-bottom: 1px solid var(--bs-border-color);
-}
-
-.table-hover tbody tr:hover {
-    background-color: rgba(235, 104, 100, 0.05);
-}
-
-/* 폼/버튼 스타일 통일 */
 .form-control, .form-select {
-    border-radius: 0.375rem;
-    border: 1px solid #ced4da;
-    padding: 0.5rem 0.75rem;
-    font-size: 0.9rem;
+    border-radius: 0.375rem; border: 1px solid #ced4da; padding: 0.5rem 0.75rem; font-size: 0.9rem;
 }
+.form-control:focus, .form-select:focus { border-color: var(--bs-primary); box-shadow: 0 0 0 0.2rem rgba(235, 104, 100, 0.25); }
 
-.form-control:focus, .form-select:focus {
-    border-color: var(--bs-primary);
-    box-shadow: 0 0 0 0.2rem rgba(235, 104, 100, 0.25);
-}
+.btn { border-radius: 0.375rem; font-weight: 500; padding: 0.5rem 1rem; font-size: 0.9rem; transition: all 0.2s; }
+.btn-primary { background-color: var(--bs-primary); border-color: var(--bs-primary); }
+.btn-primary:hover { background-color: var(--bs-primary-hover); border-color: var(--bs-primary-hover); }
+.badge { font-weight: 500; padding: 0.4em 0.6em; border-radius: 0.25rem; }
 
-.btn {
-    border-radius: 0.375rem;
-    font-weight: 500;
-    padding: 0.5rem 1rem;
-    font-size: 0.9rem;
-    transition: all 0.2s;
-}
-
-.btn-primary {
-    background-color: var(--bs-primary);
-    border-color: var(--bs-primary);
-}
-
-.btn-primary:hover {
-    background-color: var(--bs-primary-hover);
-    border-color: var(--bs-primary-hover);
-}
-
-.badge {
-    font-weight: 500;
-    padding: 0.4em 0.6em;
-    border-radius: 0.25rem;
-}
-
-/* 컨테이너 여백 기본값 */
-.container, .container-fluid {
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-    max-width: 100% !important;
-}
+.container, .container-fluid { padding-left: 0 !important; padding-right: 0 !important; max-width: 100% !important; }
 
 /* =========================================
-   5. 페이지별 고유 스타일
+   5. 페이지별 스타일
    ========================================= */
-
-/* 판매 관리 (Sales) 페이지 */
 .sales-container { display: flex; gap: 20px; height: calc(100vh - 60px); }
-.sales-left { flex: 1.3; display: flex; flex-direction: column; transition: background-color 0.3s; padding: 15px; border-radius: 8px; overflow: hidden; border: 1px solid var(--bs-border-color); background-color: #fff; }
+.sales-left { flex: 1.3; display: flex; flex-direction: column; padding: 15px; border-radius: 8px; overflow: hidden; border: 1px solid var(--bs-border-color); background-color: #fff; }
 .sales-right { flex: 1.4; display: flex; flex-direction: column; border-left: 1px solid var(--bs-border-color); padding-left: 20px; overflow: hidden; }
-
 .mode-sales-bg { background-color: #ffffff; }
 .mode-refund-bg { background-color: #fff5f5; }
-
 .cart-table-wrapper { flex-grow: 1; overflow-y: auto; border: 1px solid var(--bs-border-color); border-radius: 4px; background: #fff; }
 .left-table-wrapper { flex-grow: 1; overflow-y: auto; border: 1px solid var(--bs-border-color); border-radius: 4px; background: #fff; margin-top: 10px; }
-
 .left-table { font-size: 0.8rem; width: 100%; table-layout: fixed; }
 .left-table th, .left-table td { padding: 6px 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cart-input { width: 70px; text-align: right; padding: 2px 5px; font-size: 0.9rem; }
 
-/* 재고 관리 (Stock) 페이지 */
 .stock-table { table-layout: fixed; width: 100%; }
 .stock-table th, .stock-table td { font-size: 1.2rem; text-align: center; }
 .stock-quantity, .stock-hq { font-size: 1.5rem; font-weight: bold; }
 .actual-stock-input { padding: 0.375rem 0.2rem; font-size: 1.2rem; text-align: center; width: 80px; display: inline-block; }
 .stock-diff { font-size: 1.2rem; min-width: 30px; display: inline-block; }
 
-/* 상품 상세 및 검색 */
 .product-item .item-image { width: 60px; height: 60px; object-fit: contain; background-color: #fff; }
 .product-pricing .sale-price { font-size: 1.1em; font-weight: bold; color: #333; }
 .product-pricing .discount { font-size: 1.1em; font-weight: bold; color: #dc3545; margin-left: 5px; }
 
-/* 키패드 (검색 화면) */
 .keypad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
 .keypad-btn { height: 50px; font-size: 1.1rem; font-weight: 500; background-color: #fff; border: 1px solid var(--bs-border-color); }
 .keypad-btn:active { background-color: #e9ecef; }
 .category-btn { width: 100%; margin-bottom: 5px; }
 .category-btn.active { background-color: var(--bs-primary); color: #fff; border-color: var(--bs-primary); }
 
-/* 모바일 대응 */
 @media (max-width: 991.98px) {
     .sidebar-area { display: none; }
     .main-wrapper { flex-direction: column; }
-    .tab-bar-container { display: none; } /* 모바일에서는 탭 바 숨김 */
-    
+    .tab-bar-container { display: none; }
     body.iframe-mode .mobile-top-header { display: flex !important; }
     body.iframe-mode .bottom-tab-bar { display: flex !important; }
-    
     .sales-container { flex-direction: column; height: auto; }
     .sales-left { width: 100%; max-height: 500px; margin-bottom: 10px; }
     .sales-right { width: 100%; border-left: none; padding-left: 0; }
 }
 
-/* 데스크탑용 풀사이즈 카드 */
 @media (min-width: 992px) {
     .full-height-card { height: calc(100vh - 100px); display: flex; flex-direction: column; }
     .full-height-card .card-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
     .product-list-scrollable { flex: 1; overflow-y: auto; }
 }
 
-/* 기타 유틸리티 */
 .section-title { font-size: 1.3rem; font-weight: 600; color: #333; border-bottom: 2px solid var(--bs-border-color); padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(0, 0, 0, 0.1); border-radius: 3px; }
 
-/* 사이드바 메뉴 스타일 */
 .sidebar-desktop .accordion-button { background-color: transparent; color: #495057; padding: 1rem 1.25rem; font-size: 0.95rem; }
 .sidebar-desktop .accordion-button:not(.collapsed) { color: var(--bs-primary); background-color: #fff5f5; box-shadow: none; }
 .sidebar-desktop .list-group-item { border: none; font-size: 0.9rem; color: #6c757d; padding-top: 0.6rem; padding-bottom: 0.6rem; }
