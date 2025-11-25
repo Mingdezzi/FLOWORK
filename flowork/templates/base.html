@@ -66,6 +66,7 @@
             </div>
         </div>
         {% endif %}
+
         <main class="content-area">
             
             {% if request.args.get('iframe') != '1' %}
@@ -79,10 +80,11 @@
                 <span class="text-primary fw-bold small">{{ today_date }}</span>
             </div>
             {% endif %}
+
             <div class="tab-content-container main-content-wrapper" id="tab-content">
                 
                 <div class="tab-pane active" id="tab-initial">
-                    <div class="container-fluid p-3 p-lg-4" style="max-width: 1600px;">
+                    <div class="container-fluid" style="max-width: 1600px; padding: 10px;">
                         {% with messages = get_flashed_messages(with_categories=true) %}
                             {% if messages %}
                                 {% for category, message in messages %}
