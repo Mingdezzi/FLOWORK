@@ -194,31 +194,32 @@ body.iframe-mode .container-fluid {
         height: auto !important;
         -webkit-overflow-scrolling: touch;
     }
+
+    /* [수정] 하단 네비게이션 바 높이만큼 여백 확보 */
+    body.iframe-mode {
+        padding-bottom: 80px !important; 
+    }
     
     /* 래퍼 높이 제한 해제 */
     .main-wrapper, .content-area, .tab-content-container {
         display: block !important; /* Flex 해제 */
         height: auto !important;
-        overflow: visible !important;
         min-height: 100vh;
-    }
-
-    /* 홈 화면 (index.html) */
-    #tab-initial {
-        height: auto !important;
         overflow: visible !important;
-        padding-bottom: 80px !important; /* 하단 메뉴바 공간 확보 */
     }
 
-    /* 메뉴 클릭 시 열리는 Iframe 영역 */
-    .tab-pane:not(#tab-initial) {
-        /* Iframe은 내부 스크롤을 사용해야 하므로 높이 고정 */
-        height: calc(100vh - 110px) !important; 
-        overflow: hidden !important;
+    .main-wrapper {
+        padding-bottom: 80px !important; /* 하단 바 공간 확보 */
+    }
+
+    /* 메뉴 클릭 시 열리는 Iframe 영역 높이 자동 조절 */
+    .tab-pane {
+        height: auto !important; 
+        overflow: visible !important;
     }
     
     .tab-frame {
-        height: 100% !important;
+        height: 100vh !important; /* 최소 높이 보장 */
     }
 
     /* 모바일 전용 UI 표시 */
