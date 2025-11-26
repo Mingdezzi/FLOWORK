@@ -1,4 +1,5 @@
 :root {
+    /* 디자인 통일성을 위한 전역 변수 */
     --bs-primary: #eb6864;
     --bs-primary-hover: #d6524e;
     --bs-secondary: #6c757d;
@@ -12,14 +13,15 @@
 }
 
 /* =========================================
-   1. 기본 레이아웃 (Shell)
+   1. 기본 레이아웃 (Shell) - PC 기준 (고정형)
    ========================================= */
+
 html, body {
     width: 100%;
     height: 100%;
     margin: 0;
     padding: 0;
-    overflow: hidden !important; /* 메인 화면 스크롤 방지 */
+    overflow: hidden !important; /* PC: 바깥 스크롤 차단 */
     font-family: var(--font-family);
 }
 
@@ -28,7 +30,7 @@ html, body {
     width: 100%;
     height: 100vh;
     background-color: #f5f7f9;
-    overflow: hidden; /* 메인 래퍼 스크롤 방지 */
+    overflow: hidden;
 }
 
 .sidebar-area {
@@ -54,7 +56,7 @@ html, body {
 }
 
 /* =========================================
-   2. 탭 시스템
+   2. 탭 시스템 (PC 기준)
    ========================================= */
 .tab-bar-container {
     height: var(--tab-bar-height);
@@ -90,7 +92,9 @@ html, body {
     position: relative;
     top: 4px;
 }
+
 .tab-item:hover { background-color: #e9ecef; }
+
 .tab-item.active {
     background-color: #fff;
     border-bottom-color: #fff;
@@ -99,6 +103,7 @@ html, body {
     z-index: 1;
     box-shadow: 0 -2px 5px rgba(0,0,0,0.02);
 }
+
 .tab-item .tab-title {
     margin-right: 8px;
     max-width: 120px;
@@ -106,6 +111,7 @@ html, body {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
 .tab-item .btn-close-tab {
     width: 16px; height: 16px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
@@ -126,7 +132,9 @@ html, body {
     display: none;
     width: 100%;
     height: 100%;
-    overflow: hidden; /* 여기서는 스크롤 없앰 (iframe이 처리) */
+    overflow-y: auto; /* PC: 내부 스크롤 허용 */
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
 }
 .tab-pane.active { display: block; }
 
@@ -138,33 +146,20 @@ html, body {
 }
 
 /* =========================================
-   3. Iframe 내부 모드 (알맹이) 스타일 - [수정됨]
+   3. Iframe 내부 모드 (공통)
    ========================================= */
-
-/* Iframe 내부: Body가 스크롤을 담당 */
 body.iframe-mode {
     background-color: #f5f7f9;
-    overflow-y: auto !important; /* 스크롤 허용 */
+    overflow-y: auto !important;
     padding-bottom: 20px;
 }
 
-/* Iframe 내부: 껍데기 요소 숨김 */
 body.iframe-mode .sidebar-desktop,
 body.iframe-mode .mobile-top-header,
 body.iframe-mode .bottom-tab-bar,
 body.iframe-mode .offcanvas,
 body.iframe-mode .tab-bar-container {
     display: none !important;
-}
-
-/* [핵심 수정] Iframe 내부 레이아웃 래퍼들의 높이 제한 해제 */
-/* 이걸 해제해야 내용물이 길어졌을 때 Body 스크롤이 생깁니다 */
-body.iframe-mode .main-wrapper,
-body.iframe-mode .content-area,
-body.iframe-mode .tab-content-container {
-    display: block !important;
-    height: auto !important;
-    overflow: visible !important;
 }
 
 body.iframe-mode .main-content-wrapper {
@@ -177,7 +172,6 @@ body.iframe-mode .main-content-wrapper {
     overflow: visible !important;
 }
 
-/* 컨테이너 여백 정리 */
 body.iframe-mode .container, 
 body.iframe-mode .container-fluid {
     margin-top: 0 !important;
@@ -188,7 +182,56 @@ body.iframe-mode .container-fluid {
 }
 
 /* =========================================
-   4. 공통 UI 컴포넌트
+   4. 모바일 대응 (핵심 수정)
+   ========================================= */
+@media (max-width: 991.98px) {
+    .sidebar-area { display: none; }
+    .tab-bar-container { display: none; } /* 모바일 탭바 숨김 */
+    
+    /* [모바일 스크롤 복구] 전체 스크롤 허용 */
+    html, body {
+        overflow-y: auto !important;
+        height: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* 래퍼 높이 제한 해제 */
+    .main-wrapper, .content-area, .tab-content-container {
+        display: block !important; /* Flex 해제 */
+        height: auto !important;
+        overflow: visible !important;
+        min-height: 100vh;
+    }
+
+    /* 홈 화면 (index.html) */
+    #tab-initial {
+        height: auto !important;
+        overflow: visible !important;
+        padding-bottom: 80px !important; /* 하단 메뉴바 공간 확보 */
+    }
+
+    /* 메뉴 클릭 시 열리는 Iframe 영역 */
+    .tab-pane:not(#tab-initial) {
+        /* Iframe은 내부 스크롤을 사용해야 하므로 높이 고정 */
+        height: calc(100vh - 110px) !important; 
+        overflow: hidden !important;
+    }
+    
+    .tab-frame {
+        height: 100% !important;
+    }
+
+    /* 모바일 전용 UI 표시 */
+    body.iframe-mode .mobile-top-header { display: flex !important; }
+    body.iframe-mode .bottom-tab-bar { display: flex !important; }
+    
+    .sales-container { flex-direction: column; height: auto; }
+    .sales-left { width: 100%; max-height: 500px; margin-bottom: 10px; }
+    .sales-right { width: 100%; border-left: none; padding-left: 0; }
+}
+
+/* =========================================
+   5. 공통 UI 컴포넌트 & 스타일
    ========================================= */
 .card {
     border: 1px solid var(--bs-border-color);
@@ -231,14 +274,7 @@ body.iframe-mode .container-fluid {
 
 .container, .container-fluid { padding-left: 0 !important; padding-right: 0 !important; max-width: 100% !important; }
 
-/* =========================================
-   5. 페이지별 스타일
-   ========================================= */
-.sales-container { display: flex; gap: 20px; height: calc(100vh - 60px); }
-.sales-left { flex: 1.3; display: flex; flex-direction: column; padding: 15px; border-radius: 8px; overflow: hidden; border: 1px solid var(--bs-border-color); background-color: #fff; }
-.sales-right { flex: 1.4; display: flex; flex-direction: column; border-left: 1px solid var(--bs-border-color); padding-left: 20px; overflow: hidden; }
-.mode-sales-bg { background-color: #ffffff; }
-.mode-refund-bg { background-color: #fff5f5; }
+/* 페이지별 스타일 */
 .cart-table-wrapper { flex-grow: 1; overflow-y: auto; border: 1px solid var(--bs-border-color); border-radius: 4px; background: #fff; }
 .left-table-wrapper { flex-grow: 1; overflow-y: auto; border: 1px solid var(--bs-border-color); border-radius: 4px; background: #fff; margin-top: 10px; }
 .left-table { font-size: 0.8rem; width: 100%; table-layout: fixed; }
@@ -260,17 +296,6 @@ body.iframe-mode .container-fluid {
 .keypad-btn:active { background-color: #e9ecef; }
 .category-btn { width: 100%; margin-bottom: 5px; }
 .category-btn.active { background-color: var(--bs-primary); color: #fff; border-color: var(--bs-primary); }
-
-@media (max-width: 991.98px) {
-    .sidebar-area { display: none; }
-    .main-wrapper { flex-direction: column; }
-    .tab-bar-container { display: none; }
-    body.iframe-mode .mobile-top-header { display: flex !important; }
-    body.iframe-mode .bottom-tab-bar { display: flex !important; }
-    .sales-container { flex-direction: column; height: auto; }
-    .sales-left { width: 100%; max-height: 500px; margin-bottom: 10px; }
-    .sales-right { width: 100%; border-left: none; padding-left: 0; }
-}
 
 @media (min-width: 992px) {
     .full-height-card { height: calc(100vh - 100px); display: flex; flex-direction: column; }
