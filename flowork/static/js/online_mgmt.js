@@ -1,4 +1,7 @@
-let currentOnlineManager = null;
+/**
+ * Online Management Application Logic
+ * Refactored to use Class-based structure and Common Utilities
+ */
 
 class OnlineManager {
     constructor() {
@@ -20,9 +23,6 @@ class OnlineManager {
         this.isProcessing = false;
 
         this.dom = this.cacheDom();
-        
-        this.boundHandleBodyChange = this.handleBodyChange.bind(this);
-        
         this.init();
     }
 
@@ -51,10 +51,12 @@ class OnlineManager {
     init() {
         this.loadUserOptions();
         
+        // 탭 이벤트
         this.dom.tabs.forEach(tab => {
             tab.addEventListener('shown.bs.tab', (e) => this.loadTabContent(e.target));
         });
 
+        // 버튼 이벤트
         this.dom.btnSearch.onclick = () => this.search();
         this.dom.btnSearchReset.onclick = () => this.resetSearch();
         this.dom.btnLogo.onclick = () => this.uploadLogo();
@@ -73,35 +75,24 @@ class OnlineManager {
             };
         }
 
-        document.body.addEventListener('change', this.boundHandleBodyChange);
+        // 체크박스 이벤트 위임
+        document.body.addEventListener('change', (e) => {
+            if(e.target.classList.contains('check-all')) {
+                const table = e.target.closest('table');
+                table.querySelectorAll('.item-check:not(:disabled)').forEach(cb => cb.checked = e.target.checked);
+                this.updateBtnState();
+            }
+            if(e.target.classList.contains('item-check')) this.updateBtnState();
+        });
 
+        // 초기 로드
         document.querySelectorAll('.nav-link.active').forEach(tab => this.loadTabContent(tab));
         
+        // 글로벌 함수 노출 (HTML onclick 용)
         window.showImageModal = (src) => { document.getElementById('preview-image-target').src = src; this.dom.imgModal.show(); };
         window.downloadImages = (code) => { window.location.href = `${this.urls.download}${code}`; };
         window.deleteImages = (code) => this.deleteImages(code);
         window.showFolderModal = (code) => this.showFolder(code);
-    }
-
-    destroy() {
-        if (this.pollingInterval) {
-            clearInterval(this.pollingInterval);
-        }
-        document.body.removeEventListener('change', this.boundHandleBodyChange);
-        
-        window.showImageModal = null;
-        window.downloadImages = null;
-        window.deleteImages = null;
-        window.showFolderModal = null;
-    }
-
-    handleBodyChange(e) {
-        if(e.target.classList.contains('check-all')) {
-            const table = e.target.closest('table');
-            table.querySelectorAll('.item-check:not(:disabled)').forEach(cb => cb.checked = e.target.checked);
-            this.updateBtnState();
-        }
-        if(e.target.classList.contains('item-check')) this.updateBtnState();
     }
 
     async loadUserOptions() {
@@ -283,6 +274,7 @@ class OnlineManager {
         try {
             const res = await Flowork.post(this.urls.process, { style_codes: codes, options });
             if(res.status === 'success') {
+                // 배치 업데이트
                 const newBatch = new Set([...this.currentBatch, ...codes]);
                 this.currentBatch = Array.from(newBatch);
                 sessionStorage.setItem('currentBatchCodes', JSON.stringify(this.currentBatch));
@@ -290,6 +282,7 @@ class OnlineManager {
                 
                 this.pollTask(res.task_id);
                 
+                // 진행중 탭으로 이동
                 const tab = document.querySelector('button[data-bs-target="#tab-current-processing"]');
                 new bootstrap.Tab(tab).show();
                 this.loadTabContent(tab);
@@ -312,7 +305,6 @@ class OnlineManager {
                     this.dom.progText.textContent = `${pct}%`;
                 } else {
                     clearInterval(this.pollingInterval);
-                    this.pollingInterval = null;
                     this.isProcessing = false;
                     this.dom.progBar.style.width = '100%';
                     this.dom.progText.textContent = task.status === 'completed' ? '완료' : '오류';
@@ -322,12 +314,7 @@ class OnlineManager {
                         this.refreshActiveTab();
                     }, 2000);
                 }
-            } catch(e) { 
-                if (this.pollingInterval) {
-                    clearInterval(this.pollingInterval);
-                    this.pollingInterval = null;
-                }
-            }
+            } catch(e) { clearInterval(this.pollingInterval); }
         }, 1000);
     }
 
@@ -387,18 +374,4 @@ class OnlineManager {
     }
 }
 
-document.addEventListener('turbo:load', () => {
-    if (document.querySelector('.options-panel')) {
-        if (currentOnlineManager) {
-            currentOnlineManager.destroy();
-        }
-        currentOnlineManager = new OnlineManager();
-    }
-});
-
-document.addEventListener('turbo:before-cache', () => {
-    if (currentOnlineManager) {
-        currentOnlineManager.destroy();
-        currentOnlineManager = null;
-    }
-});
+document.addEventListener('DOMContentLoaded', () => new OnlineManager());

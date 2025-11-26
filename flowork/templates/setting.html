@@ -18,38 +18,39 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid p-0">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="section-title mb-0 border-bottom-0 pb-0"><i class="bi bi-gear-fill me-2"></i>전체 설정</h2>
+<div class="container my-4">
+    <hr class="my-4">
+    <div class="mb-4">
+        <h2 class="section-title"><i class="bi bi-gear-fill me-2"></i>설정</h2>
     </div>
     
-    <div class="row g-4 mb-5">
+    <div class="row g-4">
         <div class="col-lg-6">
-            <div class="card h-100 rounded-0 border shadow-sm">
-                <div class="card-header bg-primary text-white rounded-0 border-bottom-0">
-                    <h5 class="mb-0 fw-bold"><i class="bi bi-tag-fill me-2"></i>브랜드 설정</h5>
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-tag-fill me-2"></i>브랜드 설정</h5>
                 </div>
                 <div class="card-body">
                     <form id="form-brand-name" class="mb-4">
-                        <label for="brand-name-input" class="form-label fw-bold small text-muted">브랜드 이름</label>
+                        <label for="brand-name-input" class="form-label fw-bold">브랜드 이름</label>
                         <div class="input-group">
-                            <input type="text" class="form-control rounded-0" id="brand-name-input" value="{{ brand_name }}" required>
-                            <button class="btn btn-outline-primary rounded-0" type="submit">저장</button>
+                            <input type="text" class="form-control" id="brand-name-input" value="{{ brand_name }}" required>
+                            <button class="btn btn-outline-primary" type="submit">저장</button>
                         </div>
                         <div id="brand-name-status"></div>
                     </form>
 
-                    <hr class="my-4">
+                    <hr>
                     
                     <div class="mb-3">
-                        <label class="form-label fw-bold small text-muted">설정 파일 로드</label>
+                        <label class="form-label fw-bold">설정 파일 로드</label>
                         <p class="text-muted small mb-2">
                             서버의 <code>brands/{{ expected_settings_file or '브랜드명.json' }}</code> 파일에서 설정을 불러옵니다.
                             {% if loaded_settings_file %}
-                            <br><span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> 현재 로드됨: {{ loaded_settings_file }}</span>
+                            <br><span class="text-success"><i class="bi bi-check-circle-fill"></i> 현재 로드됨: {{ loaded_settings_file }}</span>
                             {% endif %}
                         </p>
-                        <button class="btn btn-warning w-100 rounded-0" id="btn-load-settings">
+                        <button class="btn btn-warning w-100" id="btn-load-settings">
                             <i class="bi bi-arrow-clockwise me-1"></i> 설정 파일 다시 로드
                         </button>
                         <div id="load-settings-status"></div>
@@ -59,26 +60,26 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
         </div>
 
         <div class="col-lg-6">
-            <div class="card h-100 rounded-0 border shadow-sm">
-                <div class="card-header bg-info text-white rounded-0 border-bottom-0">
-                    <h5 class="mb-0 fw-bold"><i class="bi bi-grid-fill me-2"></i>카테고리 버튼 설정</h5>
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-grid-fill me-2"></i>카테고리 버튼 설정</h5>
                 </div>
                 <div class="card-body">
                     <form id="form-category-config">
                         <div class="mb-3">
-                            <label class="form-label fw-bold small text-muted">한 줄당 버튼 개수</label>
-                            <select class="form-select rounded-0" id="cat-columns">
+                            <label class="form-label fw-bold">한 줄당 버튼 개수</label>
+                            <select class="form-select" id="cat-columns">
                                 <option value="4">4개</option>
                                 <option value="5">5개</option>
                                 <option value="6">6개</option>
                             </select>
                         </div>
-                        <label class="form-label fw-bold small text-muted">버튼 목록 (라벨 / 값)</label>
+                        <label class="form-label fw-bold">버튼 목록 (라벨 / 값)</label>
                         <div id="cat-buttons-container" class="mb-2" style="max-height: 300px; overflow-y: auto;"></div>
-                        <button type="button" class="btn btn-sm btn-outline-secondary w-100 mb-3 rounded-0" id="btn-add-cat-row">
+                        <button type="button" class="btn btn-sm btn-outline-secondary w-100 mb-3" id="btn-add-cat-row">
                             <i class="bi bi-plus-lg"></i> 버튼 추가
                         </button>
-                        <button type="submit" class="btn btn-info w-100 text-white rounded-0 fw-bold">설정 저장</button>
+                        <button type="submit" class="btn btn-info w-100 text-white">설정 저장</button>
                         <div id="category-config-status"></div>
                     </form>
                 </div>
@@ -86,13 +87,17 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
         </div>
     </div>
 
-    <div class="row mb-5">
+    <hr class="my-5">
+
+    <div class="row">
         <div class="col-12">
-            <h4 class="mb-3 border-bottom pb-2 fw-bold"><i class="bi bi-shop me-2"></i>매장 관리</h4>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0"><i class="bi bi-shop me-2"></i>매장 관리</h4>
+            </div>
             
-            <div class="card mb-4 rounded-0 border shadow-sm">
-                <div class="card-header bg-white border-bottom">
-                    <h5 class="mb-0 fw-bold">매장 목록</h5>
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0">매장 목록</h5>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -118,9 +123,9 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
                                     <td>{{ store.manager_name or '-' }}</td>
                                     <td>
                                         {% if store.is_registered %}
-                                            <span class="badge bg-success rounded-0">가입됨</span>
+                                            <span class="badge bg-success">가입됨</span>
                                         {% else %}
-                                            <span class="badge bg-secondary rounded-0">미가입</span>
+                                            <span class="badge bg-secondary">미가입</span>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -128,30 +133,30 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
                                             <span class="text-success"><i class="bi bi-check-circle-fill"></i></span>
                                         {% else %}
                                             {% if store.is_registered %}
-                                                <button class="btn btn-sm btn-primary rounded-0 btn-approve-store" data-id="{{ store.id }}">승인</button>
+                                                <button class="btn btn-sm btn-primary btn-approve-store" data-id="{{ store.id }}">승인</button>
                                             {% else %}
                                                 <span class="text-muted">-</span>
                                             {% endif %}
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <button class="btn btn-sm rounded-0 btn-toggle-active-store {{ 'btn-outline-success' if store.is_active else 'btn-outline-secondary' }}" data-id="{{ store.id }}">
+                                        <button class="btn btn-sm btn-toggle-active-store {{ 'btn-outline-success' if store.is_active else 'btn-outline-secondary' }}" data-id="{{ store.id }}">
                                             {{ 'ON' if store.is_active else 'OFF' }}
                                         </button>
                                     </td>
                                     <td>
                                         <div class="btn-group">
-                                            <button class="btn btn-sm btn-outline-primary rounded-0 btn-edit-store" 
+                                            <button class="btn btn-sm btn-outline-primary btn-edit-store" 
                                                     data-id="{{ store.id }}" 
                                                     data-code="{{ store.store_code or '' }}" 
                                                     data-name="{{ store.store_name }}" 
                                                     data-phone="{{ store.phone_number or '' }}">
                                                 수정
                                             </button>
-                                            <button class="btn btn-sm btn-outline-warning rounded-0 btn-reset-store" data-id="{{ store.id }}" title="등록 초기화">
+                                            <button class="btn btn-sm btn-outline-warning btn-reset-store" data-id="{{ store.id }}" title="등록 초기화">
                                                 초기화
                                             </button>
-                                            <button class="btn btn-sm btn-outline-danger rounded-0 btn-delete-store" data-id="{{ store.id }}">
+                                            <button class="btn btn-sm btn-outline-danger btn-delete-store" data-id="{{ store.id }}">
                                                 삭제
                                             </button>
                                         </div>
@@ -164,26 +169,26 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
                 </div>
             </div>
 
-            <div class="card rounded-0 border shadow-sm">
-                <div class="card-header bg-white border-bottom">
-                    <h5 class="mb-0 fw-bold">매장 추가</h5>
+            <div class="card shadow-sm mb-5">
+                <div class="card-header">
+                    <h5 class="mb-0">매장 추가</h5>
                 </div>
                 <div class="card-body">
                     <form id="form-add-store" class="row g-3 align-items-end">
                         <div class="col-md-3">
-                            <label class="form-label small fw-bold text-muted">매장 코드</label>
-                            <input type="text" class="form-control rounded-0" id="new_store_code" required>
+                            <label class="form-label">매장 코드</label>
+                            <input type="text" class="form-control" id="new_store_code" required>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small fw-bold text-muted">매장 이름</label>
-                            <input type="text" class="form-control rounded-0" id="new_store_name" required>
+                            <label class="form-label">매장 이름</label>
+                            <input type="text" class="form-control" id="new_store_name" required>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small fw-bold text-muted">연락처</label>
-                            <input type="tel" class="form-control rounded-0" id="new_store_phone">
+                            <label class="form-label">연락처</label>
+                            <input type="tel" class="form-control" id="new_store_phone">
                         </div>
                         <div class="col-md-2">
-                            <button type="submit" class="btn btn-success w-100 rounded-0 fw-bold">추가</button>
+                            <button type="submit" class="btn btn-success w-100">추가</button>
                         </div>
                         <div id="add-store-status" class="col-12"></div>
                     </form>
@@ -192,14 +197,16 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
         </div>
     </div>
 
+    <hr class="my-5">
+
     {% if current_user.store_id %}
-    <div class="row mb-5">
+    <div class="row">
         <div class="col-12">
-            <h4 class="mb-3 border-bottom pb-2 fw-bold"><i class="bi bi-people me-2"></i>직원 관리</h4>
+            <h4 class="mb-3"><i class="bi bi-people me-2"></i>직원 관리</h4>
             
-            <div class="card mb-4 rounded-0 border shadow-sm">
-                <div class="card-header bg-white border-bottom">
-                    <h5 class="mb-0 fw-bold">직원 목록</h5>
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0">직원 목록</h5>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -219,16 +226,16 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
                                     <td>{{ staff.position or '-' }}</td>
                                     <td>{{ staff.contact or '-' }}</td>
                                     <td>
-                                        <button class="btn btn-sm btn-outline-primary rounded-0 btn-edit-staff" 
+                                        <button class="btn btn-sm btn-outline-primary btn-edit-staff" 
                                                 data-id="{{ staff.id }}"
                                                 data-name="{{ staff.name }}"
                                                 data-position="{{ staff.position or '' }}"
                                                 data-contact="{{ staff.contact or '' }}">수정</button>
-                                        <button class="btn btn-sm btn-outline-danger rounded-0 btn-delete-staff" data-id="{{ staff.id }}">삭제</button>
+                                        <button class="btn btn-sm btn-outline-danger btn-delete-staff" data-id="{{ staff.id }}">삭제</button>
                                     </td>
                                 </tr>
                                 {% else %}
-                                <tr><td colspan="4" class="text-muted p-5">등록된 직원이 없습니다.</td></tr>
+                                <tr><td colspan="4" class="text-muted p-3">등록된 직원이 없습니다.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -236,26 +243,26 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
                 </div>
             </div>
 
-            <div class="card rounded-0 border shadow-sm">
-                <div class="card-header bg-white border-bottom">
-                    <h5 class="mb-0 fw-bold">직원 등록</h5>
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0">직원 등록</h5>
                 </div>
                 <div class="card-body">
                     <form id="form-add-staff" class="row g-3 align-items-end">
                         <div class="col-md-3">
-                            <label class="form-label small fw-bold text-muted">이름</label>
-                            <input type="text" class="form-control rounded-0" id="new_staff_name" required>
+                            <label class="form-label">이름</label>
+                            <input type="text" class="form-control" id="new_staff_name" required>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small fw-bold text-muted">직책</label>
-                            <input type="text" class="form-control rounded-0" id="new_staff_position">
+                            <label class="form-label">직책</label>
+                            <input type="text" class="form-control" id="new_staff_position">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small fw-bold text-muted">연락처</label>
-                            <input type="tel" class="form-control rounded-0" id="new_staff_contact">
+                            <label class="form-label">연락처</label>
+                            <input type="tel" class="form-control" id="new_staff_contact">
                         </div>
                         <div class="col-md-2">
-                            <button type="submit" class="btn btn-primary w-100 rounded-0 fw-bold">등록</button>
+                            <button type="submit" class="btn btn-primary w-100">등록</button>
                         </div>
                         <div id="add-staff-status" class="col-12"></div>
                     </form>
@@ -263,42 +270,43 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
             </div>
         </div>
     </div>
+    <hr class="my-5">
     {% endif %}
 
-    <div class="row mb-5">
+    <div class="row">
         <div class="col-12">
-            <h4 class="mb-3 border-bottom pb-2 fw-bold"><i class="bi bi-database-check me-2"></i>데이터 백업 및 복구</h4>
+            <h4 class="mb-3"><i class="bi bi-database-check me-2"></i>데이터 백업 및 복구</h4>
             
             <div class="row g-4">
                 <div class="col-md-6">
-                    <div class="card h-100 rounded-0 border shadow-sm">
-                        <div class="card-header bg-secondary text-white rounded-0 border-bottom-0">
-                            <h5 class="mb-0 fw-bold">주문 내역 (Orders)</h5>
+                    <div class="card h-100">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0">주문 내역 (Orders)</h5>
                         </div>
                         <div class="card-body">
                             <div class="mb-3">
-                                <label class="form-label fw-bold small text-muted">백업 (Excel 다운로드)</label>
+                                <label class="form-label fw-bold">백업 (Excel 다운로드)</label>
                                 <div class="input-group">
-                                    <select class="form-select rounded-0" id="orders_target_store">
+                                    <select class="form-select" id="orders_target_store">
                                         <option value="">전체 매장</option>
                                         {% for store in all_stores %}
                                         <option value="{{ store.id }}">{{ store.store_name }}</option>
                                         {% endfor %}
                                     </select>
-                                    <button class="btn btn-outline-dark rounded-0" onclick="downloadOrdersExcel()">
+                                    <button class="btn btn-outline-dark" onclick="downloadOrdersExcel()">
                                         <i class="bi bi-download"></i> 다운로드
                                     </button>
                                 </div>
                             </div>
                             <hr>
                             <div class="mb-3">
-                                <label class="form-label fw-bold small text-muted">복구 (Excel 업로드)</label>
+                                <label class="form-label fw-bold">복구 (Excel 업로드)</label>
                                 <form action="{{ url_for('api.import_orders_excel') }}" method="POST" enctype="multipart/form-data" onsubmit="return confirm('주문 내역을 복구하시겠습니까?');">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <input type="hidden" name="target_store_id" class="target-store-id-input">
                                     <div class="input-group">
-                                        <input type="file" name="excel_file" class="form-control rounded-0" accept=".xlsx" required>
-                                        <button type="submit" class="btn btn-danger rounded-0">복구</button>
+                                        <input type="file" name="excel_file" class="form-control" accept=".xlsx" required>
+                                        <button type="submit" class="btn btn-danger">복구</button>
                                     </div>
                                 </form>
                             </div>
@@ -307,7 +315,7 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
                                 <form action="{{ url_for('api.reset_orders_db') }}" method="POST" onsubmit="return confirm('🚨 경고: 선택한 매장의 모든 주문 내역이 영구 삭제됩니다.\n정말 진행하시겠습니까?');">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <input type="hidden" name="target_store_id" class="target-store-id-input">
-                                    <button type="submit" class="btn btn-outline-danger w-100 rounded-0">
+                                    <button type="submit" class="btn btn-outline-danger w-100">
                                         <i class="bi bi-trash3-fill"></i> 주문 데이터 초기화
                                     </button>
                                 </form>
@@ -317,21 +325,21 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
                 </div>
 
                 <div class="col-md-6">
-                    <div class="card h-100 rounded-0 border shadow-sm">
-                        <div class="card-header bg-success text-white rounded-0 border-bottom-0">
-                            <h5 class="mb-0 fw-bold">재고 실사 (Actual Stock)</h5>
+                    <div class="card h-100">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">재고 실사 (Actual Stock)</h5>
                         </div>
                         <div class="card-body">
                             <div class="mb-3">
-                                <label class="form-label fw-bold small text-muted">백업 (Excel 다운로드)</label>
+                                <label class="form-label fw-bold">백업 (Excel 다운로드)</label>
                                 <div class="input-group">
-                                    <select class="form-select rounded-0" id="stock_target_store">
+                                    <select class="form-select" id="stock_target_store">
                                         <option value="">매장 선택 (필수)</option>
                                         {% for store in all_stores %}
                                         <option value="{{ store.id }}">{{ store.store_name }}</option>
                                         {% endfor %}
                                     </select>
-                                    <button class="btn btn-outline-success rounded-0" onclick="downloadStockExcel()">
+                                    <button class="btn btn-outline-success" onclick="downloadStockExcel()">
                                         <i class="bi bi-download"></i> 다운로드
                                     </button>
                                 </div>
@@ -342,25 +350,25 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
                 
                 {% if current_user.is_super_admin %}
                 <div class="col-12">
-                    <div class="card border-danger mt-4 rounded-0 shadow-sm">
-                        <div class="card-header bg-danger text-white rounded-0 border-bottom-0">
-                            <h5 class="mb-0 fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>시스템 초기화 (위험 구역)</h5>
+                    <div class="card border-danger mt-4">
+                        <div class="card-header bg-danger text-white">
+                            <h5 class="mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>시스템 초기화 (위험 구역)</h5>
                         </div>
                         <div class="card-body">
-                            <p class="text-danger fw-bold mb-3">
+                            <p class="text-danger fw-bold">
                                 ※ 주의: 아래 기능은 되돌릴 수 없습니다. 신중하게 사용하세요.
                             </p>
                             <div class="d-flex gap-2">
                                 <form action="{{ url_for('api.reset_store_db') }}" method="POST" onsubmit="return confirm('🚨 정말로 모든 매장, 계정, 직원, 설정 데이터를 삭제하고 초기화하시겠습니까?\n이 작업은 절대 되돌릴 수 없습니다.');">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn btn-danger rounded-0">
+                                    <button type="submit" class="btn btn-danger">
                                         <i class="bi bi-trash-fill"></i> 시스템 전체 초기화 (매장/계정/설정)
                                     </button>
                                 </form>
                                 
                                 <form action="{{ url_for('api.reset_database_completely') }}" method="POST" onsubmit="return confirm('🚨 정말로 모든 상품 및 재고 데이터를 삭제하시겠습니까?\n판매/주문 내역이 있다면 먼저 삭제해야 합니다.');">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn btn-warning rounded-0">
+                                    <button type="submit" class="btn btn-warning">
                                         <i class="bi bi-trash"></i> 상품/재고 DB 초기화
                                     </button>
                                 </form>
@@ -375,11 +383,11 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
 </div>
 
 {% if current_user.is_admin and not current_user.store_id %}
-<div class="modal fade" id="edit-store-modal" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><div class="modal-content rounded-0"><div class="modal-header border-bottom-0"><h5 class="modal-title fw-bold">매장 수정</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="form-edit-store"><div class="mb-3"><label class="form-label small fw-bold text-muted">코드</label><input type="text" class="form-control rounded-0" id="edit_store_code" required></div><div class="mb-3"><label class="form-label small fw-bold text-muted">이름</label><input type="text" class="form-control rounded-0" id="edit_store_name" required></div><div class="mb-3"><label class="form-label small fw-bold text-muted">연락처</label><input type="tel" class="form-control rounded-0" id="edit_store_phone"></div><div id="edit-store-status"></div></form></div><div class="modal-footer border-top-0"><button class="btn btn-primary rounded-0" id="btn-save-edit-store">수정 완료</button></div></div></div></div>
+<div class="modal fade" id="edit-store-modal" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">매장 수정</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="form-edit-store"><div class="mb-3"><label>코드</label><input type="text" class="form-control" id="edit_store_code" required></div><div class="mb-3"><label>이름</label><input type="text" class="form-control" id="edit_store_name" required></div><div class="mb-3"><label>연락처</label><input type="tel" class="form-control" id="edit_store_phone"></div><div id="edit-store-status"></div></form></div><div class="modal-footer"><button class="btn btn-primary" id="btn-save-edit-store">수정 완료</button></div></div></div></div>
 {% endif %}
 
 {% if current_user.is_admin and current_user.store_id %}
-<div class="modal fade" id="edit-staff-modal" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><div class="modal-content rounded-0"><div class="modal-header border-bottom-0"><h5 class="modal-title fw-bold">직원 수정</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="form-edit-staff"><div class="mb-3"><label class="form-label small fw-bold text-muted">이름</label><input type="text" class="form-control rounded-0" id="edit_staff_name" required></div><div class="mb-3"><label class="form-label small fw-bold text-muted">직책</label><input type="text" class="form-control rounded-0" id="edit_staff_position"></div><div class="mb-3"><label class="form-label small fw-bold text-muted">연락처</label><input type="tel" class="form-control rounded-0" id="edit_staff_contact"></div><div id="edit-staff-status"></div></form></div><div class="modal-footer border-top-0"><button class="btn btn-primary rounded-0" id="btn-save-edit-staff">수정 완료</button></div></div></div></div>
+<div class="modal fade" id="edit-staff-modal" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">직원 수정</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="form-edit-staff"><div class="mb-3"><label>이름</label><input type="text" class="form-control" id="edit_staff_name" required></div><div class="mb-3"><label>직책</label><input type="text" class="form-control" id="edit_staff_position"></div><div class="mb-3"><label>연락처</label><input type="tel" class="form-control" id="edit_staff_contact"></div><div id="edit-staff-status"></div></form></div><div class="modal-footer"><button class="btn btn-primary" id="btn-save-edit-staff">수정 완료</button></div></div></div></div>
 {% endif %}
 {% endblock %}
 

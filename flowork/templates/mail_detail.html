@@ -1,41 +1,28 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container-fluid p-0">
-    <div class="card rounded-0 border shadow-sm">
-        <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-            <h5 class="mb-0 fw-bold">{{ mail.title }}</h5>
-            <span class="text-muted small">{{ mail.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
-        </div>
-        <div class="card-body">
-            <div class="mb-4 pb-3 border-bottom">
-                <div class="row">
-                    <div class="col-md-6 mb-2 mb-md-0">
-                        <span class="text-muted small fw-bold d-block">보낸사람</span>
-                        <span class="badge bg-light text-dark border rounded-0 fs-6 fw-normal">
-                            {{ mail.sender_store.store_name if mail.sender_store else '본사' }}
-                        </span>
-                    </div>
-                    <div class="col-md-6 text-md-end">
-                        <span class="text-muted small fw-bold d-block">받는사람</span>
-                        <span class="badge bg-light text-dark border rounded-0 fs-6 fw-normal">
-                            {{ mail.receiver_store.store_name if mail.receiver_store else '본사' }}
-                        </span>
-                    </div>
-                </div>
+<div class="container my-4">
+        
+        
+
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{{ mail.title }}</h5>
+                <span class="text-muted small">{{ mail.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
             </div>
-            <div class="py-2" style="white-space: pre-wrap; min-height: 300px; line-height: 1.6;">{{ mail.content }}</div>
-        </div>
-        <div class="card-footer bg-light d-flex justify-content-between align-items-center py-3">
-            <a href="{{ url_for('ui.mail_box', type='sent' if is_sender else 'inbox') }}" class="btn btn-secondary rounded-0 px-3">
-                <i class="bi bi-list-ul me-1"></i> 목록으로
-            </a>
-            <button class="btn btn-outline-danger rounded-0 btn-delete-mail px-3" data-id="{{ mail.id }}">
-                <i class="bi bi-trash me-1"></i> 삭제
-            </button>
+            <div class="card-body">
+                <div class="mb-4 pb-2 border-bottom">
+                    <strong>보낸사람:</strong> {{ mail.sender_store.store_name if mail.sender_store else '본사' }} <br>
+                    <strong>받는사람:</strong> {{ mail.receiver_store.store_name if mail.receiver_store else '본사' }}
+                </div>
+                <div style="white-space: pre-wrap; min-height: 200px;">{{ mail.content }}</div>
+            </div>
+            <div class="card-footer d-flex justify-content-between">
+                <a href="{{ url_for('ui.mail_box', type='sent' if is_sender else 'inbox') }}" class="btn btn-secondary">목록으로</a>
+                <button class="btn btn-danger btn-delete-mail" data-id="{{ mail.id }}">삭제</button>
+            </div>
         </div>
     </div>
-</div>
 {% endblock %}
 
 {% block scripts %}

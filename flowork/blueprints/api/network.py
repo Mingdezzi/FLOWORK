@@ -1,7 +1,10 @@
 from flask import request, jsonify, abort
 from flask_login import login_required, current_user
+from flowork.models import db, Suggestion, SuggestionComment, StoreMail, Store
 from flowork.services.network_service import NetworkService
 from . import api_bp
+
+# --- 건의사항 API ---
 
 @api_bp.route('/api/suggestions', methods=['POST'])
 @login_required
@@ -49,14 +52,17 @@ def delete_suggestion(s_id):
         user=current_user
     )
     
-    status_code = 200 if result['status'] == 'success' else 403 
-    
+    status_code = 200 if result['status'] == 'success' else 403 # 403 for permission error usually
+    # But service returns 'error', keeping generic 500 or 400 is safer if not strictly classified
+    # Re-mapping based on message for precision if needed, but staying consistent with previous pattern:
     if result['status'] == 'error' and '권한' in result['message']:
         status_code = 403
     elif result['status'] == 'error' and '없음' in result['message']:
         status_code = 404
         
     return jsonify(result), status_code
+
+# --- 점간메일 API ---
 
 @api_bp.route('/api/mails', methods=['POST'])
 @login_required

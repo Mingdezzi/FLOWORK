@@ -2,8 +2,10 @@ import os
 import asyncio
 import aiohttp
 import shutil
+import random
 import traceback
 import json
+import statistics
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont, ImageStat
 from flask import current_app

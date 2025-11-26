@@ -8,23 +8,23 @@ data-api-schedule-delete-url-prefix="{{ url_for('api.delete_schedule_event', eve
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid p-0">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="section-title mb-0 border-bottom-0 pb-0"><i class="bi bi-calendar-week-fill me-2"></i>매장 일정 관리</h2>
-    </div>
-
-    <div class="card rounded-0 border shadow-sm">
-        <div class="card-body p-3">
+<div class="container my-4">
+    <div class="card mb-3">
+        <div class="card-header">
+            <h2 class="mb-0"><i class="bi bi-calendar-week-fill me-2"></i>매장 일정</h2>
+        </div>
+        <div class="card-body">
             <div id='calendar'></div>
         </div>
     </div>
+    
 </div>
 
 <div class="modal fade" id="event-modal" tabindex="-1" aria-labelledby="eventModalLabel" aria-hidden="true">
     <div class="modal-dialog">
-        <div class="modal-content rounded-0">
-            <div class="modal-header bg-white border-bottom-0">
-                <h5 class="modal-title fw-bold" id="eventModalLabel">일정 등록</h5>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="eventModalLabel">일정 등록</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -32,8 +32,8 @@ data-api-schedule-delete-url-prefix="{{ url_for('api.delete_schedule_event', eve
                     <input type="hidden" id="event_id" name="event_id">
                     
                     <div class="mb-3">
-                        <label for="event_staff" class="form-label small fw-bold text-muted">직원*</label>
-                        <select class="form-select rounded-0" id="event_staff" name="staff_id" required>
+                        <label for="event_staff" class="form-label">직원*</label>
+                        <select class="form-select" id="event_staff" name="staff_id" required>
                             <option value="0">-- 매장 전체 --</option>
                             {% if staff_list %}
                                 {% for staff in staff_list %}
@@ -44,8 +44,8 @@ data-api-schedule-delete-url-prefix="{{ url_for('api.delete_schedule_event', eve
                     </div>
 
                     <div class="mb-3">
-                        <label for="event_type" class="form-label small fw-bold text-muted">일정 종류*</label>
-                        <select class="form-select rounded-0" id="event_type" name="event_type" required>
+                        <label for="event_type" class="form-label">일정 종류*</label>
+                        <select class="form-select" id="event_type" name="event_type" required>
                             <option value="일정" data-color="#0d6efd">일정 (기본)</option>
                             <option value="휴무" data-color="#dc3545">휴무</option>
                             <option value="연차" data-color="#fd7e14">연차</option>
@@ -55,38 +55,36 @@ data-api-schedule-delete-url-prefix="{{ url_for('api.delete_schedule_event', eve
                     </div>
                     
                     <div class="mb-3">
-                        <label for="event_title" class="form-label small fw-bold text-muted">일정 제목*</label>
-                        <input type="text" class="form-control rounded-0" id="event_title" name="title" required placeholder="일정 내용을 입력하세요">
+                        <label for="event_title" class="form-label">일정 제목*</label>
+                        <input type="text" class="form-control" id="event_title" name="title" required>
                     </div>
                     
                     <div class="mb-3">
-                        <label for="event_start_date" class="form-label small fw-bold text-muted">시작 날짜*</label>
-                        <input type="date" class="form-control rounded-0" id="event_start_date" name="start_time" required>
+                        <label for="event_start_date" class="form-label">시작 날짜*</label>
+                        <input type="date" class="form-control" id="event_start_date" name="start_time" required>
                     </div>
                     
-                    <div class="mb-3">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input rounded-0" type="checkbox" id="event_all_day" name="all_day" checked>
-                            <label class="form-check-label" for="event_all_day">하루 종일</label>
-                        </div>
+                    <div class="mb-3 form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="event_all_day" name="all_day" checked>
+                        <label class="form-check-label" for="event_all_day">하루 종일</label>
                     </div>
                     
                     <div id="event_end_date_wrapper" class="mb-3" style="display: none;">
-                        <label for="event_end_date" class="form-label small fw-bold text-muted">종료 날짜 (선택)</label>
-                        <input type="date" class="form-control rounded-0" id="event_end_date" name="end_time">
-                        <div class="form-text small">종료일은 시작일 다음 날부터 선택 가능합니다.</div>
+                        <label for="event_end_date" class="form-label">종료 날짜 (선택)</label>
+                        <input type="date" class="form-control" id="event_end_date" name="end_time">
+                        <div class="form-text">종료일은 시작일 다음 날부터 선택 가능합니다. (예: 2일 휴가 시 시작일+1)</div>
                     </div>
 
                     <div id="event-modal-status" class="mt-2"></div>
                 </form>
             </div>
-            <div class="modal-footer border-top-0 d-flex justify-content-between">
-                <button type="button" class="btn btn-danger rounded-0" id="btn-delete-event" style="display: none;">
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-danger" id="btn-delete-event" style="display: none;">
                     <i class="bi bi-trash-fill me-1"></i> 삭제
                 </button>
-                <div class="ms-auto d-flex gap-2">
-                    <button type="button" class="btn btn-secondary rounded-0" data-bs-dismiss="modal">취소</button>
-                    <button type="button" class="btn btn-primary rounded-0" id="btn-save-event">저장</button>
+                <div>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="button" class="btn btn-primary" id="btn-save-event">저장</button>
                 </div>
             </div>
         </div>

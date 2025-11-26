@@ -1,53 +1,27 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container-fluid p-0">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="section-title mb-0 border-bottom-0 pb-0"><i class="bi bi-activity me-2"></i>수평이동 전체 현황</h2>
-    </div>
-
-    <div class="card rounded-0 border shadow-sm">
+<div class="container my-4">
+        
+        
+        <h2 class="section-title">수평이동 전체 현황</h2>
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0 text-center">
-                <thead class="table-light">
-                    <tr>
-                        <th>날짜</th>
-                        <th>유형</th>
-                        <th>보낸곳</th>
-                        <th>받는곳</th>
-                        <th>상품정보</th>
-                        <th>수량</th>
-                        <th>상태</th>
-                    </tr>
-                </thead>
+            <table class="table table-sm table-striped">
+                <thead><tr><th>날짜</th><th>유형</th><th>보낸곳</th><th>받는곳</th><th>상품</th><th>수량</th><th>상태</th></tr></thead>
                 <tbody>
                     {% for t in transfers %}
                     <tr>
                         <td>{{ t.created_at.strftime('%Y-%m-%d') }}</td>
-                        <td>
-                            {% if t.transfer_type == 'INSTRUCTION' %}<span class="badge bg-danger rounded-0">본사지시</span>
-                            {% else %}<span class="badge bg-info text-dark rounded-0">매장요청</span>{% endif %}
-                        </td>
+                        <td>{{ t.transfer_type }}</td>
                         <td>{{ t.source_store.store_name }}</td>
                         <td>{{ t.target_store.store_name }}</td>
-                        <td class="text-start ps-4">
-                            <div class="fw-bold">{{ t.variant.product.product_name }}</div>
-                            <small class="text-muted">{{ t.variant.product.product_number }} ({{ t.variant.color }}/{{ t.variant.size }})</small>
-                        </td>
+                        <td>{{ t.variant.product.product_name }} ({{ t.variant.color }}/{{ t.variant.size }})</td>
                         <td>{{ t.quantity }}</td>
-                        <td>
-                            {% if t.status == 'REQUESTED' %}<span class="badge bg-warning text-dark rounded-0">요청됨</span>
-                            {% elif t.status == 'SHIPPED' %}<span class="badge bg-primary rounded-0">이동중(출고)</span>
-                            {% elif t.status == 'RECEIVED' %}<span class="badge bg-success rounded-0">이동완료</span>
-                            {% elif t.status == 'REJECTED' %}<span class="badge bg-secondary rounded-0">거부됨</span>
-                            {% elif t.status == 'CANCELLED' %}<span class="badge bg-dark rounded-0">취소됨</span>
-                            {% else %}{{ t.status }}{% endif %}
-                        </td>
+                        <td>{{ t.status }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
-</div>
 {% endblock %}

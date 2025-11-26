@@ -234,12 +234,3 @@ def delete_comment(comment_id):
         print(f"Error deleting comment: {e}")
         flash(f"댓글 삭제 중 오류 발생: {e}", "error")
         return redirect(url_for('ui.announcement_list'))
-
-# [신규] 시스템 로그 페이지 라우트 추가
-@ui_bp.route('/system/logs')
-@login_required
-def system_logs():
-    if not current_user.is_admin and not current_user.is_super_admin:
-        abort(403, description="접근 권한이 없습니다.")
-    
-    return render_template('system_log.html', active_page='system_log')

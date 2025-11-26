@@ -7,171 +7,129 @@ data-image-url-prefix="{{ IMAGE_URL_PREFIX }}"
 {% endblock %}
 
 {% block content %}
-<style>
-    /* 키패드 UI 스타일 */
-    .keypad-hidden { display: none !important; }
-    .keypad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; width: 100%; }
-    .keypad-qwerty { display: flex; flex-direction: column; gap: 5px; width: 100%; }
-    .qwerty-row { display: flex; justify-content: center; gap: 3px; }
-    
-    .keypad-btn, .qwerty-key {
-        height: 50px;
-        font-size: 1.1rem;
-        font-weight: 500;
-        background-color: #fff;
-        border: 1px solid #dee2e6;
-        border-radius: 0; /* Journal 테마 */
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        user-select: none;
-    }
-    .qwerty-key { font-size: 0.9rem; padding: 0 2px; }
-    .keypad-btn:active, .qwerty-key:active { background-color: #e9ecef; }
-    .qwerty-row-bottom .keypad-btn[data-key=" "] { flex: 4; }
-    .key-special { background-color: #f8f9fa; }
-    
-    .category-grid { display: grid; gap: 5px; margin-bottom: 15px; }
-    .category-btn {
-        font-size: 0.85rem;
-        padding: 8px 4px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        border-radius: 0; /* Journal 테마 */
-    }
-</style>
-
-<div class="container-fluid p-0">
-    <div class="row g-4">
-        <div class="col-lg-5">
-            <div class="card h-100 rounded-0 border shadow-sm">
-                <div class="card-header bg-white py-3 border-bottom"> 
-                    <h5 class="mb-0 fw-bold"><i class="bi bi-search me-2"></i>상품 검색</h5> 
-                </div>
+<div class="container my-4">
+    <div class="row">
+        <div class="col-lg-5 mb-3">
+            <div class="card h-100">
+                <div class="card-header"> <h2 class="mb-0"><i class="bi bi-search me-2"></i>상품 검색</h2> </div>
                 <div class="card-body d-flex flex-column">
                     <form id="search-form" class="mb-2" onsubmit="return false;">
                         <div class="input-group mb-2">
-                            <input type="text" id="search-query-input" name="query" class="form-control rounded-0"
-                                   placeholder="품번 또는 상품명 검색..." value="{{ query or '' }}" autocomplete="off">
+                            <input type="text" id="search-query-input" name="query" class="form-control"
+                                   placeholder="품번 또는 상품명 검색..." value="{{ query or '' }}">
 
-                            <button class="btn btn-primary rounded-0" type="submit" id="search-submit-btn"> 
-                                <i class="bi bi-search"></i> 
-                            </button>
-                            <button class="btn btn-outline-secondary ms-2 rounded-0" type="button" id="keypad-clear-top">
-                                <i class="bi bi-x-lg me-1"></i>CLEAR
-                            </button>
+                            <button class="btn btn-primary" type="submit" id="search-submit-btn"> <i class="bi bi-search"></i> </button>
+                            <button class="btn btn-outline-secondary ms-2" type="button" id="keypad-clear-top"><i class="bi bi-x-lg me-1"></i>CLEAR</button>
                         </div>
+
                         <input type="hidden" name="selected_category" id="selected-category" value="{{ selected_category or '전체' }}">
                     </form>
 
                     <div id="category-bar" class="category-grid" 
                          style="grid-template-columns: repeat({{ category_config.columns }}, 1fr);">
                         {% for btn in category_config.buttons %}
-                        <button class="btn btn-outline-secondary category-btn {{ 'active' if selected_category == btn.value else '' }}" 
-                                data-category="{{ btn.value }}" type="button">
+                        <button class="btn category-btn {{ 'active' if selected_category == btn.value else '' }}" 
+                                data-category="{{ btn.value }}">
                             {{ btn.label }}
                         </button>
                         {% endfor %}
                     </div>
 
-                    <div id="keypad-container" class="mt-auto pt-3 border-top">
+                    <div id="keypad-container" class="mt-auto pt-3">
+                        
                         <div id="keypad-num" class="keypad-grid">
-                            <button type="button" class="keypad-btn num-btn" data-key="1">1</button>
-                            <button type="button" class="keypad-btn num-btn" data-key="2">2</button>
-                            <button type="button" class="keypad-btn num-btn" data-key="3">3</button>
-                            <button type="button" class="keypad-btn num-btn" data-key="4">4</button>
-                            <button type="button" class="keypad-btn num-btn" data-key="5">5</button>
-                            <button type="button" class="keypad-btn num-btn" data-key="6">6</button>
-                            <button type="button" class="keypad-btn num-btn" data-key="7">7</button>
-                            <button type="button" class="keypad-btn num-btn" data-key="8">8</button>
-                            <button type="button" class="keypad-btn num-btn" data-key="9">9</button>
-                            <button type="button" class="keypad-btn btn-light text-danger" data-key="backspace"><i class="bi bi-backspace"></i></button>
-                            <button type="button" class="keypad-btn num-btn" data-key="0">0</button>
-                            <button type="button" class="keypad-btn btn-primary text-white" data-key="mode-kor">한글</button>
+                            <button class="btn keypad-btn num-btn" data-key="1">1</button>
+                            <button class="btn keypad-btn num-btn" data-key="2">2</button>
+                            <button class="btn keypad-btn num-btn" data-key="3">3</button>
+                            <button class="btn keypad-btn num-btn" data-key="4">4</button>
+                            <button class="btn keypad-btn num-btn" data-key="5">5</button>
+                            <button class="btn keypad-btn num-btn" data-key="6">6</button>
+                            <button class="btn keypad-btn num-btn" data-key="7">7</button>
+                            <button class="btn keypad-btn num-btn" data-key="8">8</button>
+                            <button class="btn keypad-btn num-btn" data-key="9">9</button>
+                            <button class="btn btn-secondary keypad-btn" data-key="backspace"><i class="bi bi-backspace"></i></button>
+                            <button class="btn keypad-btn num-btn" data-key="0">0</button>
+                            <button class="btn btn-primary keypad-btn" data-key="mode-kor">한</button>
                         </div>
 
                         <div id="keypad-kor" class="keypad-qwerty keypad-hidden">
                             <div class="qwerty-row">
-                                <button type="button" class="qwerty-key" data-key="ㅂ">ㅂ</button>
-                                <button type="button" class="qwerty-key" data-key="ㅈ">ㅈ</button>
-                                <button type="button" class="qwerty-key" data-key="ㄷ">ㄷ</button>
-                                <button type="button" class="qwerty-key" data-key="ㄱ">ㄱ</button>
-                                <button type="button" class="qwerty-key" data-key="ㅅ">ㅅ</button>
-                                <button type="button" class="qwerty-key" data-key="ㅛ">ㅛ</button>
-                                <button type="button" class="qwerty-key" data-key="ㅕ">ㅕ</button>
-                                <button type="button" class="qwerty-key" data-key="ㅑ">ㅑ</button>
-                                <button type="button" class="qwerty-key" data-key="ㅐ">ㅐ</button>
-                                <button type="button" class="qwerty-key" data-key="ㅔ">ㅔ</button>
+                                <button class="qwerty-key" data-key="ㅂ">ㅂ</button>
+                                <button class="qwerty-key" data-key="ㅈ">ㅈ</button>
+                                <button class="qwerty-key" data-key="ㄷ">ㄷ</button>
+                                <button class="qwerty-key" data-key="ㄱ">ㄱ</button>
+                                <button class="qwerty-key" data-key="ㅅ">ㅅ</button>
+                                <button class="qwerty-key" data-key="ㅛ">ㅛ</button>
+                                <button class="qwerty-key" data-key="ㅕ">ㅕ</button>
+                                <button class="qwerty-key" data-key="ㅑ">ㅑ</button>
+                                <button class="qwerty-key" data-key="ㅐ">ㅐ</button>
+                                <button class="qwerty-key" data-key="ㅔ">ㅔ</button>
+                            </div>
+                            <div class="qwerty-row qwerty-row-2">
+                                <button class="qwerty-key" data-key="ㅁ">ㅁ</button>
+                                <button class="qwerty-key" data-key="ㄴ">ㄴ</button>
+                                <button class="qwerty-key" data-key="ㅇ">ㅇ</button>
+                                <button class="qwerty-key" data-key="ㄹ">ㄹ</button>
+                                <button class="qwerty-key" data-key="ㅎ">ㅎ</button>
+                                <button class="qwerty-key" data-key="ㅗ">ㅗ</button>
+                                <button class="qwerty-key" data-key="ㅓ">ㅓ</button>
+                                <button class="qwerty-key" data-key="ㅏ">ㅏ</button>
+                                <button class="qwerty-key" data-key="ㅣ">ㅣ</button>
                             </div>
                             <div class="qwerty-row">
-                                <button type="button" class="qwerty-key" data-key="ㅁ">ㅁ</button>
-                                <button type="button" class="qwerty-key" data-key="ㄴ">ㄴ</button>
-                                <button type="button" class="qwerty-key" data-key="ㅇ">ㅇ</button>
-                                <button type="button" class="qwerty-key" data-key="ㄹ">ㄹ</button>
-                                <button type="button" class="qwerty-key" data-key="ㅎ">ㅎ</button>
-                                <button type="button" class="qwerty-key" data-key="ㅗ">ㅗ</button>
-                                <button type="button" class="qwerty-key" data-key="ㅓ">ㅓ</button>
-                                <button type="button" class="qwerty-key" data-key="ㅏ">ㅏ</button>
-                                <button type="button" class="qwerty-key" data-key="ㅣ">ㅣ</button>
+                                 <button class="qwerty-key key-special" data-key="shift-kor">⇧</button> <button class="qwerty-key" data-key="ㅋ">ㅋ</button>
+                                <button class="qwerty-key" data-key="ㅌ">ㅌ</button>
+                                <button class="qwerty-key" data-key="ㅊ">ㅊ</button>
+                                <button class="qwerty-key" data-key="ㅍ">ㅍ</button>
+                                <button class="qwerty-key" data-key="ㅠ">ㅠ</button>
+                                <button class="qwerty-key" data-key="ㅜ">ㅜ</button>
+                                <button class="qwerty-key" data-key="ㅡ">ㅡ</button>
                             </div>
-                            <div class="qwerty-row">
-                                <button type="button" class="qwerty-key key-special" data-key="shift-kor">⇧</button> 
-                                <button type="button" class="qwerty-key" data-key="ㅋ">ㅋ</button>
-                                <button type="button" class="qwerty-key" data-key="ㅌ">ㅌ</button>
-                                <button type="button" class="qwerty-key" data-key="ㅊ">ㅊ</button>
-                                <button type="button" class="qwerty-key" data-key="ㅍ">ㅍ</button>
-                                <button type="button" class="qwerty-key" data-key="ㅠ">ㅠ</button>
-                                <button type="button" class="qwerty-key" data-key="ㅜ">ㅜ</button>
-                                <button type="button" class="qwerty-key" data-key="ㅡ">ㅡ</button>
-                            </div>
-                            <div class="qwerty-row qwerty-row-bottom mt-1">
-                                <button type="button" class="keypad-btn btn-light text-danger" data-key="backspace" style="flex:1;"><i class="bi bi-backspace"></i></button>
-                                <button type="button" class="keypad-btn" data-key=" " style="flex:2;">Space</button>
-                                <button type="button" class="keypad-btn btn-primary text-white" data-key="mode-eng" style="flex:1;">영문</button>
+                            <div class="qwerty-row qwerty-row-bottom">
+                                <button class="btn btn-secondary keypad-btn" data-key="backspace"><i class="bi bi-backspace"></i></button>
+                                <button class="btn keypad-btn" data-key=" ">Space</button>
+                                <button class="btn btn-primary keypad-btn" data-key="mode-eng">영</button>
                             </div>
                         </div>
                         
                         <div id="keypad-eng" class="keypad-qwerty keypad-hidden">
                             <div class="qwerty-row">
-                                <button type="button" class="qwerty-key" data-key="Q">Q</button>
-                                <button type="button" class="qwerty-key" data-key="W">W</button>
-                                <button type="button" class="qwerty-key" data-key="E">E</button>
-                                <button type="button" class="qwerty-key" data-key="R">R</button>
-                                <button type="button" class="qwerty-key" data-key="T">T</button>
-                                <button type="button" class="qwerty-key" data-key="Y">Y</button>
-                                <button type="button" class="qwerty-key" data-key="U">U</button>
-                                <button type="button" class="qwerty-key" data-key="I">I</button>
-                                <button type="button" class="qwerty-key" data-key="O">O</button>
-                                <button type="button" class="qwerty-key" data-key="P">P</button>
+                                <button class="qwerty-key" data-key="Q">Q</button>
+                                <button class="qwerty-key" data-key="W">W</button>
+                                <button class="qwerty-key" data-key="E">E</button>
+                                <button class="qwerty-key" data-key="R">R</button>
+                                <button class="qwerty-key" data-key="T">T</button>
+                                <button class="qwerty-key" data-key="Y">Y</button>
+                                <button class="qwerty-key" data-key="U">U</button>
+                                <button class="qwerty-key" data-key="I">I</button>
+                                <button class="qwerty-key" data-key="O">O</button>
+                                <button class="qwerty-key" data-key="P">P</button>
+                            </div>
+                            <div class="qwerty-row qwerty-row-2">
+                                <button class="qwerty-key" data-key="A">A</button>
+                                <button class="qwerty-key" data-key="S">S</button>
+                                <button class="qwerty-key" data-key="D">D</button>
+                                <button class="qwerty-key" data-key="F">F</button>
+                                <button class="qwerty-key" data-key="G">G</button>
+                                <button class="qwerty-key" data-key="H">H</button>
+                                <button class="qwerty-key" data-key="J">J</button>
+                                <button class="qwerty-key" data-key="K">K</button>
+                                <button class="qwerty-key" data-key="L">L</button>
                             </div>
                             <div class="qwerty-row">
-                                <button type="button" class="qwerty-key" data-key="A">A</button>
-                                <button type="button" class="qwerty-key" data-key="S">S</button>
-                                <button type="button" class="qwerty-key" data-key="D">D</button>
-                                <button type="button" class="qwerty-key" data-key="F">F</button>
-                                <button type="button" class="qwerty-key" data-key="G">G</button>
-                                <button type="button" class="qwerty-key" data-key="H">H</button>
-                                <button type="button" class="qwerty-key" data-key="J">J</button>
-                                <button type="button" class="qwerty-key" data-key="K">K</button>
-                                <button type="button" class="qwerty-key" data-key="L">L</button>
+                                <button class="qwerty-key key-special" data-key="shift-eng">⇧</button> 
+                                <button class="qwerty-key" data-key="Z">Z</button>
+                                <button class="qwerty-key" data-key="X">X</button>
+                                <button class="qwerty-key" data-key="C">C</button>
+                                <button class="qwerty-key" data-key="V">V</button>
+                                <button class="qwerty-key" data-key="B">B</button>
+                                <button class="qwerty-key" data-key="N">N</button>
+                                <button class="qwerty-key" data-key="M">M</button>
                             </div>
-                            <div class="qwerty-row">
-                                <button type="button" class="qwerty-key key-special" data-key="shift-eng">⇧</button> 
-                                <button type="button" class="qwerty-key" data-key="Z">Z</button>
-                                <button type="button" class="qwerty-key" data-key="X">X</button>
-                                <button type="button" class="qwerty-key" data-key="C">C</button>
-                                <button type="button" class="qwerty-key" data-key="V">V</button>
-                                <button type="button" class="qwerty-key" data-key="B">B</button>
-                                <button type="button" class="qwerty-key" data-key="N">N</button>
-                                <button type="button" class="qwerty-key" data-key="M">M</button>
-                            </div>
-                            <div class="qwerty-row qwerty-row-bottom mt-1">
-                                <button type="button" class="keypad-btn btn-light text-danger" data-key="backspace" style="flex:1;"><i class="bi bi-backspace"></i></button>
-                                <button type="button" class="keypad-btn" data-key=" " style="flex:2;">Space</button>
-                                <button type="button" class="keypad-btn btn-primary text-white" data-key="mode-num" style="flex:1;">숫자</button>
+                            <div class="qwerty-row qwerty-row-bottom">
+                                <button class="btn btn-secondary keypad-btn" data-key="backspace"><i class="bi bi-backspace"></i></button>
+                                <button class="btn keypad-btn" data-key=" ">Space</button>
+                                <button class="btn btn-primary keypad-btn" data-key="mode-num">숫</button>
                             </div>
                         </div>
 
@@ -180,68 +138,75 @@ data-image-url-prefix="{{ IMAGE_URL_PREFIX }}"
             </div>
         </div>
 
-        <div class="col-lg-7">
-            <div id="product-list-view" class="card full-height-card rounded-0 border shadow-sm" style="min-height: 600px;">
-                <div class="card-header bg-white py-3 border-bottom">
+        <div class="col-lg-7 mb-3" id="right-panel">
+            <div id="product-list-view" class="card full-height-card">
+                <div class="card-header">
                     {% if showing_favorites %}
-                        <h5 class="mb-0 fw-bold" id="product-list-header"><i class="bi bi-star-fill me-2 text-warning"></i>즐겨찾기</h5>
+                        <h2 class="mb-0" id="product-list-header"><i class="bi bi-star-fill me-2 text-warning"></i>즐겨찾기</h2>
                     {% else %}
-                        <h5 class="mb-0 fw-bold" id="product-list-header"><i class="bi bi-card-list me-2"></i>
+                        <h2 class="mb-0" id="product-list-header"><i class="bi bi-card-list me-2"></i>
                             상품 검색 결과
                             {% if selected_category and selected_category != '전체' %}
-                                <span class="badge bg-success rounded-0 ms-2">{{ selected_category }}</span>
+                                <span class="badge bg-success ms-2">{{ selected_category }}</span>
                             {% endif %}
-                        </h5>
+                        </h2>
                     {% endif %}
                 </div>
                 
-                <div class="card-body p-0">
-                    <div class="product-list-scrollable" style="height: 500px; overflow-y: auto;">
+                <div class="card-body">
+                    <div class="product-list-scrollable">
                         <ul class="list-group list-group-flush product-list" id="product-list-ul">
                             {% for product in products %}
-                            <li class="list-group-item p-3">
+                            <li class="list-group-item">
                                 <a href="{{ url_for('ui.product_detail', product_id=product.id) }}" class="product-item d-flex align-items-center text-decoration-none text-body">
-                                    <img src="{{ get_image_url(product) }}" alt="{{ product.product_name }}" class="item-image rounded-0 border flex-shrink-0 p-1" style="width:60px; height:60px; object-fit:contain; background:#fff;" onerror="imgFallback(this)">
+                                    <img src="{{ get_image_url(product) }}" alt="{{ product.product_name }}" class="item-image rounded border flex-shrink-0" onerror="imgFallback(this)">
                                     <div class="item-details flex-grow-1 ms-3">
                                         <div class="product-name fw-bold">{{ product.product_name }}</div>
                                         <div class="product-meta small text-muted">
                                             <span class="meta-item me-2">{{ product.product_number }}</span>
                                             {% if product.variants %}
-                                                {% set first_variant = product.variants[0] %}
+                                                {% set colors = product.variants | map(attribute='color') | unique | sort | join(', ') %}
+                                                {% if colors %} <span class="meta-item d-block d-sm-inline me-2"><i class="bi bi-palette"></i> {{ colors }}</span> {% endif %}
+                                                {% set first_variant = product.variants[0] if product.variants else None %}
+                                                {% if first_variant %}
                                                 <span class="meta-item me-2 fw-bold text-dark">{{ "{:,d}".format(first_variant.sale_price) }}원</span>
-                                            {% else %}
-                                                <span class="meta-item sale-price">가격정보없음</span>
-                                            {% endif %}
+                                                {% if first_variant.original_price and first_variant.original_price > 0 and first_variant.original_price != first_variant.sale_price %}
+                                                    <span class="meta-item discount text-danger">
+                                                        {{ ((1 - (first_variant.sale_price / first_variant.original_price)) * 100) | int }}%
+                                                    </span>
+                                                {% else %}<span class="meta-item discount text-secondary">0%</span>{% endif %}
+                                                {% else %}<span class="meta-item sale-price">가격정보없음</span><span class="meta-item discount">-%</span>{% endif %}
+                                            {% else %}<span class="meta-item sale-price">가격정보없음</span><span class="meta-item discount">-%</span>{% endif %}
                                         </div>
                                     </div>
                                 </a>
                             </li>
                             {% else %}
-                                <li class="list-group-item text-center text-muted p-5">
+                                <li class="list-group-item text-center text-muted p-4">
                                     {% if showing_favorites %} 즐겨찾기 상품이 없습니다. {% else %} 검색된 상품이 없습니다. {% endif %}
                                 </li>
                             {% endfor %}
                         </ul>
                     </div>
-                </div>
-                
-                <div class="card-footer bg-white border-top-0 d-flex justify-content-center p-3">
-                    <nav aria-label="Page navigation">
-                        <ul class="pagination pagination-sm mb-0" id="search-pagination">
-                        </ul>
-                    </nav>
+                    
+                    <div class="card-footer d-flex justify-content-center p-2" style="flex-shrink: 0;">
+                        <nav aria-label="Page navigation">
+                            <ul class="pagination pagination-sm mb-0" id="search-pagination">
+                                </ul>
+                        </nav>
+                    </div>
                 </div>
             </div>
 
-            <div id="product-detail-view" class="card full-height-card rounded-0 border shadow-sm" style="display: none; min-height: 600px;">
-                <div class="card-header bg-white d-flex align-items-center py-3 border-bottom">
-                    <button class="btn btn-sm btn-secondary rounded-0 me-2" id="btn-back-to-list">
+            <div id="product-detail-view" class="card full-height-card" style="display: none;">
+                <div class="card-header d-flex align-items-center">
+                    <button class="btn btn-sm btn-secondary me-2" id="btn-back-to-list">
                         <i class="bi bi-arrow-left"></i> 뒤로가기
                     </button>
-                    <h5 class="mb-0 fw-bold">상품 상세</h5>
+                    <h2 class="mb-0 fs-5">상품 상세</h2>
                 </div>
                 <div class="card-body p-0">
-                    <iframe id="product-detail-iframe" src="about:blank" class="detail-iframe-container" style="width:100%; height:100%; border:none;"></iframe>
+                    <iframe id="product-detail-iframe" src="about:blank" class="detail-iframe-container"></iframe>
                 </div>
             </div>
         </div>
@@ -250,6 +215,17 @@ data-image-url-prefix="{{ IMAGE_URL_PREFIX }}"
 {% endblock %}
 
 {% block scripts %}
-<script src="https://unpkg.com/hangul-js"></script>
 <script src="{{ url_for('static', filename='js/index.js') }}" defer></script>
+<script>
+    function imgFallback(img) {
+        const src = img.src;
+        if (src.includes('_DF_01.jpg')) {
+            img.src = src.replace('_DF_01.jpg', '_DM_01.jpg');
+        } else if (src.includes('_DM_01.jpg')) {
+            img.src = src.replace('_DM_01.jpg', '_DG_01.jpg');
+        } else {
+            img.style.visibility = 'hidden';
+        }
+    }
+</script>
 {% endblock %}

@@ -5,11 +5,7 @@ from flask import Flask
 from flask_wtf.csrf import CSRFProtect
 from .extensions import db, login_manager, celery, migrate, cache
 from .models import User
-from .commands import (
-    init_db_command, update_db_command,
-    reset_transactions_command, reset_products_command, reset_community_command,
-    list_brands_command, reset_brand_command
-)
+from .commands import init_db_command, update_db_command
 
 csrf = CSRFProtect()
 
@@ -33,11 +29,13 @@ def create_app(config_class):
     login_manager.init_app(app)
     csrf.init_app(app)
     migrate.init_app(app, db)
+    
     cache.init_app(app)
 
     celery.conf.broker_url = app.config['CELERY_BROKER_URL']
     celery.conf.result_backend = app.config['CELERY_RESULT_BACKEND']
     
+    # [수정] Celery 설정 업데이트 (메모리 관리 설정 적용)
     celery.conf.update(
         accept_content=['json'],
         task_serializer='json',
@@ -55,11 +53,6 @@ def create_app(config_class):
 
     app.cli.add_command(init_db_command)
     app.cli.add_command(update_db_command)
-    app.cli.add_command(reset_transactions_command)
-    app.cli.add_command(reset_products_command)
-    app.cli.add_command(reset_community_command)
-    app.cli.add_command(list_brands_command)
-    app.cli.add_command(reset_brand_command)
 
     from .blueprints.ui import ui_bp
     from .blueprints.api import api_bp

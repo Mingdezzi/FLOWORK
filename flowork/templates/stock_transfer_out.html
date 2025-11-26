@@ -1,17 +1,15 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container-fluid p-0">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="section-title mb-0 border-bottom-0 pb-0"><i class="bi bi-box-arrow-right me-2"></i>수평출고 관리</h2>
-        <div class="text-end">
-            <span class="text-muted small">타 매장이나 본사로부터 요청받은 재고 이동 내역을 확인하고 출고(확정) 처리합니다.</span>
-        </div>
-    </div>
+<div class="container my-4">
+        
+        
+        
+        <h2 class="section-title"><i class="bi bi-box-arrow-right me-2"></i>수평출고 관리</h2>
+        <p class="text-muted mb-4">타 매장이나 본사로부터 요청받은 재고 이동 내역을 확인하고 출고(확정) 처리합니다.</p>
 
-    <div class="card rounded-0 border shadow-sm">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0 text-center">
+            <table class="table table-hover align-middle">
                 <thead class="table-light">
                     <tr>
                         <th>요청일</th>
@@ -28,39 +26,38 @@
                     <tr>
                         <td>{{ t.created_at.strftime('%Y-%m-%d') }}</td>
                         <td>
-                            {% if t.transfer_type == 'INSTRUCTION' %}<span class="badge bg-danger rounded-0">본사지시</span>
-                            {% else %}<span class="badge bg-info text-dark rounded-0">매장요청</span>{% endif %}
+                            {% if t.transfer_type == 'INSTRUCTION' %}<span class="badge bg-danger">본사지시</span>
+                            {% else %}<span class="badge bg-info text-dark">매장요청</span>{% endif %}
                         </td>
-                        <td class="fw-bold">{{ t.target_store.store_name }}</td>
-                        <td class="text-start ps-4">
+                        <td>{{ t.target_store.store_name }}</td>
+                        <td>
                             <div class="fw-bold">{{ t.variant.product.product_name }}</div>
                             <small class="text-muted">{{ t.variant.product.product_number }} ({{ t.variant.color }}/{{ t.variant.size }})</small>
                         </td>
                         <td>{{ t.quantity }}</td>
                         <td>
-                            {% if t.status == 'REQUESTED' %}<span class="badge bg-warning text-dark rounded-0">요청됨(대기)</span>
-                            {% elif t.status == 'SHIPPED' %}<span class="badge bg-primary rounded-0">출고완료</span>
-                            {% elif t.status == 'RECEIVED' %}<span class="badge bg-success rounded-0">입고완료</span>
-                            {% elif t.status == 'REJECTED' %}<span class="badge bg-secondary rounded-0">거부됨</span>
+                            {% if t.status == 'REQUESTED' %}<span class="badge bg-warning text-dark">요청됨(대기)</span>
+                            {% elif t.status == 'SHIPPED' %}<span class="badge bg-primary">출고완료</span>
+                            {% elif t.status == 'RECEIVED' %}<span class="badge bg-success">입고완료</span>
+                            {% elif t.status == 'REJECTED' %}<span class="badge bg-secondary">거부됨</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if t.status == 'REQUESTED' %}
-                            <button class="btn btn-sm btn-primary rounded-0 btn-ship" data-id="{{ t.id }}">출고확정</button>
-                            <button class="btn btn-sm btn-outline-danger rounded-0 btn-reject" data-id="{{ t.id }}">거부</button>
+                            <button class="btn btn-sm btn-primary btn-ship" data-id="{{ t.id }}">출고확정</button>
+                            <button class="btn btn-sm btn-outline-danger btn-reject" data-id="{{ t.id }}">거부</button>
                             {% else %}
                             <span class="text-muted small">-</span>
                             {% endif %}
                         </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="7" class="text-center py-5 text-muted">출고 요청 내역이 없습니다.</td></tr>
+                    <tr><td colspan="7" class="text-center py-4 text-muted">출고 요청 내역이 없습니다.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
-</div>
 {% endblock %}
 
 {% block scripts %}

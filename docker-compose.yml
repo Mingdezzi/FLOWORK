@@ -18,9 +18,8 @@ services:
     build: .
     container_name: flowork_worker
     restart: always
+    # Concurrency를 4로 설정하여 6코어/12GB RAM 환경에서 안정성 확보
     command: celery -A flowork.celery_worker.celery worker --loglevel=info --concurrency=4
-    environment:
-      - C_FORCE_ROOT=1
     env_file:
       - .env
     volumes:

@@ -5,10 +5,7 @@ from flask import request, jsonify, current_app, flash, redirect, url_for, abort
 from flask_login import login_required, current_user, logout_user
 from sqlalchemy import func, exc
 
-# [신규] UpdateLog 모델 추가
-from flowork.models import db, Brand, Store, Setting, User, Staff, Sale, StockHistory, UpdateLog
-# [신규] 버전 관리 서비스 추가
-from flowork.services.version_service import VersionService
+from flowork.models import db, Brand, Store, Setting, User, Staff, Announcement, Sale, StockHistory
 from . import api_bp
 from .utils import admin_required
 
@@ -70,9 +67,11 @@ def upload_brand_logo():
         return jsonify({'status': 'error', 'message': '선택된 파일이 없습니다.'}), 400
 
     try:
+        # [수정] 로고 저장 경로를 Worker와 공유되는 'product_images' 폴더로 변경
         static_folder = os.path.join(current_app.root_path, 'static', 'product_images')
         os.makedirs(static_folder, exist_ok=True)
         
+        # 썸네일 생성 전용 로고 파일명으로 저장
         file_path = os.path.join(static_folder, 'thumbnail_logo.png')
         file.save(file_path)
         
@@ -617,24 +616,3 @@ def delete_staff(staff_id):
         db.session.rollback()
         print(f"Error deleting staff: {e}")
         return jsonify({'status': 'error', 'message': f'서버 오류: {e}'}), 500
-
-# [신규] 시스템 로그 조회 API
-@api_bp.route('/api/system/logs', methods=['GET'])
-@login_required
-def get_update_logs():
-    logs = UpdateLog.query.order_by(UpdateLog.created_at.desc()).all()
-    data = [{
-        'version': log.version,
-        'title': log.title,
-        'content': log.content,
-        'date': log.created_at.strftime('%Y-%m-%d %H:%M'),
-        'admin': log.created_by.username if log.created_by else 'System'
-    } for log in logs]
-    return jsonify({'status': 'success', 'logs': data})
-
-# [신규] 시스템 로그 자동 생성 API
-@api_bp.route('/api/system/logs/auto', methods=['POST'])
-@admin_required
-def create_auto_log():
-    result = VersionService.generate_auto_log(current_user.id)
-    return jsonify(result)

@@ -1,7 +1,12 @@
+/**
+ * Sales POS Application Logic
+ * Refactored to use Class-based structure and Common Utilities
+ */
+
 class SalesApp {
     constructor() {
         this.urls = JSON.parse(document.body.dataset.apiUrls);
-        this.mode = 'sales';
+        this.mode = 'sales'; // 'sales' or 'refund'
         this.cart = [];
         this.heldCart = null;
         this.isOnline = false;
@@ -45,6 +50,7 @@ class SalesApp {
     }
 
     init() {
+        // 날짜 초기화
         const today = new Date();
         const lastMonth = new Date();
         lastMonth.setMonth(today.getMonth() - 1);
@@ -53,8 +59,10 @@ class SalesApp {
         this.dom.refundEnd.value = Flowork.fmtDate(today);
         this.dom.refundStart.value = Flowork.fmtDate(lastMonth);
 
+        // 설정 로드
         this.loadSettings();
 
+        // 이벤트 바인딩
         this.dom.modeSales.addEventListener('change', () => this.setMode('sales'));
         this.dom.modeRefund.addEventListener('change', () => this.setMode('refund'));
         
@@ -71,6 +79,7 @@ class SalesApp {
         this.dom.btnHold.addEventListener('click', () => this.toggleHold());
         this.dom.btnDiscount.addEventListener('click', () => this.applyAutoDiscount());
 
+        // 모달 닫힘 이벤트 (포커스 복귀)
         ['detail-modal', 'records-modal'].forEach(id => {
             document.getElementById(id).addEventListener('hidden.bs.modal', () => {
                 this.dom.searchInput.focus();
@@ -326,6 +335,7 @@ class SalesApp {
         this.dom.totalQty.textContent = Flowork.fmtNum(totalQty);
         this.dom.totalAmt.textContent = Flowork.fmtNum(totalAmt);
 
+        // 이벤트 위임 대신 직접 바인딩 (행 개수가 적으므로)
         tbody.querySelectorAll('.qty-in').forEach(el => {
             el.onchange = (e) => {
                 const v = parseInt(e.target.value);
@@ -435,8 +445,6 @@ class SalesApp {
     }
 }
 
-document.addEventListener('turbo:load', () => {
-    if (document.getElementById('sales-left-panel')) {
-        new SalesApp();
-    }
+document.addEventListener('DOMContentLoaded', () => {
+    new SalesApp();
 });

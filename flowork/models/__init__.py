@@ -8,4 +8,3 @@ from .crm import Customer, Repair
 from .operations import Attendance, CompetitorBrand, CompetitorSale
 from .network import Suggestion, SuggestionComment, StoreMail
 from .store_order import StoreOrder, StoreReturn
-from .system import UpdateLog

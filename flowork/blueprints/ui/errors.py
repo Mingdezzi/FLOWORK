@@ -43,7 +43,6 @@ ENDPOINT_MAP = {
     # 시스템 설정
     'ui.stock_management': 'stock',
     'ui.setting_page': 'setting',
-    'ui.system_logs': 'system_log', # [신규] 추가
     
     # 홈
     'ui.home': 'home'

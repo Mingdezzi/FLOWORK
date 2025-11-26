@@ -6,8 +6,7 @@ from flask import request, flash, redirect, url_for, abort, send_file, jsonify, 
 from flask_login import login_required, current_user
 from sqlalchemy import delete, text
 
-# [수정] 사용되지 않는 Variant, Sale, SaleItem, StockHistory 제거
-from flowork.models import db, Order, OrderProcessing, Announcement, ScheduleEvent, Staff, Setting, User, Store, Brand, Product, StoreStock
+from flowork.models import db, Order, OrderProcessing, Announcement, ScheduleEvent, Staff, Setting, User, Store, Brand, Product, Variant, StoreStock, Sale, SaleItem, StockHistory
 from flowork.services.db import sync_missing_data_in_db
 from . import api_bp
 from .utils import admin_required

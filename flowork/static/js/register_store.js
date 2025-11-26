@@ -1,50 +1,39 @@
-let currentRegisterStoreApp = null;
+document.addEventListener('DOMContentLoaded', () => {
+    
+    // [수정] CSRF 토큰 가져오기 (일관성 유지를 위해 추가)
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
-class RegisterStoreApp {
-    constructor() {
-        this.dom = {
-            brandSelect: document.getElementById('brand_id'),
-            storeSelect: document.getElementById('store_id')
-        };
-        this.apiBaseUrl = document.body.dataset.apiGetStoresUrl || '/api/brands/0/unregistered_stores';
-        this.csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-
-        this.boundHandleBrandChange = this.handleBrandChange.bind(this);
-        this.init();
+    const brandSelect = document.getElementById('brand_id');
+    const storeSelect = document.getElementById('store_id');
+    const apiBaseUrl = document.body.dataset.apiGetStoresUrl || '/api/brands/0/unregistered_stores';
+    
+    if (!brandSelect || !storeSelect || !apiBaseUrl) {
+        console.error("필수 폼 요소를 찾을 수 없습니다.");
+        return;
     }
 
-    init() {
-        if (this.dom.brandSelect && this.dom.storeSelect) {
-            this.dom.brandSelect.addEventListener('change', this.boundHandleBrandChange);
-        }
-    }
-
-    destroy() {
-        if (this.dom.brandSelect) {
-            this.dom.brandSelect.removeEventListener('change', this.boundHandleBrandChange);
-        }
-    }
-
-    async handleBrandChange() {
-        const brandId = this.dom.brandSelect.value;
+    brandSelect.addEventListener('change', async () => {
+        const brandId = brandSelect.value;
         
+        // 브랜드를 선택하지 않은 경우
         if (!brandId) {
-            this.dom.storeSelect.innerHTML = '<option value="">-- 브랜드를 먼저 선택하세요 --</option>';
-            this.dom.storeSelect.disabled = true;
+            storeSelect.innerHTML = '<option value="">-- 브랜드를 먼저 선택하세요 --</option>';
+            storeSelect.disabled = true;
             return;
         }
 
-        this.dom.storeSelect.innerHTML = '<option value="">매장 목록 로드 중...</option>';
-        this.dom.storeSelect.disabled = true;
+        storeSelect.innerHTML = '<option value="">매장 목록 로드 중...</option>';
+        storeSelect.disabled = true;
 
-        const fetchUrl = this.apiBaseUrl.replace('/0/', `/${brandId}/`);
+        // API URL 생성 (기본 URL의 '0'을 선택된 brandId로 교체)
+        const fetchUrl = apiBaseUrl.replace('/0/', `/${brandId}/`);
 
         try {
             const response = await fetch(fetchUrl, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': this.csrfToken
+                    'X-CSRFToken': csrfToken // [수정] CSRF 헤더 추가
                 }
             });
             const data = await response.json();
@@ -53,40 +42,25 @@ class RegisterStoreApp {
                 throw new Error(data.message || '매장 목록 로드 실패');
             }
 
-            this.dom.storeSelect.innerHTML = '';
+            // 매장 선택 드롭다운 채우기
+            storeSelect.innerHTML = ''; // 기존 옵션 비우기
             if (data.stores.length === 0) {
-                this.dom.storeSelect.innerHTML = '<option value="">-- 가입 가능한 매장이 없습니다 --</option>';
+                storeSelect.innerHTML = '<option value="">-- 가입 가능한 매장이 없습니다 --</option>';
             } else {
-                this.dom.storeSelect.innerHTML = '<option value="">-- 매장을 선택하세요 --</option>';
+                storeSelect.innerHTML = '<option value="">-- 매장을 선택하세요 --</option>';
                 data.stores.forEach(store => {
                     const option = document.createElement('option');
                     option.value = store.id;
                     option.textContent = `${store.name} (코드: ${store.code})`;
-                    this.dom.storeSelect.appendChild(option);
+                    storeSelect.appendChild(option);
                 });
-                this.dom.storeSelect.disabled = false;
+                storeSelect.disabled = false;
             }
 
         } catch (error) {
             console.error('Fetch unregistered stores error:', error);
-            this.dom.storeSelect.innerHTML = `<option value="">-- ${error.message} --</option>`;
-            this.dom.storeSelect.disabled = true;
+            storeSelect.innerHTML = `<option value="">-- ${error.message} --</option>`;
+            storeSelect.disabled = true;
         }
-    }
-}
-
-document.addEventListener('turbo:load', () => {
-    if (document.getElementById('register-store-form')) {
-        if (currentRegisterStoreApp) {
-            currentRegisterStoreApp.destroy();
-        }
-        currentRegisterStoreApp = new RegisterStoreApp();
-    }
-});
-
-document.addEventListener('turbo:before-cache', () => {
-    if (currentRegisterStoreApp) {
-        currentRegisterStoreApp.destroy();
-        currentRegisterStoreApp = null;
-    }
+    });
 });

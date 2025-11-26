@@ -1,3 +1,5 @@
+import uuid
+import threading
 import traceback
 import os
 import io
@@ -6,7 +8,7 @@ import zipfile
 import json
 from flask import request, jsonify, current_app, send_file
 from flask_login import login_required, current_user
-from sqlalchemy import func, or_, case
+from sqlalchemy import text, func, or_, case
 from flowork.models import db, Product, Variant, Setting
 from . import api_bp
 from flowork.celery_tasks import task_process_images

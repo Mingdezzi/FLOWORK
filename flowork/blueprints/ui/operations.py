@@ -1,5 +1,6 @@
 from flask import render_template, request, abort
 from flask_login import login_required, current_user
+from flowork.models import Staff
 from . import ui_bp
 
 @ui_bp.route('/attendance')

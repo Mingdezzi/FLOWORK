@@ -4,12 +4,18 @@ import traceback
 import io
 from flask import request, jsonify, send_file, flash, redirect, url_for, abort
 from flask_login import login_required, current_user
-from sqlalchemy import or_, delete, exc
+from sqlalchemy import or_
 from sqlalchemy.orm import selectinload
-# [수정] StockHistory 제거
-from flowork.models import db, Product, Variant, StoreStock, Setting, Store
-from flowork.utils import clean_string_upper, generate_barcode, get_sort_key, get_choseong
-from flowork.services.excel import export_db_to_excel, export_stock_check_excel, verify_stock_excel
+
+from flowork.models import db, Product, Variant, StoreStock, Setting
+from flowork.utils import clean_string_upper, generate_barcode, get_sort_key
+
+from flowork.services.excel import (
+    export_db_to_excel,
+    export_stock_check_excel,
+    verify_stock_excel
+)
+
 from . import api_bp
 from .utils import admin_required, _get_or_create_store_stock
 from flowork.celery_tasks import task_upsert_inventory, task_import_db

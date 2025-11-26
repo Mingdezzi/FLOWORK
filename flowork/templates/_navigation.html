@@ -1,191 +1,90 @@
-<style>
-    /* 단독 메뉴(링크)인 경우 아코디언 화살표 숨김 */
-    .accordion-button.no-toggle::after {
-        display: none !important;
-    }
-    /* Journal 테마: 아코디언 버튼 포커스 시 테두리 제거 */
-    .accordion-button:focus {
-        box-shadow: none;
-        border-color: rgba(0,0,0,.125);
-    }
-    /* 사이드바 메뉴 아이템 호버 효과 */
-    .list-group-item-action:hover {
-        background-color: #f8f9fa;
-        color: #eb6864; /* Primary Color */
-    }
-    /* 활성화된 메뉴 스타일 */
-    .list-group-item-action.active {
-        background-color: #eb6864;
-        border-color: #eb6864;
-        color: #fff;
-        font-weight: bold;
-    }
-</style>
-
 <div class="accordion accordion-flush" id="navAccordion">
     
-    <div class="accordion-item bg-transparent">
+    <div class="accordion-item">
         <h2 class="accordion-header">
-            <a href="{{ url_for('ui.sales_register') }}" class="accordion-button no-toggle rounded-0 {{ 'collapsed' if active_page != 'sales' else '' }} fw-bold text-decoration-none bg-white text-dark">
-                <i class="bi bi-cart-plus me-2 text-primary"></i> 판매등록
-            </a>
-        </h2>
-    </div>
-
-    <div class="accordion-item bg-transparent">
-        <h2 class="accordion-header">
-            <button class="accordion-button collapsed rounded-0 fw-bold bg-white text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#menu-sales-mgmt">
-                <i class="bi bi-receipt me-2 text-secondary"></i> 판매관리
+            <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#menu-sales">
+                <i class="bi bi-shop me-2 text-primary"></i> 영업 관리
             </button>
         </h2>
-        <div id="menu-sales-mgmt" class="accordion-collapse collapse {{ 'show' if active_page in ['sales_record', 'order'] else '' }}" data-bs-parent="#navAccordion">
+        <div id="menu-sales" class="accordion-collapse collapse {{ 'show' if active_page in ['sales', 'sales_record', 'order', 'store_orders', 'store_returns', 'online_mgmt'] else '' }}" data-bs-parent="#navAccordion">
             <div class="accordion-body p-0">
                 <div class="list-group list-group-flush">
-                    <a href="{{ url_for('ui.sales_record') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'sales_record' else '' }}">판매내역</a>
-                    <a href="{{ url_for('ui.order_list') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'order' else '' }}">고객주문</a>
+                    <a href="{{ url_for('ui.sales_register') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'sales' else '' }}">판매 등록 (POS)</a>
+                    <a href="{{ url_for('ui.sales_record') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'sales_record' else '' }}">판매 조회/환불</a>
+                    <a href="{{ url_for('ui.order_list') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'order' else '' }}">고객 주문 관리</a>
+                    <a href="{{ url_for('ui.store_order_list') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'store_orders' else '' }}">본사 주문 요청</a>
+                    <a href="{{ url_for('ui.store_return_list') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'store_returns' else '' }}">본사 반품 요청</a>
+                    <a href="{{ url_for('ui.online_management') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'online_mgmt' else '' }}">온라인몰 관리</a>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="accordion-item bg-transparent">
+    <div class="accordion-item">
         <h2 class="accordion-header">
-            <button class="accordion-button collapsed rounded-0 fw-bold bg-white text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#menu-online">
-                <i class="bi bi-globe me-2 text-secondary"></i> 온라인몰
+            <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#menu-stock">
+                <i class="bi bi-box-seam me-2 text-success"></i> 재고/물류
             </button>
         </h2>
-        <div id="menu-online" class="accordion-collapse collapse {{ 'show' if active_page in ['online_mgmt'] else '' }}" data-bs-parent="#navAccordion">
+        <div id="menu-stock" class="accordion-collapse collapse {{ 'show' if active_page in ['search', 'list', 'check', 'transfer_in', 'transfer_out', 'transfer_status', 'stock_overview'] else '' }}" data-bs-parent="#navAccordion">
             <div class="accordion-body p-0">
                 <div class="list-group list-group-flush">
-                    <a href="{{ url_for('ui.online_management') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'online_mgmt' else '' }}">품번관리</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="accordion-item bg-transparent">
-        <h2 class="accordion-header">
-            <button class="accordion-button collapsed rounded-0 fw-bold bg-white text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#menu-order-return">
-                <i class="bi bi-arrow-left-right me-2 text-secondary"></i> 주문반품
-            </button>
-        </h2>
-        <div id="menu-order-return" class="accordion-collapse collapse {{ 'show' if active_page in ['store_orders', 'store_returns'] else '' }}" data-bs-parent="#navAccordion">
-            <div class="accordion-body p-0">
-                <div class="list-group list-group-flush">
-                    <a href="{{ url_for('ui.store_order_list') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'store_orders' else '' }}">주문등록</a>
-                    <a href="{{ url_for('ui.store_return_list') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'store_returns' else '' }}">반품등록</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="accordion-item bg-transparent">
-        <h2 class="accordion-header">
-            <button class="accordion-button collapsed rounded-0 fw-bold bg-white text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#menu-stock-mgmt">
-                <i class="bi bi-box-seam me-2 text-secondary"></i> 재고관리
-            </button>
-        </h2>
-        <div id="menu-stock-mgmt" class="accordion-collapse collapse {{ 'show' if active_page in ['search', 'list', 'check', 'stock_overview'] else '' }}" data-bs-parent="#navAccordion">
-            <div class="accordion-body p-0">
-                <div class="list-group list-group-flush">
-                    <a href="{{ url_for('ui.search_page') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'search' else '' }}">상품검색</a>
-                    <a href="{{ url_for('ui.list_page') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'list' else '' }}">상세검색</a>
-                    <a href="{{ url_for('ui.check_page') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'check' else '' }}">재고실사</a>
+                    <a href="{{ url_for('ui.search_page') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'search' else '' }}">상품 검색</a>
+                    <a href="{{ url_for('ui.list_page') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'list' else '' }}">상세 조건 검색</a>
+                    <a href="{{ url_for('ui.check_page') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'check' else '' }}">재고 실사</a>
+                    <a href="{{ url_for('ui.stock_transfer_in') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'transfer_in' else '' }}">수평 입고</a>
+                    <a href="{{ url_for('ui.stock_transfer_out') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'transfer_out' else '' }}">수평 출고</a>
+                    <a href="{{ url_for('ui.stock_transfer_status') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'transfer_status' else '' }}">수평 이동 현황</a>
                     {% if not current_user.store_id %}
-                    <a href="{{ url_for('ui.stock_overview') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'stock_overview' else '' }}">통합재고</a>
+                    <a href="{{ url_for('ui.stock_overview') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'stock_overview' else '' }}">통합 재고 현황</a>
                     {% endif %}
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="accordion-item bg-transparent">
+    <div class="accordion-item">
         <h2 class="accordion-header">
-            <button class="accordion-button collapsed rounded-0 fw-bold bg-white text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#menu-transfer">
-                <i class="bi bi-truck me-2 text-secondary"></i> 수평이동
+            <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#menu-ops">
+                <i class="bi bi-shop-window me-2 text-warning"></i> 매장 운영
             </button>
         </h2>
-        <div id="menu-transfer" class="accordion-collapse collapse {{ 'show' if active_page in ['transfer_out', 'transfer_in', 'transfer_status'] else '' }}" data-bs-parent="#navAccordion">
+        <div id="menu-ops" class="accordion-collapse collapse {{ 'show' if active_page in ['schedule', 'attendance', 'competitor_sales', 'customer_list', 'repair_list', 'announcements', 'suggestion', 'mail'] else '' }}" data-bs-parent="#navAccordion">
             <div class="accordion-body p-0">
                 <div class="list-group list-group-flush">
-                    <a href="{{ url_for('ui.stock_transfer_out') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'transfer_out' else '' }}">수평출고</a>
-                    <a href="{{ url_for('ui.stock_transfer_in') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'transfer_in' else '' }}">수평입고</a>
-                    <a href="{{ url_for('ui.stock_transfer_status') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'transfer_status' else '' }}">수평현황</a>
+                    <a href="{{ url_for('ui.schedule') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'schedule' else '' }}">매장 일정</a>
+                    <a href="{{ url_for('ui.attendance_page') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'attendance' else '' }}">직원 근태</a>
+                    <a href="{{ url_for('ui.competitor_sales_page') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'competitor_sales' else '' }}">타사 매출</a>
+                    <a href="{{ url_for('ui.customer_list') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'customer_list' else '' }}">고객 관리</a>
+                    <a href="{{ url_for('ui.repair_list') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'repair_list' else '' }}">수선 접수</a>
+                    <a href="{{ url_for('ui.announcement_list') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'announcements' else '' }}">공지사항</a>
+                    <a href="{{ url_for('ui.suggestion_list') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'suggestion' else '' }}">건의사항</a>
+                    <a href="{{ url_for('ui.mail_box') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'mail' else '' }}">점간 메일</a>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="accordion-item bg-transparent">
+    <div class="accordion-item">
         <h2 class="accordion-header">
-            <button class="accordion-button collapsed rounded-0 fw-bold bg-white text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#menu-customer">
-                <i class="bi bi-people me-2 text-secondary"></i> 고객관리
+            <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#menu-settings">
+                <i class="bi bi-gear me-2 text-secondary"></i> 시스템 설정
             </button>
         </h2>
-        <div id="menu-customer" class="accordion-collapse collapse {{ 'show' if active_page in ['customer_list', 'repair_list'] else '' }}" data-bs-parent="#navAccordion">
+        <div id="menu-settings" class="accordion-collapse collapse {{ 'show' if active_page in ['setting', 'stock'] else '' }}" data-bs-parent="#navAccordion">
             <div class="accordion-body p-0">
                 <div class="list-group list-group-flush">
-                    <a href="{{ url_for('ui.customer_list') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'customer_list' else '' }}">고객등록</a>
-                    <a href="{{ url_for('ui.repair_list') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'repair_list' else '' }}">수선접수</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="accordion-item bg-transparent">
-        <h2 class="accordion-header">
-            <button class="accordion-button collapsed rounded-0 fw-bold bg-white text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#menu-store-ops">
-                <i class="bi bi-shop-window me-2 text-secondary"></i> 매장운영
-            </button>
-        </h2>
-        <div id="menu-store-ops" class="accordion-collapse collapse {{ 'show' if active_page in ['schedule', 'attendance', 'competitor_sales'] else '' }}" data-bs-parent="#navAccordion">
-            <div class="accordion-body p-0">
-                <div class="list-group list-group-flush">
-                    <a href="{{ url_for('ui.schedule') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'schedule' else '' }}">매장일정</a>
-                    <a href="{{ url_for('ui.attendance_page') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'attendance' else '' }}">근태등록</a>
-                    <a href="{{ url_for('ui.competitor_sales_page') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'competitor_sales' else '' }}">타사매출</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="accordion-item bg-transparent">
-        <h2 class="accordion-header">
-            <button class="accordion-button collapsed rounded-0 fw-bold bg-white text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#menu-network">
-                <i class="bi bi-share me-2 text-secondary"></i> 네트워크
-            </button>
-        </h2>
-        <div id="menu-network" class="accordion-collapse collapse {{ 'show' if active_page in ['announcements', 'suggestion', 'mail'] else '' }}" data-bs-parent="#navAccordion">
-            <div class="accordion-body p-0">
-                <div class="list-group list-group-flush">
-                    <a href="{{ url_for('ui.announcement_list') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'announcements' else '' }}">공지사항</a>
-                    <a href="{{ url_for('ui.suggestion_list') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'suggestion' else '' }}">건의사항</a>
-                    <a href="{{ url_for('ui.mail_box') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'mail' else '' }}">점간메일</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="accordion-item bg-transparent">
-        <h2 class="accordion-header">
-            <button class="accordion-button collapsed rounded-0 fw-bold bg-white text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#menu-settings">
-                <i class="bi bi-gear me-2 text-secondary"></i> 전체설정
-            </button>
-        </h2>
-        <div id="menu-settings" class="accordion-collapse collapse {{ 'show' if active_page in ['stock', 'setting', 'system_log'] else '' }}" data-bs-parent="#navAccordion">
-            <div class="accordion-body p-0">
-                <div class="list-group list-group-flush">
-                    <a href="{{ url_for('ui.stock_management') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'stock' else '' }}">재고설정</a>
-                    <a href="{{ url_for('ui.setting_page') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'setting' else '' }}">일반설정</a>
-                    <a href="{{ url_for('ui.system_logs') }}" class="list-group-item list-group-item-action small ps-4 border-0 rounded-0 {{ 'active' if active_page == 'system_log' else '' }}">로그기록</a>
+                    <a href="{{ url_for('ui.stock_management') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'stock' else '' }}">재고/DB 설정</a>
+                    <a href="{{ url_for('ui.setting_page') }}" class="list-group-item list-group-item-action small ps-4 {{ 'active' if active_page == 'setting' else '' }}">매장/직원 관리</a>
                 </div>
             </div>
         </div>
     </div>
     
     <div class="mt-4 px-3 d-lg-none">
-        <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-danger w-100 rounded-0">
+        <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-danger w-100">
             <i class="bi bi-box-arrow-right me-2"></i> 로그아웃
         </a>
     </div>
+
 </div>

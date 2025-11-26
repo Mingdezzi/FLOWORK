@@ -1,39 +1,24 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="container-fluid p-0">
-    <div class="card rounded-0 border shadow-sm">
-        <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-            <h4 class="mb-0 fw-bold">판매 상세 정보 (No. {{ sale.id }})</h4>
-            <a href="{{ url_for('ui.sales_record') }}" class="btn btn-outline-secondary btn-sm rounded-0">
-                <i class="bi bi-arrow-left me-1"></i> 목록으로
-            </a>
-        </div>
-        <div class="card-body">
-            <div class="row mb-4 g-3">
-                <div class="col-md-4">
-                    <div class="p-3 bg-light border">
-                        <small class="text-muted d-block mb-1">판매일시</small>
-                        <strong>{{ sale.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</strong>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="p-3 bg-light border">
-                        <small class="text-muted d-block mb-1">결제수단</small>
-                        <strong>{{ sale.payment_method }}</strong>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="p-3 bg-light border">
-                        <small class="text-muted d-block mb-1">총 결제금액</small>
-                        <strong class="text-primary fs-5">{{ "{:,d}".format(sale.total_amount) }}원</strong>
-                    </div>
-                </div>
+<div class="container my-4">
+        
+        
+
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3 class="mb-0">판매 상세 (No. {{ sale.id }})</h3>
+                <a href="{{ url_for('ui.sales_record') }}" class="btn btn-secondary">목록으로</a>
             </div>
-            
-            <h5 class="fw-bold mb-3">상품 목록</h5>
-            <div class="table-responsive border">
-                <table class="table table-hover align-middle mb-0 text-center">
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-4"><strong>일시:</strong> {{ sale.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</div>
+                    <div class="col-md-4"><strong>결제수단:</strong> {{ sale.payment_method }}</div>
+                    <div class="col-md-4 text-end"><strong class="h5">총 금액: {{ "{:,d}".format(sale.total_amount) }}원</strong></div>
+                </div>
+                
+                <h5 class="border-bottom pb-2">상품 목록</h5>
+                <table class="table table-bordered">
                     <thead class="table-light">
                         <tr>
                             <th>품번</th>
@@ -48,11 +33,11 @@
                         {% for item in sale.items %}
                         <tr>
                             <td>{{ item.product_number }}</td>
-                            <td class="text-start ps-3">{{ item.product_name }}</td>
+                            <td>{{ item.product_name }}</td>
                             <td>{{ item.color }} / {{ item.size }}</td>
                             <td class="text-end">{{ "{:,d}".format(item.unit_price) }}</td>
                             <td class="text-center">{{ item.quantity }}</td>
-                            <td class="text-end pe-3 fw-bold">{{ "{:,d}".format(item.subtotal) }}</td>
+                            <td class="text-end">{{ "{:,d}".format(item.subtotal) }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -60,5 +45,4 @@
             </div>
         </div>
     </div>
-</div>
 {% endblock %}
