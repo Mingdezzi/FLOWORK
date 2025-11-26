@@ -36,7 +36,8 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
                     <strong class="text-danger"><i class="bi bi-exclamation-triangle-fill me-1"></i>주의:</strong>
                     <span class="text-muted small">기존 상품 DB를 모두 삭제하고 업로드된 파일로 재설정합니다. 신중하게 진행하세요.</span>
                 </div>
-                <form action="{{ url_for('api.inventory_upsert') }}" method="POST" enctype="multipart/form-data" class="update-stock-form" id="form-import-db" onsubmit="return confirm('🚨 경고! DB를 덮어씁니다.\n계속하시겠습니까?');">
+                
+                <form action="{{ url_for('api.inventory_upsert') }}" method="POST" enctype="multipart/form-data" class="update-stock-form" id="form-import-db">
                     <input type="hidden" name="upload_mode" value="db"/>
                     <input type="hidden" name="is_full_import" value="true"/>
                     
@@ -48,7 +49,7 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
                     </div>
                     
                     <div class="mb-3">
-                        <label for="db_excel_file" class="form-label file-upload-wrapper border rounded-0 p-4 text-center bg-light" id="wrapper-db-file" style="cursor: pointer;">
+                        <label for="db_excel_file" class="form-label file-upload-wrapper border rounded-0 p-4 text-center bg-light w-100 d-block" id="wrapper-db-file" style="cursor: pointer;">
                             <i class="bi bi-file-earmark-excel-fill fs-2 text-success d-block mb-2"></i>
                             <div class="fw-bold text-dark">파일 선택 (상품 DB)</div>
                             <div class="file-status-text text-muted small" id="status-db-file">엑셀 파일을 선택하세요.</div>
@@ -57,15 +58,15 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
                     </div>
                     
                     <div class="column-mapping-grid mb-3 p-3 border bg-white rounded-0" id="grid-import-db" style="display: none; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px;">
-                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="text-danger fw-bold small">품번*</label><select name="col_pn" class="form-select form-select-sm rounded-0" required disabled><option value="">-- 열 --</option></select><div class="col-preview text-muted small mt-1"></div></div></div>
-                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="text-danger fw-bold small">컬러*</label><select name="col_color" class="form-select form-select-sm rounded-0" required disabled><option value="">-- 열 --</option></select><div class="col-preview text-muted small mt-1"></div></div></div>
-                        <div class="mapping-item-wrapper conditional-field" data-show-if="vertical"><div class="mapping-item"><label class="text-danger fw-bold small">사이즈*</label><select name="col_size" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview text-muted small mt-1"></div></div></div>
-                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="small fw-bold">품명</label><select name="col_pname" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview text-muted small mt-1"></div></div></div>
-                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="small fw-bold">출시년도</label><select name="col_year" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview text-muted small mt-1"></div></div></div>
-                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="small fw-bold">품목</label><select name="col_category" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview text-muted small mt-1"></div></div></div>
-                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="small fw-bold">최초가</label><select name="col_oprice" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview text-muted small mt-1"></div></div></div>
-                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="small fw-bold">판매가</label><select name="col_sprice" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview text-muted small mt-1"></div></div></div>
-                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="small fw-bold">즐겨찾기</label><select name="col_favorite" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview text-muted small mt-1"></div></div></div>
+                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="text-danger fw-bold small">품번*</label><select name="col_pn" class="form-select form-select-sm rounded-0" required disabled><option value="">-- 열 --</option></select><div class="col-preview"></div></div></div>
+                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="text-danger fw-bold small">컬러*</label><select name="col_color" class="form-select form-select-sm rounded-0" required disabled><option value="">-- 열 --</option></select><div class="col-preview"></div></div></div>
+                        <div class="mapping-item-wrapper conditional-field" data-show-if="vertical"><div class="mapping-item"><label class="text-danger fw-bold small">사이즈*</label><select name="col_size" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview"></div></div></div>
+                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="small fw-bold">품명</label><select name="col_pname" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview"></div></div></div>
+                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="small fw-bold">출시년도</label><select name="col_year" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview"></div></div></div>
+                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="small fw-bold">품목</label><select name="col_category" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview"></div></div></div>
+                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="small fw-bold">최초가</label><select name="col_oprice" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview"></div></div></div>
+                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="small fw-bold">판매가</label><select name="col_sprice" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview"></div></div></div>
+                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="small fw-bold">즐겨찾기</label><select name="col_favorite" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview"></div></div></div>
                     </div>
                     
                     <div class="progress-wrapper mb-3" style="display:none;">
@@ -75,7 +76,7 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
                         <div class="progress-status text-center mt-1 text-muted small">처리 중...</div>
                     </div>
                     
-                    <button type="submit" class="btn btn-danger w-100 rounded-0 fw-bold">
+                    <button type="submit" class="btn btn-danger w-100 rounded-0 fw-bold" style="display: none;">
                         <i class="bi bi-upload me-1"></i> 상품 DB 전체 업로드
                     </button>
                 </form>
@@ -88,8 +89,8 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
                 <h5 class="mb-0 fw-bold"><i class="bi bi-house-gear me-2"></i>매장재고 UPSERT (추가/수정)</h5>
             </div>
             <div class="card-body">
-                <p class="text-muted small mb-3">매장의 재고 데이터를 일괄 업데이트합니다. 기존에 없는 상품/옵션은 새로 생성됩니다.</p>
-                <form action="{{ url_for('api.update_store_stock_excel') }}" method="POST" enctype="multipart/form-data" class="update-stock-form" id="form-update-store" onsubmit="return confirm('엑셀 파일 검증을 시작합니다.\n계속하시겠습니까?');">
+                <p class="text-muted small mb-3">매장의 재고 데이터를 일괄 업데이트합니다.</p>
+                <form action="{{ url_for('api.update_store_stock_excel') }}" method="POST" enctype="multipart/form-data" class="update-stock-form" id="form-update-store">
                     {% if not current_user.store_id %}
                     <div class="mb-3 p-3 bg-light border rounded-0">
                         <label for="target_store_id_main" class="form-label fw-bold text-primary small"><i class="bi bi-shop me-1"></i>업데이트 대상 매장 선택</label>
@@ -110,7 +111,7 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
                     </div>
                     
                     <div class="mb-3">
-                        <label for="store_stock_excel_file" class="form-label file-upload-wrapper border rounded-0 p-4 text-center bg-light" id="wrapper-store-file" style="cursor: pointer;">
+                        <label for="store_stock_excel_file" class="form-label file-upload-wrapper border rounded-0 p-4 text-center bg-light w-100 d-block" id="wrapper-store-file" style="cursor: pointer;">
                             <i class="bi bi-file-earmark-excel-fill fs-2 text-success d-block mb-2"></i>
                             <div class="fw-bold text-dark">파일 선택 (매장재고)</div>
                             <div class="file-status-text text-muted small" id="status-store-file">엑셀 파일을 선택하세요.</div>
@@ -119,10 +120,10 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
                     </div>
                     
                     <div class="column-mapping-grid mb-3 p-3 border bg-white rounded-0" id="grid-update-store" style="display: none; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px;">
-                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="text-danger fw-bold small">품번*</label><select name="col_pn" class="form-select form-select-sm rounded-0" required disabled><option value="">-- 열 --</option></select><div class="col-preview text-muted small mt-1"></div></div></div>
-                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="text-danger fw-bold small">컬러*</label><select name="col_color" class="form-select form-select-sm rounded-0" required disabled><option value="">-- 열 --</option></select><div class="col-preview text-muted small mt-1"></div></div></div>
-                        <div class="mapping-item-wrapper conditional-field" data-show-if="vertical"><div class="mapping-item"><label class="text-danger fw-bold small">사이즈*</label><select name="col_size" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview text-muted small mt-1"></div></div></div>
-                        <div class="mapping-item-wrapper conditional-field" data-show-if="vertical"><div class="mapping-item"><label class="text-danger fw-bold small">매장재고*</label><select name="col_store_stock" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview text-muted small mt-1"></div></div></div>
+                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="text-danger fw-bold small">품번*</label><select name="col_pn" class="form-select form-select-sm rounded-0" required disabled><option value="">-- 열 --</option></select><div class="col-preview"></div></div></div>
+                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="text-danger fw-bold small">컬러*</label><select name="col_color" class="form-select form-select-sm rounded-0" required disabled><option value="">-- 열 --</option></select><div class="col-preview"></div></div></div>
+                        <div class="mapping-item-wrapper conditional-field" data-show-if="vertical"><div class="mapping-item"><label class="text-danger fw-bold small">사이즈*</label><select name="col_size" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview"></div></div></div>
+                        <div class="mapping-item-wrapper conditional-field" data-show-if="vertical"><div class="mapping-item"><label class="text-danger fw-bold small">매장재고*</label><select name="col_store_stock" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview"></div></div></div>
                     </div>
                     
                     <div class="progress-wrapper mb-3" style="display:none;">
@@ -132,7 +133,7 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
                         <div class="progress-status text-center mt-1 text-muted small">처리 중...</div>
                     </div>
                     
-                    <button type="submit" class="btn btn-primary w-100 rounded-0 fw-bold">
+                    <button type="submit" class="btn btn-primary w-100 rounded-0 fw-bold" style="display: none;">
                         <i class="bi bi-arrow-clockwise me-1"></i> 검토 및 업데이트
                     </button>
                 </form>
@@ -146,7 +147,7 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
             </div>
             <div class="card-body">
                 <p class="text-muted small mb-3">(STOCK_HQ) 본사 재고를 업데이트합니다.</p>
-                <form id="form-update-hq-full" class="update-stock-form" action="{{ url_for('api.inventory_upsert') }}" method="POST" enctype="multipart/form-data" onsubmit="return confirm('엑셀 파일 검증을 시작합니다.\n계속하시겠습니까?');">
+                <form id="form-update-hq-full" class="update-stock-form" action="{{ url_for('api.inventory_upsert') }}" method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="upload_mode" value="hq"/>
                     
                     <div class="mb-3">
@@ -157,7 +158,7 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
                     </div>
                     
                     <div class="mb-3">
-                        <label for="hq_stock_excel_file_full" class="form-label file-upload-wrapper border rounded-0 p-4 text-center bg-light" id="wrapper-hq-file-full" style="cursor: pointer;">
+                        <label for="hq_stock_excel_file_full" class="form-label file-upload-wrapper border rounded-0 p-4 text-center bg-light w-100 d-block" id="wrapper-hq-file-full" style="cursor: pointer;">
                             <i class="bi bi-file-earmark-excel-fill fs-2 text-success d-block mb-2"></i>
                             <div class="fw-bold text-dark">파일 선택 (본사재고)</div>
                             <div class="file-status-text text-muted small" id="status-hq-file-full">엑셀 파일을 선택하세요.</div>
@@ -166,10 +167,10 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
                     </div>
                     
                     <div class="column-mapping-grid mb-3 p-3 border bg-white rounded-0" id="grid-update-hq-full" style="display: none; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px;">
-                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="text-danger fw-bold small">품번*</label><select name="col_pn" class="form-select form-select-sm rounded-0" required disabled><option value="">-- 열 --</option></select><div class="col-preview text-muted small mt-1"></div></div></div>
-                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="text-danger fw-bold small">컬러*</label><select name="col_color" class="form-select form-select-sm rounded-0" required disabled><option value="">-- 열 --</option></select><div class="col-preview text-muted small mt-1"></div></div></div>
-                        <div class="mapping-item-wrapper conditional-field" data-show-if="vertical"><div class="mapping-item"><label class="text-danger fw-bold small">사이즈*</label><select name="col_size" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview text-muted small mt-1"></div></div></div>
-                        <div class="mapping-item-wrapper conditional-field" data-show-if="vertical"><div class="mapping-item"><label class="text-danger fw-bold small">본사재고*</label><select name="col_hq_stock" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview text-muted small mt-1"></div></div></div>
+                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="text-danger fw-bold small">품번*</label><select name="col_pn" class="form-select form-select-sm rounded-0" required disabled><option value="">-- 열 --</option></select><div class="col-preview"></div></div></div>
+                        <div class="mapping-item-wrapper"><div class="mapping-item"><label class="text-danger fw-bold small">컬러*</label><select name="col_color" class="form-select form-select-sm rounded-0" required disabled><option value="">-- 열 --</option></select><div class="col-preview"></div></div></div>
+                        <div class="mapping-item-wrapper conditional-field" data-show-if="vertical"><div class="mapping-item"><label class="text-danger fw-bold small">사이즈*</label><select name="col_size" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview"></div></div></div>
+                        <div class="mapping-item-wrapper conditional-field" data-show-if="vertical"><div class="mapping-item"><label class="text-danger fw-bold small">본사재고*</label><select name="col_hq_stock" class="form-select form-select-sm rounded-0" disabled><option value="">-- 열 --</option></select><div class="col-preview"></div></div></div>
                     </div>
                     
                     <div class="progress-wrapper mb-3" style="display:none;">
@@ -179,7 +180,7 @@ data-analyze-excel-url="{{ url_for('api.analyze_excel') }}"
                         <div class="progress-status text-center mt-1 text-muted small">처리 중...</div>
                     </div>
                     
-                    <button type="submit" class="btn btn-primary w-100 rounded-0 fw-bold">
+                    <button type="submit" class="btn btn-primary w-100 rounded-0 fw-bold" style="display: none;">
                         <i class="bi bi-arrow-clockwise me-1"></i> 본사재고 업로드
                     </button>
                 </form>
