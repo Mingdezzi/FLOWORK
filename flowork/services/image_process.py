@@ -1,3 +1,4 @@
+# fileName: mingdezzi/flowork/FLOWORK-c3d0a854c8688593f920b4aabbc4e40547365c57/flowork/services/image_process.py
 import os
 import asyncio
 import aiohttp
@@ -105,6 +106,7 @@ def process_style_code_group(brand_id, style_code, options=None):
             _update_product_status(products, ImageProcessStatus.FAILED, msg)
             return False, msg
 
+        # [수정] 로고 경로: static/product_images 폴더 내 참조
         logo_path = os.path.join(current_app.root_path, 'static', 'product_images', 'thumbnail_logo.png')
         if not os.path.exists(logo_path):
             logo_path = None
@@ -500,14 +502,23 @@ def _create_detail_image(variants, temp_dir, style_code, options=None):
         layout_layer = Image.new("RGBA", (canvas_width, total_height), (255, 255, 255, 0))
         draw = ImageDraw.Draw(layout_layer)
         
+        # [수정] 폰트 경로: static 폴더 우선 탐색, 실패 시 기본값
         font = None
-        try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf", 25)
-        except:
+        font_paths = [
+            os.path.join(current_app.root_path, 'static', 'fonts', 'NanumGothicBold.ttf'),
+            "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
+            "arial.ttf"
+        ]
+        
+        for path in font_paths:
             try:
-                font = ImageFont.truetype("arial.ttf", 25)
+                font = ImageFont.truetype(path, 25)
+                break
             except:
-                font = ImageFont.load_default()
+                continue
+        
+        if font is None:
+            font = ImageFont.load_default()
 
         for idx, v in enumerate(variants):
             if not v['files']['NOBG']: continue
@@ -557,6 +568,7 @@ def _create_detail_image(variants, temp_dir, style_code, options=None):
         return None
 
 def _save_structure_locally(brand_name, style_code, variants_map, thumb_path, detail_path):
+    # [수정] 이미지 저장 기본 경로 통일
     base_static_path = os.path.join(current_app.root_path, 'static', 'product_images')
     product_base_dir = os.path.join(base_static_path, brand_name, style_code)
     

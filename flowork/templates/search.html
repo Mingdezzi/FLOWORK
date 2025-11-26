@@ -215,6 +215,7 @@ data-image-url-prefix="{{ IMAGE_URL_PREFIX }}"
 {% endblock %}
 
 {% block scripts %}
+<script src="https://unpkg.com/hangul-js"></script>
 <script src="{{ url_for('static', filename='js/index.js') }}" defer></script>
 <script>
     function imgFallback(img) {

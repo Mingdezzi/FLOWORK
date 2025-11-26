@@ -1,3 +1,4 @@
+# fileName: mingdezzi/flowork/FLOWORK-c3d0a854c8688593f920b4aabbc4e40547365c57/flowork/blueprints/api/inventory.py
 import os
 import uuid
 import traceback
@@ -20,6 +21,13 @@ from . import api_bp
 from .utils import admin_required, _get_or_create_store_stock
 from flowork.celery_tasks import task_upsert_inventory, task_import_db
 
+def _validate_excel_file(file):
+    if not file or file.filename == '':
+        return False, "파일이 선택되지 않았습니다."
+    if not (file.filename.lower().endswith('.xlsx') or file.filename.lower().endswith('.xls')):
+        return False, "엑셀 파일(.xlsx, .xls)만 업로드 가능합니다."
+    return True, None
+
 @api_bp.route('/api/verify_excel', methods=['POST'])
 @login_required
 def verify_excel_upload():
@@ -27,6 +35,10 @@ def verify_excel_upload():
         return jsonify({'status': 'error', 'message': '파일이 없습니다.'}), 400
     
     file = request.files['excel_file']
+    is_valid, msg = _validate_excel_file(file)
+    if not is_valid:
+        return jsonify({'status': 'error', 'message': msg}), 400
+    
     upload_mode = request.form.get('upload_mode', 'store')
     
     task_id = str(uuid.uuid4())
@@ -61,8 +73,9 @@ def inventory_upsert():
             return jsonify({'status': 'error', 'message': '재고를 업데이트할 매장이 지정되지 않았습니다.'}), 400
 
     file = request.files.get('excel_file')
-    if not file:
-        return jsonify({'status': 'error', 'message': '파일이 없습니다.'}), 400
+    is_valid, msg = _validate_excel_file(file)
+    if not is_valid:
+        return jsonify({'status': 'error', 'message': msg}), 400
 
     current_brand_id = current_user.current_brand_id
     
@@ -113,8 +126,9 @@ def update_store_stock_excel():
         return jsonify({'status': 'error', 'message': '재고를 업데이트할 대상 매장을 확인할 수 없습니다.'}), 400
 
     file = request.files.get('excel_file')
-    if not file:
-        return jsonify({'status': 'error', 'message': '파일이 없습니다.'}), 400
+    is_valid, msg = _validate_excel_file(file)
+    if not is_valid:
+        return jsonify({'status': 'error', 'message': msg}), 400
 
     current_brand_id = current_user.current_brand_id
     
@@ -311,11 +325,9 @@ def analyze_excel():
         return jsonify({'status': 'error', 'message': '파일이 없습니다.'}), 400
     
     file = request.files.get('excel_file')
-    if file.filename == '':
-        return jsonify({'status': 'error', 'message': '파일이 선택되지 않았습니다.'}), 400
-
-    if not (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')):
-        return jsonify({'status': 'error', 'message': '엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.'}), 400
+    is_valid, msg = _validate_excel_file(file)
+    if not is_valid:
+        return jsonify({'status': 'error', 'message': msg}), 400
 
     try:
         file_bytes = file.read()
