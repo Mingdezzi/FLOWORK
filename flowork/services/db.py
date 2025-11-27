@@ -1,10 +1,19 @@
 import re
 from sqlalchemy import or_, update, exc
-from flowork.models import db, Product, Variant, StoreStock
+from flask import current_app
+from flowork.extensions import db, cache  # [수정] cache 임포트 추가
+from flowork.models import Product, Variant, StoreStock
 from flowork.utils import get_choseong, clean_string_upper
 
+# [수정] 캐시 적용 (5분간 유지)
+# 브랜드 ID별로 필터 옵션(카테고리, 색상 목록 등)을 캐싱하여
+# 리스트 페이지 진입 시마다 발생하는 무거운 DB 집계 쿼리를 제거합니다.
+@cache.memoize(timeout=300)
 def get_filter_options_from_db(brand_id):
     try:
+        # 디버깅용 로그 (캐시가 없을 때만 출력됨)
+        # current_app.logger.info(f"Fetching filter options from DB for brand_id: {brand_id} (Not Cached)")
+        
         base_query = db.session.query(Product).filter_by(brand_id=brand_id)
         
         categories = [r[0] for r in base_query.distinct(Product.item_category).with_entities(Product.item_category).order_by(Product.item_category).all() if r[0]]
@@ -139,6 +148,10 @@ def sync_missing_data_in_db(brand_id):
         
         if updated_variant_count > 0 or updated_product_count > 0:
             db.session.commit()
+            
+            # [수정] 데이터 변경 시 캐시 무효화 (필요한 경우)
+            # cache.delete_memoized(get_filter_options_from_db, brand_id)
+            
             return (True, f"동기화 완료: 상품(품목/년도/초성) {updated_product_count}개, SKU(가격) {updated_variant_count}개가 업데이트되었습니다.", "success")
         else:
             return (True, "동기화할 데이터가 없거나, 참조할 데이터가 충분하지 않습니다.", "info")
