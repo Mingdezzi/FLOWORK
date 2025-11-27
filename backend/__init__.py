@@ -3,7 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
-from .config import Config
+from .config import Config  # <--- 점(.)이 있는지 꼭 확인!
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -17,7 +17,7 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
-    CORS(app) # SPA(Frontend)와의 통신을 위해 CORS 허용
+    CORS(app)
 
     # API 블루프린트 등록
     from .api.auth import auth_bp
@@ -32,7 +32,7 @@ def create_app():
     app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
     app.register_blueprint(inventory_bp, url_prefix='/api/inventory')
 
-    # 초기 관리자 생성 명령어 등록 (필수)
+    # 초기 관리자 생성 명령어 등록
     from .commands import create_admin_command
     app.cli.add_command(create_admin_command)
 
