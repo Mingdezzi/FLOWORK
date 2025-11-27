@@ -14,10 +14,11 @@ class ListApp {
     init(container) {
         this.container = container;
         this.csrfToken = Flowork.getCsrfToken();
+        const dataset = Object.assign({}, document.body.dataset, container.dataset);
         
         // [신규] 이미지 폴백 규칙 로드
         try {
-            const rules = container.dataset.fallbackRules;
+            const rules = dataset.fallbackRules;
             if (rules) this.fallbackRules = JSON.parse(rules);
         } catch(e) {
             console.error("Failed to parse fallback rules", e);
@@ -43,7 +44,7 @@ class ListApp {
                 }
             }
             
-            // 규칙에 매칭되지 않거나 이미 마지막 단계인 경우 숨김
+            // 규칙에 매칭되지 않거나 이미 대체된 경우 숨김
             if (!foundMatch) {
                 img.style.visibility = 'hidden';
             }
@@ -71,8 +72,7 @@ class ListApp {
 
     destroy() {
         if (this.dom.form) this.dom.form.removeEventListener('submit', this.handlers.submit);
-        // 전역 함수 정리 (선택사항, 다른 탭에서도 쓸 수 있으니 놔둬도 됨)
-        // window.imgFallback = null; 
+        // 전역 함수는 덮어쓰기 방식이라 null 처리하면 다른 탭에 영향 줄 수 있어 유지
         this.container = null;
         this.dom = {};
         this.handlers = {};
@@ -114,7 +114,7 @@ class ListApp {
             if (data.status === 'success') {
                 this.renderProducts(data.data);
                 this.renderPagination(data.pagination);
-                this.dom.countBadge.textContent = data.pagination.total;
+                if(this.dom.countBadge) this.dom.countBadge.textContent = data.pagination.total;
             } else {
                 this.dom.listContainer.innerHTML = `<li class="list-group-item text-center text-danger p-4">오류: ${data.message}</li>`;
             }

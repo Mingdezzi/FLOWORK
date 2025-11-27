@@ -127,3 +127,18 @@
     </div>
 </div>
 {% endblock %}
+
+{% block scripts %}
+<script>
+    function imgFallback(img) {
+        const src = img.src;
+        if (src.includes('_DF_01.jpg')) {
+            img.src = src.replace('_DF_01.jpg', '_DM_01.jpg');
+        } else if (src.includes('_DM_01.jpg')) {
+            img.src = src.replace('_DM_01.jpg', '_DG_01.jpg');
+        } else {
+            img.style.visibility = 'hidden';
+        }
+    }
+</script>
+{% endblock %}

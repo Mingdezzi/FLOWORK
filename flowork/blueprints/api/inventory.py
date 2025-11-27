@@ -7,9 +7,9 @@ from flask_login import login_required, current_user
 from sqlalchemy import or_
 from sqlalchemy.orm import selectinload
 
-from flowork.models import db, Product, Variant, StoreStock, Setting
-from flowork.utils import clean_string_upper, generate_barcode, get_sort_key
-from flowork.services.product_service import ProductService 
+from flowork.models import db, Product, Variant, StoreStock, Setting, Store, StockHistory
+from flowork.utils import clean_string_upper, generate_barcode, get_sort_key, get_choseong
+from flowork.services.product_service import ProductService  # [신규] 서비스 임포트
 
 from flowork.services.excel import (
     export_db_to_excel,
@@ -20,6 +20,7 @@ from flowork.services.excel import (
 from . import api_bp
 from .utils import admin_required, _get_or_create_store_stock
 from flowork.celery_tasks import task_upsert_inventory, task_import_db
+from sqlalchemy import delete, exc
 
 def _validate_excel_file(file):
     if not file or file.filename == '':

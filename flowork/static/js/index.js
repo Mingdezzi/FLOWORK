@@ -1,5 +1,5 @@
 /**
- * Dashboard & Search Logic (Refactored for SPA)
+ * Dashboard & Search Logic (Refactored for SPA & Data-Centric)
  */
 
 class DashboardApp {
@@ -7,12 +7,12 @@ class DashboardApp {
         this.container = null;
         this.debounceTimer = null;
         this.isKorShiftActive = false;
+        this.csrfToken = null;
+        this.liveSearchUrl = null;
         
-        // 상수 및 매핑 데이터
         this.korKeyMap = { 'ㅂ': 'ㅃ', 'ㅈ': 'ㅉ', 'ㄷ': 'ㄸ', 'ㄱ': 'ㄲ', 'ㅅ': 'ㅆ', 'ㅐ': 'ㅒ', 'ㅔ': 'ㅖ' };
         this.korReverseKeyMap = { 'ㅃ': 'ㅂ', 'ㅉ': 'ㅈ', 'ㄸ': 'ㄷ', 'ㄲ': 'ㄱ', 'ㅆ': 'ㅅ', 'ㅒ': 'ㅐ', 'ㅖ': 'ㅔ' };
         
-        // 이벤트 핸들러 바인딩 (제거를 위해 저장)
         this.handlers = {
             productListClick: (e) => this.handleProductListClick(e),
             backButtonClick: () => this.handleBackButtonClick(),
@@ -28,9 +28,9 @@ class DashboardApp {
     init(container) {
         this.container = container;
         this.csrfToken = Flowork.getCsrfToken();
-        this.liveSearchUrl = document.body.dataset.liveSearchUrl; // base.html의 data 속성 활용
+        const dataset = Object.assign({}, document.body.dataset, container.dataset);
+        this.liveSearchUrl = dataset.liveSearchUrl;
 
-        // DOM 요소 캐싱 (Scoped)
         this.dom = {
             searchInput: container.querySelector('#search-query-input'),
             clearTopBtn: container.querySelector('#keypad-clear-top'),
@@ -49,10 +49,19 @@ class DashboardApp {
             backButton: container.querySelector('#btn-back-to-list'),
             productListHeader: container.querySelector('#product-list-header'),
             paginationUL: container.querySelector('#search-pagination'),
-            searchForm: container.querySelector('#search-form')
+            searchForm: container.querySelector('#search-form'),
+
+            // Dashboard specific elements
+            announcementList: container.querySelector('#announcement-list'),
+            orderList: container.querySelector('#pending-order-list'),
+            scheduleList: container.querySelector('#weekly-schedule-list'),
+            loadingAnnouncements: container.querySelector('#loading-announcements'),
+            loadingOrders: container.querySelector('#loading-orders'),
+            loadingSchedules: container.querySelector('#loading-schedules'),
+            emptyOrders: container.querySelector('#empty-orders'),
+            emptySchedules: container.querySelector('#empty-schedules')
         };
 
-        // 모바일 체크 및 속성 설정
         if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
             if (this.dom.searchInput) {
                 this.dom.searchInput.setAttribute('readonly', true);
@@ -62,10 +71,8 @@ class DashboardApp {
 
         this.bindEvents();
         
-        // 초기화 로직
+        // 검색 페이지 초기화
         if(this.dom.keypadContainer) this.showKeypad('num');
-        
-        // 카테고리 초기 상태 반영
         if (this.dom.hiddenCategoryInput && this.dom.categoryBar) {
             const currentCategory = this.dom.hiddenCategoryInput.value || '전체';
             const btns = this.dom.categoryBar.querySelectorAll('.category-btn');
@@ -73,10 +80,13 @@ class DashboardApp {
                 if (btn.dataset.category === currentCategory) btn.classList.add('active');
             });
         }
-
-        // 페이지 진입 시 자동 검색 (검색 페이지인 경우)
         if (this.dom.productListUl) {
             this.performSearch(1);
+        }
+
+        // [신규] 대시보드 데이터 로드 (대시보드 요소가 있을 때만)
+        if (this.dom.announcementList) {
+            this.loadDashboardStats();
         }
     }
 
@@ -86,7 +96,6 @@ class DashboardApp {
         if (this.dom.keypadContainer) this.dom.keypadContainer.removeEventListener('click', this.handlers.keypadClick);
         if (this.dom.categoryBar) this.dom.categoryBar.removeEventListener('click', this.handlers.categoryClick);
         if (this.dom.clearTopBtn) this.dom.clearTopBtn.removeEventListener('click', this.handlers.clearTopClick);
-        
         if (this.dom.searchInput) {
             this.dom.searchInput.removeEventListener('input', this.handlers.searchInput);
             this.dom.searchInput.removeEventListener('keydown', this.handlers.searchKeydown);
@@ -104,7 +113,6 @@ class DashboardApp {
         if (this.dom.keypadContainer) this.dom.keypadContainer.addEventListener('click', this.handlers.keypadClick);
         if (this.dom.categoryBar) this.dom.categoryBar.addEventListener('click', this.handlers.categoryClick);
         if (this.dom.clearTopBtn) this.dom.clearTopBtn.addEventListener('click', this.handlers.clearTopClick);
-        
         if (this.dom.searchInput) {
             this.dom.searchInput.addEventListener('input', this.handlers.searchInput);
             this.dom.searchInput.addEventListener('keydown', this.handlers.searchKeydown);
@@ -112,29 +120,98 @@ class DashboardApp {
         if (this.dom.searchForm) this.dom.searchForm.addEventListener('submit', this.handlers.searchSubmit);
     }
 
-    // --- Event Handlers ---
+    // --- Dashboard Logic ---
+
+    async loadDashboardStats() {
+        try {
+            const response = await fetch('/api/dashboard/stats', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.csrfToken }
+            });
+            const res = await response.json();
+            
+            if (res.status === 'success') {
+                const data = res.data;
+                
+                // 1. 공지사항 렌더링
+                if (this.dom.loadingAnnouncements) this.dom.loadingAnnouncements.style.display = 'none';
+                
+                if (data.announcements.length > 0) {
+                    this.dom.announcementList.innerHTML = data.announcements.map(item => `
+                        <li class="list-group-item d-flex justify-content-between align-items-center announcement-list-item">
+                            <a href="#" onclick="TabManager.open('공지사항', '/announcement/${item.id}', 'announcements'); return false;" class="text-decoration-none text-dark text-truncate" style="max-width: 70%;">
+                                ${item.title}
+                            </a>
+                            <small class="text-muted">${item.date}</small>
+                        </li>
+                    `).join('');
+                } else {
+                    this.dom.announcementList.innerHTML = '<li class="list-group-item text-center text-muted">등록된 공지사항이 없습니다.</li>';
+                }
+
+                // 2. 주문 현황 렌더링 (매장 전용)
+                if (this.dom.loadingOrders) this.dom.loadingOrders.style.display = 'none';
+                
+                if (data.pending_orders.length > 0) {
+                    this.dom.orderList.innerHTML = data.pending_orders.map(order => `
+                        <tr onclick="TabManager.open('주문상세', '/order/${order.id}', 'order');" style="cursor: pointer;">
+                            <td>${order.customer_name}</td>
+                            <td class="text-start text-truncate" style="max-width: 120px;">${order.product_name}</td>
+                            <td><span class="badge bg-info text-dark">${order.status}</span></td>
+                            <td>${order.date}</td>
+                        </tr>
+                    `).join('');
+                    if(this.dom.emptyOrders) this.dom.emptyOrders.style.display = 'none';
+                } else {
+                    if(this.dom.emptyOrders) this.dom.emptyOrders.style.display = 'block';
+                }
+
+                // 3. 주간 일정 렌더링 (매장 전용)
+                if (this.dom.loadingSchedules) this.dom.loadingSchedules.style.display = 'none';
+                
+                if (data.weekly_schedules.length > 0) {
+                    this.dom.scheduleList.innerHTML = data.weekly_schedules.map(event => `
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div class="text-truncate">
+                                <span class="badge me-2" style="background-color: ${event.color};">${event.type}</span>
+                                <strong>${event.title}</strong>
+                                <small class="text-muted ms-1">(${event.staff_name})</small>
+                            </div>
+                            <small class="text-muted flex-shrink-0 ms-2">${event.date_str}</small>
+                        </li>
+                    `).join('');
+                    if(this.dom.emptySchedules) this.dom.emptySchedules.style.display = 'none';
+                } else {
+                    if(this.dom.emptySchedules) this.dom.emptySchedules.style.display = 'block';
+                }
+            }
+        } catch (e) {
+            console.error("Dashboard load error:", e);
+            // 에러 시 로딩 스피너 숨김 처리 등 예외처리
+            if (this.dom.loadingAnnouncements) this.dom.loadingAnnouncements.style.display = 'none';
+            if (this.dom.loadingOrders) this.dom.loadingOrders.style.display = 'none';
+            if (this.dom.loadingSchedules) this.dom.loadingSchedules.style.display = 'none';
+        }
+    }
+
+    // --- Search & Keypad Handlers (기존 유지) ---
 
     handleProductListClick(e) {
         const link = e.target.closest('a.product-item');
         if (link) {
+            e.preventDefault();
+            const url = link.getAttribute('href'); // /product/123
+            
             if (window.innerWidth >= 992) {
-                e.preventDefault();
-                const targetUrl = link.getAttribute('href');
-                const detailUrl = targetUrl + (targetUrl.includes('?') ? '&' : '?') + 'partial=1';
-                
+                // 데스크탑: 우측 프레임
+                const detailUrl = url + (url.includes('?') ? '&' : '?') + 'partial=1';
                 if (this.dom.detailIframe) this.dom.detailIframe.src = detailUrl;
-                
                 if (this.dom.listContainer && this.dom.detailContainer) {
                     this.dom.listContainer.style.display = 'none';
                     this.dom.detailContainer.style.display = 'flex';
                 }
             } else {
-                // 모바일에서는 TabManager를 통해 새 탭이나 현재 탭 이동 처리
-                // href가 있으므로 기본 동작(페이지 이동) 대신 탭 열기로 가로채야 함
-                e.preventDefault();
-                const url = link.getAttribute('href');
-                // 상세 페이지는 고유 ID를 생성하기 어려우므로 'product_detail' 같은 고정 ID를 쓰거나 타임스탬프 사용
-                // 여기서는 간단히 'product_detail' ID 재사용 (하나만 열림)
+                // 모바일: 새 탭
                 TabManager.open('상품상세', url, 'product_detail_' + url.split('/').pop());
             }
         }
@@ -179,7 +256,6 @@ class DashboardApp {
             this.isKorShiftActive = !this.isKorShiftActive;
             this.updateKorKeypadVisuals();
         }
-        else if (dataKey === 'shift-eng') { /* 영문 쉬프트 로직 생략 */ }
         else if (dataKey === ' ') {
             input.value += ' ';
             this.triggerSearch();
@@ -224,10 +300,7 @@ class DashboardApp {
         }
     }
 
-    // --- Helper Methods ---
-
     updateKorKeypadVisuals() {
-        // container 내부에서 다시 찾아야 안전
         const shiftBtn = this.dom.korShiftBtn; 
         if(!shiftBtn) return;
 
@@ -330,7 +403,7 @@ class DashboardApp {
         products.forEach(product => {
             const productHtml = `
                 <li class="list-group-item">
-                    <a href="/product/${product.product_id}" class="product-item d-flex align-items-center text-decoration-none text-body">
+                    <a href="#" onclick="TabManager.open('상품상세', '/product/${product.product_id}', 'product_detail'); return false;" class="product-item d-flex align-items-center text-decoration-none text-body">
                         <img src="${product.image_url}" alt="${product.product_name}" class="item-image rounded border flex-shrink-0" onerror="imgFallback(this)">
                         <div class="item-details flex-grow-1 ms-3">
                             <div class="product-name fw-bold">${product.product_name}</div>
@@ -389,9 +462,7 @@ class DashboardApp {
     }
 }
 
-// 전역 등록
-window.PageRegistry = window.PageRegistry || {};
-// home과 search 2개 템플릿에서 모두 사용될 수 있으므로
 const dashboardApp = new DashboardApp();
+window.PageRegistry = window.PageRegistry || {};
 window.PageRegistry['home'] = dashboardApp;
 window.PageRegistry['search'] = dashboardApp;
