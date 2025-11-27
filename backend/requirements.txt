@@ -3,6 +3,8 @@ Flask-SQLAlchemy
 Flask-Migrate
 Flask-JWT-Extended
 Flask-Cors
+Flask-Caching
+Flask-WTF
 psycopg2-binary
 python-dotenv
 gunicorn
@@ -12,3 +14,10 @@ bcrypt
 pandas
 openpyxl
 requests
+rembg[cpu]
+aiohttp
+aiofiles
+Pillow
+numpy
+holidays
+SQLAlchemy
