@@ -1,14 +1,13 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
-import { Search, Package, ArrowUpDown } from 'lucide-react';
-import { useDebounce } from '../hooks/useDebounce'; // 별도 훅 파일 필요 (아래 코드 참고)
+import { Search, Package } from 'lucide-react';
+import { useDebounce } from '../../hooks/useDebounce';
 
 const ProductListPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   
-  // 검색어 입력 시 0.5초 딜레이 후 API 호출 (성능 최적화)
   const debouncedSearch = useDebounce(searchQuery, 500);
 
   const { data, isLoading, isError } = useQuery({
@@ -19,7 +18,7 @@ const ProductListPage = () => {
       });
       return response.data;
     },
-    keepPreviousData: true, // 페이지 전환 시 깜빡임 방지
+    keepPreviousData: true,
   });
 
   return (
@@ -92,7 +91,7 @@ const ProductListPage = () => {
           </table>
         </div>
         
-        {/* 페이지네이션 (간단 버전) */}
+        {/* 페이지네이션 */}
         <div className="bg-white px-4 py-3 border-t border-gray-200 flex items-center justify-between sm:px-6">
           <div className="flex-1 flex justify-between sm:hidden">
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="btn-pagination">이전</button>
@@ -105,6 +104,7 @@ const ProductListPage = () => {
               </p>
             </div>
             <div>
+              {/* --- [수정된 부분] nav 태그가 올바르게 닫히도록 수정 --- */}
               <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                 <button
                   onClick={() => setPage(1)}
@@ -127,7 +127,8 @@ const ProductListPage = () => {
                 >
                   다음
                 </button>
-              </div>
+              </nav> 
+              {/* --- 여기까지 수정됨 --- */}
             </div>
           </div>
         </div>
