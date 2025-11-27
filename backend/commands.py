@@ -1,4 +1,3 @@
-# backend/commands.py
 import click
 from flask.cli import with_appcontext
 from . import db
@@ -31,7 +30,7 @@ def create_admin_command(password):
         if not admin:
             admin = User(
                 username="admin",
-                password_hash=password, # 실제 서비스에선 hash 적용 필요하지만 일단 평문 저장 (또는 models.py의 set_password 사용 권장)
+                password_hash=password,
                 brand_id=brand.id,
                 store_id=hq_store.id,
                 role="super_admin"
