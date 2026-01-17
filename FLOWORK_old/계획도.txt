@@ -1,0 +1,43 @@
+FLOWORK/ (최상위 루트)
+├── flowork/                  <-- [핵심 앱 패키지]
+│   ├── __init__.py           <-- (1단계) 앱 팩토리(create_app), 확장(db) 초기화
+│   ├── models.py             <-- (2단계) [기능] DB 모델 (Product, Variant)
+│   ├── utils.py              <-- (2단계) [기능] 헬퍼 함수 (초성, 바코드 생성 등)
+│   │
+│   ├── routes/               <-- (3단계) [기능] 라우트 (블루프린트)
+│   │   ├── __init__.py         <-- (블루프린트 등록)
+│   │   ├── main_routes.py    <-- (C영역) 검색, 상세, 리스트 페이지
+│   │   ├── stock_routes.py   <-- (C영역) 재고 관리, 엑셀 업/다운로드
+│   │   └── api_routes.py     <-- (API) 모든 JSON API 엔드포인트
+│   │
+│   ├── services/             <-- (4단계) [기능] 핵심 비즈니스 로직
+│   │   ├── __init__.py
+│   │   └── stock_service.py  <-- (엑셀 처리, DB 동기화 로직)
+│   │
+│   ├── static/
+│   │   ├── js/               <-- (6단계) [UI] 분리된 JavaScript
+│   │   │   ├── detail.js
+│   │   │   ├── index.js
+│   │   │   ├── list.js
+│   │   │   └── stock.js
+│   │   ├── logo.png          <-- (원본)
+│   │   └── symbol.png        <-- (원본)
+│   │
+│   └── templates/            <-- (5단계) [UI] A/B/C/D 구조 적용
+│       ├── base.html         <-- [신규] (A/B/D) 기본 레이아웃 템플릿
+│       │
+│       ├── partials/         <-- [신규] (A/B/D) 공통 UI 조각
+│       │   ├── _layout_A_header.html  <-- (A) 헤더 (로고)
+│       │   ├── _layout_B_tabs.html    <-- (B) 탭 (검색/상세/DB관리)
+│       │   └── _layout_D_footer.html  <-- (D) 풋 (카피라이트)
+│       │
+│       ├── index.html        <-- (C) 컨텐츠 영역 (base.html 상속)
+│       ├── list.html         <-- (C) 컨텐츠 영역 (base.html 상속)
+│       ├── detail.html       <-- (C) 컨텐츠 영역 (base.html 상속)
+│       └── stock.html        <-- (C) 컨텐츠 영역 (base.html 상속)
+│
+├── config.py                 <-- (1단계) [기능] Flask 설정 (DB URI 등)
+├── run.py                    <-- (1단계) [기능] 앱 실행 파일 (gunicorn이 실행)
+│
+├── Dockerfile                <-- (7단계) 수정됨
+└── requirements.txt          <-- (원본)

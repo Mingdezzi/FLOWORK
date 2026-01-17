@@ -1,0 +1,7 @@
+Flask
+openpyxl
+Flask-SQLAlchemy
+SQLAlchemy
+psycopg2-binary
+gunicorn
+APScheduler

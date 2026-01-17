@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FLOWORK</title>
+    
+    <link rel="icon" href="{{ url_for('static', filename='symbol.png') }}">
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/journal/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script src="https://unpkg.com/hangul-js"></script>
+    <style>
+        .container { 
+            /* (*** 수정: width를 800px로 고정하되, 모바일 화면에서는 100%가 되도록 max-width: 100% 설정 ***) */
+            width: 800px; 
+            max-width: 100%; 
+        }
+        /* (*** 추가: 스크롤바 항상 표시 ***) */
+        html { overflow-y: scroll; }
+        
+        .navbar-brand { font-weight: bold; }
+        .product-item .item-image { width: 60px; height: 60px; object-fit: contain; background-color: #fff; }
+        .product-meta .discount { font-weight: bold; }
+        .card-header h2 { font-size: 1.15rem; font-weight: 500;}
+        .list-group-item { border-left: 0; border-right: 0;}
+        .list-group-item:first-child { border-top-left-radius: 0; border-top-right-radius: 0;}
+        .list-group-item:last-child { border-bottom-left-radius: 0; border-bottom-right-radius: 0;}
+
+        #search-submit-btn { display: none; }
+        #search-query-input[readonly]:focus {
+             border-color: #f6b5b3; box-shadow: 0 0 0 0.25rem rgba(235, 104, 100, 0.25);
+        }
+
+        .nav-tabs .nav-link.active, .nav-tabs .nav-item.show .nav-link {
+            color: #eb6864; background-color: transparent; border-color: #dee2e6 #dee2e6 #fff; border-bottom: 2px solid #eb6864;
+        }
+        .nav-tabs { border-bottom: 1px solid #dee2e6; }
+        .nav-link { color: #6c757d; }
+
+        #category-bar {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+        #category-bar .btn {
+            flex-grow: 1;
+            flex-basis: 0;
+            padding: 0.5rem 0.25rem;
+            font-size: 0.9rem;
+        }
+        #category-bar .btn.active {
+             background-color: #eb6864;
+             border-color: #eb6864;
+             color: white;
+        }
+        #category-bar .btn:not(.active) {
+            background-color: #f8f9fa;
+            border-color: #dee2e6;
+            color: #6c757d;
+        }
+
+        .keypad-hidden {
+            display: none !important;
+        }
+
+        /* 1. 4x3 숫자 키패드 */
+        .keypad-grid { 
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+        }
+        .keypad-btn {
+            height: 60px;
+            font-size: 1.2rem;
+            font-weight: 500;
+            border: 1px solid #dee2e6;
+        }
+        .keypad-grid .keypad-btn[data-key="backspace"] {
+            grid-column: 1 / 2;
+            font-size: 1.1rem;
+        }
+        .keypad-grid .keypad-btn[data-key="0"] {
+            grid-column: 2 / 3;
+        }
+        .keypad-grid .keypad-btn[data-key="mode-kor"] {
+            grid-column: 3 / 4;
+            font-size: 1.1rem;
+        }
+
+        /* 2. 쿼티 키패드 */
+        .keypad-qwerty {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .qwerty-row {
+            display: flex;
+            gap: 4px;
+            width: 100%;
+            /* (*** 수정: 키패드 1-3열 가운데 정렬 ***) */
+            justify-content: center;
+        }
+        .qwerty-key {
+            /* (*** 수정: 모든 키가 동일 너비를 갖도록 grow(확장) 방지 및 10키 기준 9.5% 너비로 설정 ***) */
+            flex-grow: 0;
+            flex-basis: 9.5%;
+            
+            height: 60px;
+            padding: 0;
+            font-size: 1.1rem;
+            font-weight: 500;
+            border: 1px solid #dee2e6;
+            background-color: #fff;
+            color: #212529;
+            border-radius: 0.25rem;
+        }
+        .qwerty-key:active {
+            background-color: #ced4da;
+        }
+        
+        .qwerty-key.key-special {
+            background-color: #f8f9fa;
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #495057;
+        }
+        
+        /* (*** 추가: Shift 키 활성화 스타일 ***) */
+        .qwerty-key.key-special.active {
+            background-color: #eb6864; /* Bootswatch Journal Primary Color */
+            border-color: #eb6864;
+            color: white;
+        }
+        
+        #keypad-kor .qwerty-row-2, #keypad-eng .qwerty-row-2 {
+             /* (*** 수정: 들여쓰기 5% 제거 ***) */
+             padding-left: 0;
+             padding-right: 0;
+        }
+        
+        /* (*** 수정: 2번째 줄 전용 키 스타일 규칙(inherit 포함)을 완전히 삭제 ***) */
+        
+        .qwerty-row-bottom {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+        }
+        .qwerty-row-bottom .keypad-btn {
+            height: 60px;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+    </style>
+</head>
+<body data-input-mode="num">
+    <div class="container my-4">
+        
+        <header class="text-center mb-4">
+            <a href="{{ url_for('index') }}">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="FLOWORK Logo" style="height: 40px; object-fit: contain;">
+            </a>
+        </header>
+
+        <ul class="nav nav-tabs nav-fill mb-3">
+            <li class="nav-item"> <a href="{{ url_for('index') }}" class="nav-link {{ 'active' if active_page == 'index' else '' }}"><i class="bi bi-search me-1"></i> 검색</a> </li>
+            <li class="nav-item"> <a href="{{ url_for('list_page') }}" class="nav-link {{ 'active' if active_page == 'list' else '' }}"><i class="bi bi-list-columns-reverse me-1"></i> 상세 검색</a> </li>
+            <li class="nav-item"> <a href="{{ url_for('stock_management') }}" class="nav-link {{ 'active' if active_page == 'stock' else '' }}"><i class="bi bi-database me-1"></i> DB 관리</a> </li>
+        </ul>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %} {% for category, message in messages %}
+                <div class="alert {{ 'alert-success' if category == 'success' else 'alert-danger' }} alert-dismissible fade show" role="alert"> {{ message }} <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button> </div>
+            {% endfor %} {% endif %}
+        {% endwith %}
+
+        <div class="card mb-3">
+             <div class="card-header"> <h2 class="mb-0"><i class="bi bi-search me-2"></i>상품 검색</h2> </div>
+            <div class="card-body">
+                <form action="/" method="GET" id="search-form" class="mb-2" onsubmit="return false;">
+                    <div class="input-group mb-2">
+                        <input type="text" id="search-query-input" name="query" class="form-control"
+                               placeholder="품번 또는 상품명 검색..." value="{{ query or '' }}">
+
+                        {% if query or (selected_category and selected_category != '전체') %}
+                            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary" title="검색 초기화">&times;</a>
+                        {% endif %}
+                        <button class="btn btn-primary" type="submit" id="search-submit-btn"> <i class="bi bi-search"></i> </button>
+                        <button class="btn btn-outline-secondary ms-2" type="button" id="keypad-clear-top"><i class="bi bi-x-lg me-1"></i>CLEAR</button>
+                    </div>
+
+                    <input type="hidden" name="selected_category" id="selected-category" value="{{ selected_category or '전체' }}">
+                </form>
+
+                <div id="category-bar">
+                    <button class="btn category-btn active" data-category="전체">전체</button>
+                    <button class="btn category-btn" data-category="신발">신발</button>
+                    <button class="btn category-btn" data-category="의류">의류</button>
+                    <button class="btn category-btn" data-category="용품">용품</button>
+                </div>
+
+                <div id="keypad-container">
+                    
+                    <div id="keypad-num" class="keypad-grid">
+                        <button class="btn keypad-btn num-btn" data-key="1">1</button>
+                        <button class="btn keypad-btn num-btn" data-key="2">2</button>
+                        <button class="btn keypad-btn num-btn" data-key="3">3</button>
+                        <button class="btn keypad-btn num-btn" data-key="4">4</button>
+                        <button class="btn keypad-btn num-btn" data-key="5">5</button>
+                        <button class="btn keypad-btn num-btn" data-key="6">6</button>
+                        <button class="btn keypad-btn num-btn" data-key="7">7</button>
+                        <button class="btn keypad-btn num-btn" data-key="8">8</button>
+                        <button class="btn keypad-btn num-btn" data-key="9">9</button>
+                        <button class="btn btn-secondary keypad-btn" data-key="backspace"><i class="bi bi-backspace"></i></button>
+                        <button class="btn keypad-btn num-btn" data-key="0">0</button>
+                        <button class="btn btn-primary keypad-btn" data-key="mode-kor">한</button>
+                    </div>
+
+                    <div id="keypad-kor" class="keypad-qwerty keypad-hidden">
+                        <div class="qwerty-row">
+                            <button class="qwerty-key" data-key="ㅂ">ㅂ</button>
+                            <button class="qwerty-key" data-key="ㅈ">ㅈ</button>
+                            <button class="qwerty-key" data-key="ㄷ">ㄷ</button>
+                            <button class="qwerty-key" data-key="ㄱ">ㄱ</button>
+                            <button class="qwerty-key" data-key="ㅅ">ㅅ</button>
+                            <button class="qwerty-key" data-key="ㅛ">ㅛ</button>
+                            <button class="qwerty-key" data-key="ㅕ">ㅕ</button>
+                            <button class="qwerty-key" data-key="ㅑ">ㅑ</button>
+                            <button class="qwerty-key" data-key="ㅐ">ㅐ</button>
+                            <button class="qwerty-key" data-key="ㅔ">ㅔ</button>
+                        </div>
+                        <div class="qwerty-row qwerty-row-2">
+                            <button class="qwerty-key" data-key="ㅁ">ㅁ</button>
+                            <button class="qwerty-key" data-key="ㄴ">ㄴ</button>
+                            <button class="qwerty-key" data-key="ㅇ">ㅇ</button>
+                            <button class="qwerty-key" data-key="ㄹ">ㄹ</button>
+                            <button class="qwerty-key" data-key="ㅎ">ㅎ</button>
+                            <button class="qwerty-key" data-key="ㅗ">ㅗ</button>
+                            <button class="qwerty-key" data-key="ㅓ">ㅓ</button>
+                            <button class="qwerty-key" data-key="ㅏ">ㅏ</button>
+                            <button class="qwerty-key" data-key="ㅣ">ㅣ</button>
+                        </div>
+                        <div class="qwerty-row">
+                             <button class="qwerty-key key-special" data-key="shift-kor">⇧</button> <button class="qwerty-key" data-key="ㅋ">ㅋ</button>
+                            <button class="qwerty-key" data-key="ㅌ">ㅌ</button>
+                            <button class="qwerty-key" data-key="ㅊ">ㅊ</button>
+                            <button class="qwerty-key" data-key="ㅍ">ㅍ</button>
+                            <button class="qwerty-key" data-key="ㅠ">ㅠ</button>
+                            <button class="qwerty-key" data-key="ㅜ">ㅜ</button>
+                            <button class="qwerty-key" data-key="ㅡ">ㅡ</button>
+                        </div>
+                        <div class="qwerty-row qwerty-row-bottom">
+                            <button class="btn btn-secondary keypad-btn" data-key="backspace"><i class="bi bi-backspace"></i></button>
+                            <button class="btn keypad-btn" data-key=" ">Space</button>
+                            <button class="btn btn-primary keypad-btn" data-key="mode-eng">영</button>
+                        </div>
+                    </div>
+                    
+                    <div id="keypad-eng" class="keypad-qwerty keypad-hidden">
+                        <div class="qwerty-row">
+                            <button class="qwerty-key" data-key="Q">Q</button>
+                            <button class="qwerty-key" data-key="W">W</button>
+                            <button class="qwerty-key" data-key="E">E</button>
+                            <button class="qwerty-key" data-key="R">R</button>
+                            <button class="qwerty-key" data-key="T">T</button>
+                            <button class="qwerty-key" data-key="Y">Y</button>
+                            <button class="qwerty-key" data-key="U">U</button>
+                            <button class="qwerty-key" data-key="I">I</button>
+                            <button class="qwerty-key" data-key="O">O</button>
+                            <button class="qwerty-key" data-key="P">P</button>
+                        </div>
+                        <div class="qwerty-row qwerty-row-2">
+                            <button class="qwerty-key" data-key="A">A</button>
+                            <button class="qwerty-key" data-key="S">S</button>
+                            <button class="qwerty-key" data-key="D">D</button>
+                            <button class="qwerty-key" data-key="F">F</button>
+                            <button class="qwerty-key" data-key="G">G</button>
+                            <button class="qwerty-key" data-key="H">H</button>
+                            <button class="qwerty-key" data-key="J">J</button>
+                            <button class="qwerty-key" data-key="K">K</button>
+                            <button class="qwerty-key" data-key="L">L</button>
+                        </div>
+                        <div class="qwerty-row">
+                            <button class="qwerty-key key-special" data-key="shift-eng">⇧</button> 
+                            <button class="qwerty-key" data-key="Z">Z</button>
+                            <button class="qwerty-key" data-key="X">X</button>
+                            <button class="qwerty-key" data-key="C">C</button>
+                            <button class="qwerty-key" data-key="V">V</button>
+                            <button class="qwerty-key" data-key="B">B</button>
+                            <button class="qwerty-key" data-key="N">N</button>
+                            <button class="qwerty-key" data-key="M">M</button>
+                        </div>
+                        <div class="qwerty-row qwerty-row-bottom">
+                            <button class="btn btn-secondary keypad-btn" data-key="backspace"><i class="bi bi-backspace"></i></button>
+                            <button class="btn keypad-btn" data-key=" ">Space</button>
+                            <button class="btn btn-primary keypad-btn" data-key="mode-num">숫</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <div id="product-list-wrapper">
+            <div class="card mb-3">
+                <div class="card-header">
+                    {% if showing_favorites %}
+                        <h2 class="mb-0" id="product-list-header"><i class="bi bi-star-fill me-2 text-warning"></i>즐겨찾기</h2>
+                    {% else %}
+                        <h2 class="mb-0" id="product-list-header"><i class="bi bi-card-list me-2"></i>
+                            상품 검색 결과
+                            {% if selected_category and selected_category != '전체' %}
+                                <span class="badge bg-success ms-2">{{ selected_category }}</span>
+                            {% endif %}
+                        </h2>
+                    {% endif %}
+                </div>
+                <ul class="list-group list-group-flush product-list" id="product-list-ul">
+                    {% for product in products %}
+                    <li class="list-group-item">
+                        <a href="{{ url_for('product_detail', product_number=product.product_number) }}" class="product-item d-flex align-items-center text-decoration-none text-body">
+                            {% set image_pn = product.product_number.split(' ')[0] %}
+                            <img src="{{ IMAGE_URL_PREFIX }}{{ image_pn }}.jpg" alt="{{ product.product_name }}" class="item-image rounded border flex-shrink-0" onerror="this.style.visibility='hidden'">
+                            <div class="item-details flex-grow-1 ms-3">
+                                <div class="product-name fw-bold">{{ product.product_name }}</div>
+                                <div class="product-meta small text-muted">
+                                    <span class="meta-item me-2">{{ product.product_number }}</span>
+                                    {% if product.variants %}
+                                        {% set colors = product.variants | map(attribute='color') | unique | sort | join(', ') %}
+                                        {% if colors %} <span class="meta-item d-block d-sm-inline me-2"><i class="bi bi-palette"></i> {{ colors }}</span> {% endif %}
+                                        {% set first_variant = product.variants[0] %}
+                                        <span class="meta-item me-2 fw-bold text-dark">{{ "{:,d}".format(first_variant.sale_price) }}원</span>
+                                        {% if first_variant.original_price and first_variant.original_price > 0 %} <span class="meta-item discount text-danger"> {{ ((1 - (first_variant.sale_price / first_variant.original_price)) * 100) | int }}% </span>
+                                        {% else %}<span class="meta-item discount text-secondary">0%</span>{% endif %}
+                                    {% else %}<span class="meta-item sale-price">가격정보없음</span><span class="meta-item discount">-%</span>{% endif %}
+                                </div>
+                            </div>
+                        </a>
+                    </li>
+                    {% else %} <li class="list-group-item text-center text-muted p-4"> {% if showing_favorites %} 즐겨찾기 상품 없음. {% else %} 검색된 상품 없음. {% endif %} </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+    <script>
+        (function() {
+            function isMobile() {
+                const ua = navigator.userAgent;
+                return /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
+            }
+            if (isMobile()) {
+                const searchInput = document.getElementById('search-query-input');
+                if (searchInput) {
+                    searchInput.setAttribute('readonly', true);
+                    searchInput.setAttribute('inputmode', 'none');
+                }
+            }
+        })();
+
+        document.addEventListener('DOMContentLoaded', (event) => {
+            const searchInput = document.getElementById('search-query-input');
+            const clearTopBtn = document.getElementById('keypad-clear-top');
+            
+            const categoryBar = document.getElementById('category-bar');
+            const categoryButtons = categoryBar.querySelectorAll('.category-btn');
+            const hiddenCategoryInput = document.getElementById('selected-category');
+
+            const keypadContainer = document.getElementById('keypad-container');
+            const keypadNum = document.getElementById('keypad-num');
+            const keypadKor = document.getElementById('keypad-kor');
+            const keypadEng = document.getElementById('keypad-eng');
+
+            // (*** 수정: Shift 로직을 위한 상태 변수 및 맵 정의 ***)
+            let isKorShiftActive = false;
+            
+            const korKeyMap = {
+                'ㅂ': 'ㅃ', 'ㅈ': 'ㅉ', 'ㄷ': 'ㄸ', 'ㄱ': 'ㄲ', 'ㅅ': 'ㅆ',
+                'ㅐ': 'de', 'ㅔ': 'ㅖ'
+            };
+            const korReverseKeyMap = {
+                'ㅃ': 'ㅂ', 'ㅉ': 'ㅈ', 'ㄸ': 'ㄷ', 'ㄲ': 'ㄱ', 'ㅆ': 'ㅅ',
+                'ㅒ': 'ㅐ', 'ㅖ': 'ㅔ'
+            };
+            const korShiftBtn = document.querySelector('#keypad-kor [data-key="shift-kor"]');
+
+            // (*** 추가: 한글 키패드 시각적 업데이트 함수 ***)
+            function updateKorKeypadVisuals() {
+                if (isKorShiftActive) {
+                    korShiftBtn.classList.add('active', 'btn-primary');
+                    korShiftBtn.classList.remove('btn-outline-secondary');
+                    // 기본 자음을 찾아 쌍자음으로 변경
+                    for (const [base, shifted] of Object.entries(korKeyMap)) {
+                        const keyEl = document.querySelector(`#keypad-kor [data-key="${base}"]`);
+                        if (keyEl) {
+                            keyEl.dataset.key = shifted;
+                            keyEl.textContent = shifted;
+                        }
+                    }
+                } else {
+                    korShiftBtn.classList.remove('active', 'btn-primary');
+                    korShiftBtn.classList.add('btn-outline-secondary');
+                     // 쌍자음을 찾아 기본 자음으로 변경
+                    for (const [shifted, base] of Object.entries(korReverseKeyMap)) {
+                        const keyEl = document.querySelector(`#keypad-kor [data-key="${shifted}"]`);
+                        if (keyEl) {
+                            keyEl.dataset.key = base;
+                            keyEl.textContent = base;
+                        }
+                    }
+                }
+            }
+
+            function showKeypad(mode) {
+                keypadNum.classList.add('keypad-hidden');
+                keypadKor.classList.add('keypad-hidden');
+                keypadEng.classList.add('keypad-hidden');
+
+                if (mode === 'kor') {
+                    keypadKor.classList.remove('keypad-hidden');
+                    document.body.dataset.inputMode = 'kor';
+                } else if (mode === 'eng') {
+                    keypadEng.classList.remove('keypad-hidden');
+                    document.body.dataset.inputMode = 'eng';
+                } else {
+                    keypadNum.classList.remove('keypad-hidden');
+                    document.body.dataset.inputMode = 'num';
+                }
+            }
+            
+            keypadContainer.addEventListener('click', (e) => {
+                const key = e.target.closest('.keypad-btn, .qwerty-key');
+                if (!key) return;
+
+                const dataKey = key.dataset.key;
+                if (!dataKey) return;
+
+
+                if (dataKey === 'backspace') {
+                    let currentValue = searchInput.value;
+                    if (currentValue.length > 0) {
+                        searchInput.value = currentValue.slice(0, -1);
+                    }
+                    triggerSearch(); 
+                } 
+                else if (dataKey === 'mode-kor') {
+                    showKeypad('kor');
+                } 
+                else if (dataKey === 'mode-eng') {
+                    showKeypad('eng');
+                    // (*** 수정: 영문 모드 변경 시 한글 Shift 상태 초기화 ***)
+                    if (isKorShiftActive) {
+                        isKorShiftActive = false;
+                        updateKorKeypadVisuals();
+                    }
+                } 
+                else if (dataKey === 'mode-num') {
+                    showKeypad('num');
+                    // (*** 수정: 숫자 모드 변경 시 한글 Shift 상태 초기화 ***)
+                    if (isKorShiftActive) {
+                        isKorShiftActive = false;
+                        updateKorKeypadVisuals();
+                    }
+                }
+                // (*** 수정: 'shift-kor' 로직 변경 - 토글 및 시각적 업데이트 ***)
+                else if (dataKey === 'shift-kor') {
+                    isKorShiftActive = !isKorShiftActive; // 상태 토글
+                    updateKorKeypadVisuals(); // 키패드 시각적 업데이트
+                    // 검색은 실행하지 않음
+                }
+                else if (dataKey === 'shift-eng') {
+                    // (대소문자 토글 - 미구현)
+                }
+                else if (dataKey === ' ') {
+                    searchInput.value += ' ';
+                    triggerSearch(); 
+                }
+                else {
+                    // (*** 수정: dataKey가 이미 'ㄲ' 또는 'ㄱ'이므로 그냥 입력 ***)
+                    searchInput.value = Hangul.assemble(searchInput.value + dataKey);
+                    triggerSearch(); 
+                }
+                
+                searchInput.focus();
+            });
+
+
+            const productListUL = document.getElementById('product-list-ul');
+            const productListHeader = document.getElementById('product-list-header');
+            const imageURLPrefix = "{{ IMAGE_URL_PREFIX }}";
+            let debounceTimer;
+
+            function triggerSearch() {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => { performSearch(); }, 300);
+            }
+
+            const performSearch = async () => {
+                const query = searchInput.value;
+                const category = hiddenCategoryInput.value;
+                productListUL.innerHTML = '<li class="list-group-item text-center text-muted p-4">검색 중...</li>';
+
+                try {
+                    const response = await fetch("{{ url_for('live_search') }}", {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ query: query, category: category })
+                    });
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                        renderResults(data.products, data.showing_favorites, data.selected_category);
+                    } else { throw new Error(data.message || 'API error'); }
+                } catch (error) {
+                    console.error('실시간 검색 오류:', error);
+                    productListUL.innerHTML = '<li class="list-group-item text-center text-danger p-4">검색 중 오류가 발생했습니다.</li>';
+                }
+            };
+            
+            const renderResults = (products, showingFavorites, selectedCategory) => {
+                 if (showingFavorites) {
+                    productListHeader.innerHTML = '<i class="bi bi-star-fill me-2 text-warning"></i>즐겨찾기 목록';
+                } else {
+                    let categoryBadge = '';
+                    if (selectedCategory && selectedCategory !== '전체') {
+                        categoryBadge = `<span class="badge bg-success ms-2">${selectedCategory}</span>`;
+                    }
+                    productListHeader.innerHTML = `<i class="bi bi-card-list me-2"></i>상품 검색 결과 ${categoryBadge}`;
+                }
+                productListUL.innerHTML = '';
+                if (products.length === 0) {
+                    const message = showingFavorites ? '즐겨찾기 상품 없음.' : '검색된 상품 없음.';
+                    productListUL.innerHTML = `<li class="list-group-item text-center text-muted p-4">${message}</li>`;
+                    return;
+                }
+                products.forEach(product => {
+                    // (*** 오류 수정: Jinja2 구문이 포함된 주석을 수정 ***)
+                    const productHtml = `
+                        <li class="list-group-item">
+                            <a href="/product/${product.product_number}" class="product-item d-flex align-items-center text-decoration-none text-body">
+                                <img src="${imageURLPrefix}${product.image_pn}.jpg" alt="${product.product_name}" class="item-image rounded border flex-shrink-0" onerror="this.style.visibility='hidden'">
+                                <div class="item-details flex-grow-1 ms-3">
+                                    <div class="product-name fw-bold">${product.product_name}</div>
+                                    <div class="product-meta small text-muted">
+                                        <span class="meta-item me-2">${product.product_number}</span>
+                                        ${product.colors ? `<span class="meta-item d-block d-sm-inline me-2"><i class="bi bi-palette"></i> ${product.colors}</span>` : ''}
+                                        <span class="meta-item me-2 fw-bold text-dark">${product.sale_price}</span>
+                                        <span class="meta-item discount ${product.original_price > 0 ? 'text-danger' : 'text-secondary'}">${product.discount}</span>
+                                    </div>
+                                </div>
+                            </a>
+                        </li>
+                    `;
+                    productListUL.insertAdjacentHTML('beforeend', productHtml);
+                });
+            };
+
+            if (categoryBar) {
+                categoryBar.addEventListener('click', (e) => {
+                    const target = e.target.closest('.category-btn');
+                    if (!target) return;
+
+                    categoryButtons.forEach(btn => btn.classList.remove('active'));
+                    target.classList.add('active');
+                    hiddenCategoryInput.value = target.dataset.category;
+                    triggerSearch();
+                    searchInput.focus();
+                });
+            }
+
+            if (clearTopBtn) {
+                clearTopBtn.addEventListener('click', () => {
+                    searchInput.value = '';
+                    triggerSearch();
+                    searchInput.focus();
+                });
+            }
+            
+            searchInput.addEventListener('input', (e) => {
+                if (e.isTrusted && !e.target.readOnly) { 
+                    triggerSearch();
+                }
+            });
+            
+             searchInput.addEventListener('keydown', (e) => {
+                 if (e.target.readOnly) return;
+                 
+                if (e.key === 'Backspace') {
+                } else if (e.key === 'Enter') {
+                     clearTimeout(debounceTimer);
+                     performSearch();
+                 }
+            });
+            
+            const searchForm = document.getElementById('search-form');
+            searchForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                clearTimeout(debounceTimer);
+                performSearch();
+            });
+            
+            showKeypad('num');
+            
+            const currentCategory = hiddenCategoryInput.value || '전체';
+            categoryButtons.forEach(btn => {
+                if (btn.dataset.category === currentCategory) {
+                    btn.classList.add('active');
+                }
+            });
+
+        });
+    </script>
+</body>
+</html>

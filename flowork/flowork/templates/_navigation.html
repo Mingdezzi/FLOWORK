@@ -1,0 +1,45 @@
+<div class="nav-grid-container mb-3">
+    
+    <a href="{{ url_for('ui.search_page') }}" class="nav-grid-item {{ 'active' if active_page == 'search' else '' }}">
+        <i class="bi bi-search"></i>
+        <span>상품검색</span>
+    </a>
+    <a href="{{ url_for('ui.check_page') }}" class="nav-grid-item {{ 'active' if active_page == 'check' else '' }}">
+        <i class="bi bi-clipboard-check"></i>
+        <span>재고실사</span>
+    </a>
+    
+    <a href="{{ url_for('ui.home') }}" class="nav-grid-item nav-grid-home {{ 'active' if active_page == 'home' else '' }}">
+        <i class="bi bi-house-door"></i>
+        <span>홈</span>
+    </a>
+    
+    <a href="{{ url_for('ui.order_list') }}" class="nav-grid-item {{ 'active' if active_page == 'order' else '' }}">
+        <i class="bi bi-box-seam"></i>
+        <span>고객주문</span>
+    </a>
+    
+    <a href="{{ url_for('ui.announcement_list') }}" class="nav-grid-item {{ 'active' if active_page == 'announcements' else '' }}">
+        <i class="bi bi-megaphone-fill"></i>
+        <span>공지사항</span>
+    </a>
+    
+    <a href="{{ url_for('ui.list_page') }}" class="nav-grid-item {{ 'active' if active_page == 'list' else '' }}">
+        <i class="bi bi-list-columns-reverse"></i>
+        <span>상세검색</span>
+    </a>
+    <a href="{{ url_for('ui.stock_management') }}" class="nav-grid-item {{ 'active' if active_page == 'stock' else '' }}">
+        <i class="bi bi-database"></i>
+        <span>재고관리</span>
+    </a>
+    
+    <a href="{{ url_for('ui.schedule') }}" class="nav-grid-item {{ 'active' if active_page == 'schedule' else '' }}">
+        <i class="bi bi-calendar-week-fill"></i>
+        <span>매장일정</span>
+    </a>
+    
+    <a href="{{ url_for('ui.setting_page') }}" class="nav-grid-item {{ 'active' if active_page == 'setting' else '' }}">
+        <i class="bi bi-gear-fill"></i>
+        <span>전체설정</span>
+    </a>
+</div>

@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FLOWORK</title>
+    
+    <link rel="icon" href="{{ url_for('static', filename='symbol.png') }}">
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/journal/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        .container { 
+            width: 800px; 
+            max-width: 100%; 
+        }
+        html { overflow-y: scroll; }
+        
+        .navbar-brand { font-weight: bold; }
+        .nav-item.disabled > .nav-link { color: #adb5bd !important; background-color: transparent !important; }
+
+        /* (*** 수정: 이 부분을 추가하여 세로 정렬을 강제합니다 ***) */
+        .product-details {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start; /* 모든 항목 좌측 정렬 */
+        }
+        /* (*** 수정 끝 ***) */
+
+        .product-details h2 { font-size: 1.5rem; border-bottom: none; padding-bottom: 0; }
+        .product-meta span + span::before { content: "|"; margin: 0 0.5rem; color: #adb5bd; }
+        .product-pricing .original-price { font-size: 0.9em; }
+        .product-pricing .sale-price { font-size: 1.1em; }
+        .product-pricing .discount { font-size: 1.1em; }
+
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap; /* 버튼들이 여러 줄로 자동 정렬 */
+            justify-content: flex-start; /* (*** 수정: 버튼 좌측 정렬 ***) */
+            align-items: flex-start;
+            gap: 0.5rem;
+            /* (*** 수정: 텍스트 블록과의 상단 여백 추가 ***) */
+            margin-top: 1rem; 
+        }
+
+        .action-buttons > .btn {
+            /* (*** 수정: 버튼 너비를 160px로 고정, 자동 증가/축소 방지 ***) */
+            flex: 0 0 160px; 
+            width: 160px;
+            box-sizing: border-box;
+        }
+
+         .action-buttons .edit-mode-controls-wrapper {
+             display: flex; 
+             flex-wrap: wrap;
+             gap: 0.5rem;
+             /* (*** 수정: 너비를 160px로 고정 ***) */
+             flex: 0 0 160px;
+             width: 160px;
+        }
+        
+        .action-buttons .edit-mode-controls-wrapper > .btn {
+            /* (*** 수정: 편집 모드 버튼이 래퍼(160px) 너비에 맞게 조절 ***) */
+            flex: 1 1 auto;
+            width: auto;
+            min-width: 65px;
+        }
+
+        .action-buttons .edit-mode-controls-wrapper .btn-edit-product {
+             /* (*** 수정: 편집 버튼이 160px 꽉 채우도록 ***) */
+             flex: 1 1 100%;
+             width: 160px;
+        }
+
+
+        .btn-toggle-actual-stock.active { background-color: #28a745; border-color: #28a745; }
+
+        .product-image img { max-height: 400px; object-fit: contain; }
+        .product-image .error-text { display: none; color: #6c757d; padding: 40px 0; background-color: #f8f9fa; border-radius: 0.375rem; }
+
+        .card-header h2 { font-size: 1.15rem; font-weight: 500;}
+
+        .stock-table th, .stock-table td {
+            padding: 0.75rem 0.5rem;
+            vertical-align: middle;
+            font-size: 1.5rem; 
+            white-space: nowrap;
+            text-align: center; /* (*** 요청: 가운데 정렬 적용됨 ***) */
+        }
+        
+        /* (*** 추가: 1, 2번째 열도 강제로 가운데 정렬 (테마 덮어쓰기) ***) */
+        .stock-table th:nth-child(1), .stock-table td:nth-child(1),
+        .stock-table th:nth-child(2), .stock-table td:nth-child(2) {
+            text-align: center !important;
+        }
+
+        .actual-stock-input {
+            /* (*** width 삭제됨 ***) */
+            padding: 0.375rem 0.2rem;
+            font-size: 1.5rem; 
+            text-align: center;
+            line-height: 1.5;
+            vertical-align: middle;
+            min-width: 50px; 
+        }
+        .btn-save-actual {
+            padding: 0.375rem 0.4rem;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            vertical-align: middle;
+            display: inline-block;
+            margin-left: 0.25rem;
+        }
+        .stock-diff {
+            min-width: 25px;
+            display: inline-block;
+            text-align: center;
+            vertical-align: middle;
+            font-size: 1.5rem; 
+            line-height: 1.1;
+        }
+        .stock-diff.badge.bg-primary::before { content: "+"; }
+
+        .related-container .card-header h2 { font-size: 1.15rem; font-weight: 500;}
+        .product-item .item-image { width: 50px; height: 50px; }
+        .list-group-item { border-left: 0; border-right: 0;}
+        .list-group-item:first-child { border-top-left-radius: 0; border-top-right-radius: 0;}
+        .list-group-item:last-child { border-bottom-left-radius: 0; border-bottom-right-radius: 0;}
+
+        .actual-stock-control {
+            width: auto;
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: nowrap; 
+        }
+
+        .nav-tabs .nav-link.active, .nav-tabs .nav-item.show .nav-link {
+            color: #eb6864; background-color: transparent; border-color: #dee2e6 #dee2e6 #fff; border-bottom: 2px solid #eb6864;
+        }
+        .nav-tabs { border-bottom: 1px solid #dee2e6; }
+        .nav-link { color: #6c757d; }
+
+        .edit-mode-controls { display: none; }
+        .edit-field { display: none; }
+        .view-field { display: table-cell; }
+        body.edit-mode .edit-field { display: table-cell; }
+        body.edit-mode .view-field { display: none; }
+        body.edit-mode .stock-control .btn-group-vertical { display: none; }
+        body.edit-mode .btn-edit-product { display: none; }
+        body.edit-mode .btn-toggle-actual-stock { display: none; }
+        body.edit-mode .action-buttons .btn-favorite { display: none; }
+        body.edit-mode .edit-mode-controls-wrapper .edit-mode-controls { display: inline-block; }
+
+        body.edit-mode .variant-edit-cell { padding: 0.25rem !important; }
+        .variant-edit-input { width: 100%; max-width: 80px; font-size: 0.85rem; padding: 0.2rem 0.4rem; }
+        .btn-delete-variant { padding: 0.1rem 0.4rem; font-size: 0.8rem; }
+        #add-variant-row { display: none; }
+        body.edit-mode #add-variant-row { display: table-row; }
+        #add-variant-row input { max-width: 100px; }
+
+        .stock-table thead th {
+            border-right: 1px solid #dee2e6;
+        }
+        .stock-table thead th:last-child {
+             border-right: none;
+        }
+        .table-responsive {
+            border: 1px solid #dee2e6;
+            border-bottom: none;
+        }
+        .stock-table tbody tr:last-child td {
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        /* (*** 수정: .stock-table 관련 너비 규칙 추가 ***) */
+        .stock-table {
+            margin-bottom: 0;
+            /* (*** 수정: 'fixed'로 변경하여 너비를 강제합니다 ***) */
+            table-layout: fixed;
+            width: 100%;
+        }
+        
+        /* (*** 데스크탑 (넓게, 동일 비율) ***) */
+        .stock-table th:nth-child(1), .stock-table td:nth-child(1),
+        .stock-table th:nth-child(2), .stock-table td:nth-child(2),
+        .stock-table th:nth-child(3), .stock-table td:nth-child(3),
+        .stock-table th:nth-child(4), .stock-table td:nth-child(4) {
+             /* 1-4열이 남은 공간을 나눠 가짐 */
+             width: 25%;
+        }
+        
+        /* (*** 데스크탑: 5열 '실사재고' (좁게) ***) */
+        .stock-table th:nth-child(5), 
+        .stock-table td:nth-child(5) {
+            width: 120px; /* (*** 요청: 120px ***) */
+        }
+        /* (*** 데스크탑: 6열 '과부족' (좁게) ***) */
+        .stock-table th:nth-child(6), 
+        .stock-table td:nth-child(6) {
+             width: 80px; /* (*** 요청: 80px ***) */
+        }
+        /* (*** 데스크탑: 7열 '작업' (좁게, 숨겨진 열) ***) */
+        .stock-table th:nth-child(7), 
+        .stock-table td:nth-child(7) {
+             width: 200px; /* (*** 요청: 200px ***) */
+        }
+        /* (*** 수정 끝 ***) */
+
+
+        .stock-quantity, .stock-hq {
+            font-size: 2rem; 
+            font-weight: bold;
+        }
+
+
+        @media (max-width: 768px) { 
+            /* (*** 추가: 모바일에서도 fixed 레이아웃을 유지합니다 ***) */
+            .stock-table {
+                table-layout: fixed !important;
+            }
+
+            .stock-table th, .stock-table td {
+                padding: 0.5rem 0.25rem;
+                font-size: 1rem;
+                /* (*** 수정: 모바일에서 줄바꿈 허용 ***) */
+                white-space: normal; 
+            }
+            .actual-stock-input {
+                /* (*** width: 60px; 삭제됨 ***) */
+                padding: 0.25rem 0.15rem;
+                font-size: 1rem;
+            }
+             .stock-diff {
+                font-size: 1rem;
+            }
+            .stock-quantity, .stock-hq {
+                font-size: 1.5rem;
+            }
+            
+            /* (*** 수정: 모바일 전용 너비 규칙 (고정값 위주로 변경) ***) */
+            /* (모바일: 1-4열 넓게, 25% 유지) */
+            .stock-table th:nth-child(1), .stock-table td:nth-child(1),
+            .stock-table th:nth-child(2), .stock-table td:nth-child(2),
+            .stock-table th:nth-child(3), .stock-table td:nth-child(3),
+            .stock-table th:nth-child(4), .stock-table td:nth-child(4) {
+                 width: 25% !important; 
+            }
+            /* (모바일: 5열 좁게) */
+            .stock-table th:nth-child(5), .stock-table td:nth-child(5) {
+                 width: 80px !important; /* (*** 요청: 80px ***) */
+            }
+            /* (모바일: 6열 좁게) */
+            .stock-table th:nth-child(6), .stock-table td:nth-child(6) {
+                 width: 50px !important; /* (*** 요청: 50px ***) */
+            }
+            /* (모바일: 7열 좁게) */
+            .stock-table th:nth-child(7), .stock-table td:nth-child(7) {
+                 width: 130px !important; /* (*** 요청: 130px ***) */
+            }
+        }
+        /* (*** 수정: 400px 미디어 쿼리 제거 ***) */
+
+    </style>
+</head>
+<body>
+    <div class="container my-4">
+        
+        <header class="text-center mb-4">
+            <a href="{{ url_for('index') }}">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="FLOWORK Logo" style="height: 40px; object-fit: contain;">
+            </a>
+        </header>
+
+        <ul class="nav nav-tabs nav-fill mb-3">
+            <li class="nav-item">
+                <a href="{{ url_for('index') }}" class="nav-link {{ 'active' if active_page == 'index' else '' }}">
+                   <i class="bi bi-search me-1"></i> 검색
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ url_for('list_page') }}" class="nav-link {{ 'active' if active_page == 'list' else '' }}">
+                   <i class="bi bi-list-columns-reverse me-1"></i> 상세 검색
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ url_for('stock_management') }}" class="nav-link {{ 'active' if active_page == 'stock' else '' }}">
+                   <i class="bi bi-database me-1"></i> DB 관리
+                </a>
+            </li>
+        </ul>
+
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="product-info">
+                    <div class="product-details">
+                        <div class="product-number text-muted small view-field">{{ product.product_number }}</div>
+                        <h2 class="mb-1 view-field">{{ product.product_name }}</h2>
+                        <div class="mb-1 edit-field">
+                             <input type="text" id="edit-product-name" class="form-control form-control-sm" value="{{ product.product_name }}">
+                        </div>
+                        <div class="product-meta mb-2 text-muted small view-field">
+                            {% if product.release_year %}<span>{{ product.release_year }}년</span>{% endif %}
+                            {% if product.item_category %}<span>{{ product.item_category }}</span>{% endif %}
+                        </div>
+                         <div class="row g-2 mb-2 edit-field">
+                            <div class="col-md">
+                                <label for="edit-release-year" class="form-label mb-0 small">출시년도</label>
+                                <input type="number" id="edit-release-year" class="form-control form-control-sm" value="{{ product.release_year or '' }}" placeholder="예: 2024">
+                            </div>
+                            <div class="col-md">
+                                <label for="edit-item-category" class="form-label mb-0 small">품목</label>
+                                <input type="text" id="edit-item-category" class="form-control form-control-sm" value="{{ product.item_category or '' }}" placeholder="예: 신발">
+                            </div>
+                        </div>
+                        {% if variants %}
+                            {% set first_variant = variants[0] if variants else None %}
+                            {% if first_variant %}
+                            <div class="product-pricing view-field">
+                                {% if first_variant.original_price and first_variant.original_price > 0 %}
+                                    <span class="original-price text-muted text-decoration-line-through">{{ "{:,d}".format(first_variant.original_price) }}원</span>
+                                    <span class="sale-price fw-bold">{{ "{:,d}".format(first_variant.sale_price) }}원</span>
+                                    <span class="discount text-danger fw-bold ms-1">
+                                        {{ ((1 - (first_variant.sale_price / first_variant.original_price)) * 100) | int }}%
+                                    </span>
+                                {% else %}
+                                     <span class="sale-price fw-bold">{{ "{:,d}".format(first_variant.sale_price) }}원</span>
+                                     <span class="discount text-secondary ms-1">0%</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    <div class="action-buttons mt-3">
+                         <div class="edit-mode-controls-wrapper">
+                            <button id="edit-product-btn" class="btn btn-info btn-edit-product">
+                                <i class="bi bi-pencil-fill me-1"></i> 상품 정보 수정
+                            </button>
+                            <button id="save-product-btn" class="btn btn-primary edit-mode-controls">
+                                <i class="bi bi-check-lg me-1"></i> 수정 완료
+                            </button>
+                            <button id="cancel-edit-btn" class="btn btn-secondary edit-mode-controls">
+                                <i class="bi bi-x-lg me-1"></i> 취소
+                            </button>
+                        </div>
+                        <button id="toggle-actual-stock-btn" class="btn btn-secondary btn-toggle-actual-stock view-field"> <i class="bi bi-pencil-square me-1"></i> 실사재고 등록
+                        </button>
+                        <button id="fav-btn" class="btn {{ 'btn-warning' if product.is_favorite == 1 else 'btn-outline-secondary' }} btn-favorite" data-product-number="{{ product.product_number }}">
+                            {% if product.is_favorite == 1 %} <i class="bi bi-star-fill me-1"></i> 즐겨찾기 해제 {% else %} <i class="bi bi-star me-1"></i> 즐겨찾기 추가 {% endif %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+             <div class="card-body">
+                <div class="product-image">
+                    <img src="{{ image_url }}" alt="{{ product.product_name }} 이미지" class="img-fluid rounded border p-2"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                    <p class="error-text mt-3">(이미지를 불러올 수 없습니다.)</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3 stock-section">
+             <div class="card-header">
+                <h2 class="mb-0"><i class="bi bi-table me-2"></i>재고 현황</h2>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover stock-table mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>컬러</th>
+                                <th>사이즈</th>
+                                <th>매장재고</th>
+                                <th>본사재고</th>
+                                <th class="view-field">실사재고</th>
+                                <th class="view-field">과부족</th>
+                                <th class="edit-field">작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="variants-tbody">
+                            {% for item in variants %}
+                            <tr data-barcode="{{ item.barcode }}">
+                                <td class="variant-edit-cell">
+                                    <span class="view-field">{{ item.color }}</span>
+                                    <input type="text" class="form-control form-control-sm variant-edit-input edit-field" data-field="color" value="{{ item.color }}">
+                                </td>
+                                <td class="variant-edit-cell">
+                                    <span class="view-field">{{ item.size }}</span>
+                                    <input type="text" class="form-control form-control-sm variant-edit-input edit-field" data-field="size" value="{{ item.size }}">
+                                </td>
+                                <td>
+                                    <div class="stock-control d-flex align-items-center justify-content-center">
+                                        <span id="stock-{{ item.barcode }}" class="stock-quantity me-2 {{ 'text-danger' if item.store_stock == 0 else '' }}">{{ item.store_stock }}</span>
+                                        <div class="btn-group-vertical btn-group-sm button-stack">
+                                            <button class="btn btn-outline-primary btn-inc py-0" data-barcode="{{ item.barcode }}" data-change="1">+</button>
+                                            <button class="btn btn-outline-danger btn-dec py-0" data-barcode="{{ item.barcode }}" data-change="-1">-</button>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="stock-hq">{{ item.hq_stock }}</td>
+                                
+                                <td class="view-field">
+                                    <div class="actual-stock-control input-group input-group-sm">
+                                        <input type="number"
+                                               id="actual-{{ item.barcode }}"
+                                               class="form-control form-control-sm actual-stock-input"
+                                               value="{{ item.actual_stock if item.actual_stock is not none else '' }}"
+                                               min="0"
+                                               data-barcode="{{ item.barcode }}"
+                                               disabled>
+                                        <button class="btn btn-success btn-sm btn-save-actual"
+                                                data-barcode="{{ item.barcode }}"
+                                                disabled><i class="bi bi-check-lg"></i></button>
+                                    </div>
+                                </td>
+                                <td class="view-field">
+                                    {% set diff_val = none %}
+                                    {% if item.actual_stock is not none %}
+                                        {% set diff_val = item.store_stock - item.actual_stock %}
+                                    {% endif %}
+                                    <span id="diff-{{ item.barcode }}"
+                                          class="stock-diff badge {% if diff_val is not none and diff_val > 0 %}bg-primary{% elif diff_val is not none and diff_val < 0 %}bg-danger{% elif diff_val is not none and diff_val == 0 %}bg-secondary{% else %}bg-light text-dark{% endif %}">
+                                        {{ diff_val if diff_val is not none else '-' }}
+                                    </span>
+                                </td>
+
+                                <td class="edit-field">
+                                     <button class="btn btn-danger btn-sm btn-delete-variant"><i class="bi bi-trash-fill"></i></button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr> <td colspan="7" class="text-center text-muted p-4">이 상품의 재고 정보가 없습니다.</td> </tr>
+                            {% endfor %}
+                            <tr id="add-variant-row">
+                                <td><input type="text" class="form-control form-control-sm variant-edit-input" data-field="new-color" placeholder="컬러"></td>
+                                <td><input type="text" class="form-control form-control-sm variant-edit-input" data-field="new-size" placeholder="사이즈"></td>
+                                <td></td>
+                                <td></td>
+                                <td class="edit-field">
+                                    <button id="btn-add-variant" class="btn btn-success btn-sm"><i class="bi bi-plus-lg"></i> 추가</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        {% if related_products %}
+        <div class="card mb-3 related-container">
+             <div class="card-header">
+                <h2 class="mb-0"><i class="bi bi-link-45deg me-2"></i>연관 상품</h2>
+            </div>
+            <ul class="list-group list-group-flush product-list">
+                {% for rel_prod in related_products %}
+                <li class="list-group-item">
+                    <a href="{{ url_for('product_detail', product_number=rel_prod.product_number) }}" class="product-item d-flex align-items-center text-decoration-none text-body">
+                        {% set image_pn = rel_prod.product_number.split(' ')[0] %}
+                        <img src="{{ IMAGE_URL_PREFIX }}{{ image_pn }}.jpg" alt="{{ rel_prod.product_name }}" class="item-image rounded border flex-shrink-0" onerror="this.style.visibility='hidden'">
+                        <div class="item-details flex-grow-1 ms-3">
+                            <div class="product-name fw-bold">{{ rel_prod.product_name }}</div>
+                            <div class="product-meta small text-muted">
+                                <span class="meta-item me-2">{{ rel_prod.product_number }}</span>
+                                {% if rel_prod.variants %}
+                                    {% set colors = rel_prod.variants | map(attribute='color') | unique | sort | join(', ') %}
+                                    {% if colors %} <span class="meta-item d-block d-sm-inline me-2"><i class="bi bi-palette"></i> {{ colors }}</span> {% endif %}
+                                    {% set first_variant = rel_prod.variants[0] if rel_prod.variants else None %}
+                                    {% if first_variant %}
+                                        <span class="meta-item me-2 fw-bold text-dark">{{ "{:,d}".format(first_variant.sale_price) }}원</span>
+                                        {% if first_variant.original_price and first_variant.original_price > 0 %}
+                                            <span class="meta-item discount text-danger">
+                                                {{ ((1 - (first_variant.sale_price / first_variant.original_price)) * 100) | int }}%
+                                            </span>
+                                        {% else %}<span class="meta-item discount text-secondary">0%</span>{% endif %}
+                                    {% else %}<span class="meta-item sale-price">가격정보없음</span><span class="meta-item discount">-%</span>{% endif %}
+                                {% else %}<span class="meta-item sale-price">가격정보없음</span><span class="meta-item discount">-%</span>{% endif %}
+                            </div>
+                        </div>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+             const stockTable = document.querySelector('.stock-table tbody');
+             if (stockTable) {
+                 stockTable.addEventListener('click', function(e) {
+                     const stockButton = e.target.closest('button.btn-inc, button.btn-dec');
+                     if (stockButton) {
+                         const barcode = stockButton.dataset.barcode;
+                         const change = parseInt(stockButton.dataset.change, 10);
+                         const changeText = change === 1 ? "증가" : "감소";
+                         if (confirm(`[${barcode}] 상품의 재고를 1 ${changeText}시키겠습니까?`)) {
+                             const allButtonsInStack = stockButton.closest('.button-stack').querySelectorAll('button');
+                             allButtonsInStack.forEach(btn => btn.disabled = true);
+                             updateStockOnServer(barcode, change, allButtonsInStack);
+                         }
+                     }
+                     const saveButton = e.target.closest('button.btn-save-actual');
+                     if (saveButton && !saveButton.disabled) {
+                         const barcode = saveButton.dataset.barcode;
+                         const inputElement = document.getElementById(`actual-${barcode}`);
+                         const actualStockValue = inputElement.value;
+                         saveButton.disabled = true;
+                         saveActualStock(barcode, actualStockValue, saveButton, inputElement);
+                     }
+                 });
+             }
+
+             const favButton = document.getElementById('fav-btn');
+             if (favButton) {
+                 favButton.addEventListener('click', function(e) {
+                     const isFavorite = favButton.classList.contains('btn-warning');
+                     const actionText = isFavorite ? '즐겨찾기에서 해제' : '즐겨찾기에 추가';
+                     if (confirm(`⭐ 이 상품을 ${actionText}하시겠습니까?`)) {
+                        const button = e.target.closest('button');
+                        const productNumber = button.dataset.productNumber;
+                        button.disabled = true;
+                        toggleFavoriteOnServer(productNumber, button);
+                     }
+                 });
+             }
+
+            const editProductBtn = document.getElementById('edit-product-btn');
+            const saveProductBtn = document.getElementById('save-product-btn');
+            const cancelEditBtn = document.getElementById('cancel-edit-btn');
+            const variantsTbody = document.getElementById('variants-tbody');
+            const addVariantBtn = document.getElementById('btn-add-variant');
+            const addVariantRow = document.getElementById('add-variant-row');
+            const toggleActualStockBtn = document.getElementById('toggle-actual-stock-btn');
+
+            if (editProductBtn) {
+                editProductBtn.addEventListener('click', () => {
+                    if (confirm('✏️ 상품 정보 수정 모드로 전환합니다.\n수정 후에는 반드시 [수정 완료] 버튼을 눌러 저장해주세요.')) {
+                        document.body.classList.add('edit-mode');
+                    }
+                });
+            }
+
+            if (cancelEditBtn) {
+                cancelEditBtn.addEventListener('click', () => {
+                    if (confirm('⚠️ 수정 중인 내용을 취소하고 원래 상태로 되돌립니다.\n계속하시겠습니까?')) {
+                        document.body.classList.remove('edit-mode');
+                        window.location.reload();
+                    }
+                });
+            }
+
+            if (variantsTbody) {
+                variantsTbody.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('btn-delete-variant') || e.target.closest('.btn-delete-variant')) {
+                        if (confirm('🗑️ 이 행을 삭제하시겠습니까? [수정 완료]를 눌러야 최종 반영됩니다.')) {
+                            const row = e.target.closest('tr');
+                            if (row.dataset.barcode) {
+                                row.style.display = 'none';
+                                row.dataset.action = 'delete';
+                            } else {
+                                row.remove();
+                            }
+                        }
+                    }
+                });
+            }
+
+            if (addVariantBtn) {
+                 addVariantBtn.addEventListener('click', () => {
+                    const newColorInput = addVariantRow.querySelector('[data-field="new-color"]');
+                    const newSizeInput = addVariantRow.querySelector('[data-field="new-size"]');
+
+                    const color = newColorInput.value.trim();
+                    const size = newSizeInput.value.trim();
+
+                    if (!color || !size) {
+                        alert('새 행의 컬러와 사이즈를 입력해주세요.');
+                        return;
+                    }
+
+                    const newRow = document.createElement('tr');
+                    newRow.dataset.action = 'add';
+                    
+                    newRow.innerHTML = `
+                        <td class="variant-edit-cell"><input type="text" class="form-control form-control-sm variant-edit-input" data-field="color" value="${color}"></td>
+                        <td class="variant-edit-cell"><input type="text" class="form-control form-control-sm variant-edit-input" data-field="size" value="${size}"></td>
+                        <td></td>
+                        <td></td>
+                        <td class="edit-field">
+                             <button class="btn btn-danger btn-sm btn-delete-variant"><i class="bi bi-trash-fill"></i></button>
+                        </td>
+                    `;
+                    variantsTbody.insertBefore(newRow, addVariantRow);
+
+                    newColorInput.value = '';
+                    newSizeInput.value = '';
+                 });
+            }
+
+            if (saveProductBtn) {
+                saveProductBtn.addEventListener('click', async () => {
+                    if (!confirm('💾 수정된 상품 정보를 저장하시겠습니까?\n삭제된 행은 복구되지 않습니다.')) return;
+
+                    const productData = {
+                        product_number: "{{ product.product_number }}",
+                        product_name: document.getElementById('edit-product-name').value,
+                        release_year: document.getElementById('edit-release-year').value || null,
+                        item_category: document.getElementById('edit-item-category').value || null,
+                        variants: []
+                    };
+
+                    variantsTbody.querySelectorAll('tr[data-barcode], tr[data-action="add"]').forEach(row => {
+                        if (row.style.display === 'none' && row.dataset.action !== 'delete') return;
+
+                        const action = row.dataset.action || 'update';
+                        if (action === 'delete') {
+                            productData.variants.push({ barcode: row.dataset.barcode, action: 'delete' });
+                        } else {
+                             const variant = {
+                                barcode: row.dataset.barcode || null,
+                                action: action,
+                                color: row.querySelector('[data-field="color"]').value,
+                                size: row.querySelector('[data-field="size"]').value
+                            };
+                            if (action === 'add' && (!variant.color || !variant.size)) {
+                                console.warn("Skipping incomplete new row:", variant);
+                                return;
+                            }
+                            productData.variants.push(variant);
+                        }
+                    });
+
+                    saveProductBtn.disabled = true;
+                    saveProductBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 저장 중...';
+
+                    try {
+                        const response = await fetch("{{ url_for('api_update_product_details') }}", {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(productData)
+                        });
+                        const data = await response.json();
+
+                        if (response.ok && data.status === 'success') {
+                            alert('상품 정보가 성공적으로 저장되었습니다.');
+                            window.location.reload();
+                        } else {
+                            throw new Error(data.message || '저장 중 오류가 발생했습니다.');
+                        }
+                    } catch (error) {
+                        alert(`오류: ${error.message}`);
+                        saveProductBtn.disabled = false;
+                        saveProductBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i> 수정 완료';
+                    }
+                });
+            }
+
+             const actualStockInputs = document.querySelectorAll('.actual-stock-input');
+             const saveActualStockBtns = document.querySelectorAll('.btn-save-actual');
+             let isActualStockEnabled = false;
+
+             if (toggleActualStockBtn) {
+                 toggleActualStockBtn.addEventListener('click', () => {
+                     if (document.body.classList.contains('edit-mode')) return;
+
+                     isActualStockEnabled = !isActualStockEnabled;
+                     actualStockInputs.forEach(input => { input.disabled = !isActualStockEnabled; });
+                     saveActualStockBtns.forEach(button => { button.disabled = true; });
+                     if (isActualStockEnabled) {
+                         toggleActualStockBtn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> 등록 완료';
+                         toggleActualStockBtn.classList.add('active', 'btn-success');
+                         toggleActualStockBtn.classList.remove('btn-secondary');
+                         if (actualStockInputs.length > 0) {
+                             actualStockInputs[0].focus();
+                         }
+                     } else {
+                         toggleActualStockBtn.innerHTML = '<i class="bi bi-pencil-square me-1"></i> 실사재고 등록';
+                         toggleActualStockBtn.classList.remove('active', 'btn-success');
+                         toggleActualStockBtn.classList.add('btn-secondary');
+                     }
+                 });
+             }
+
+             actualStockInputs.forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const barcode = e.target.dataset.barcode;
+                    const saveBtn = document.querySelector(`.btn-save-actual[data-barcode="${barcode}"]`);
+                    if(saveBtn && isActualStockEnabled) {
+                        saveBtn.disabled = false;
+                    }
+                });
+                
+                input.addEventListener('keydown', (e) => {
+                    if (!isActualStockEnabled) return;
+                    
+                    const currentBarcode = e.target.dataset.barcode;
+                    const inputs = Array.from(actualStockInputs);
+                    const currentIndex = inputs.indexOf(e.target);
+                    
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const saveBtn = document.querySelector(`.btn-save-actual[data-barcode="${currentBarcode}"]`);
+                        if (saveBtn && !saveBtn.disabled) {
+                            saveBtn.click();
+                        } else {
+                             const nextInput = inputs[currentIndex + 1];
+                             if (nextInput) {
+                                 nextInput.focus();
+                                 nextInput.select();
+                             }
+                        }
+                    } else if (e.key === 'ArrowDown') {
+                         e.preventDefault();
+                         const nextInput = inputs[currentIndex + 1];
+                         if (nextInput) {
+                             nextInput.focus();
+                             nextInput.select();
+                         }
+                    } else if (e.key === 'ArrowUp') {
+                         e.preventDefault();
+                         const prevInput = inputs[currentIndex - 1];
+                         if (prevInput) {
+                             prevInput.focus();
+                             prevInput.select();
+                         }
+                    }
+                });
+                
+                input.addEventListener('focus', (e) => {
+                    if (isActualStockEnabled) {
+                        e.target.select();
+                    }
+                });
+             });
+        });
+
+        function updateStockOnServer(barcode, change, buttons) {
+            fetch("{{ url_for('update_stock') }}", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ barcode: barcode, change: change }) })
+            .then(response => response.json()).then(data => {
+                if (data.status === 'success') {
+                    const quantitySpan = document.getElementById(`stock-${data.barcode}`);
+                    quantitySpan.textContent = data.new_quantity;
+                    quantitySpan.classList.toggle('text-danger', data.new_quantity === 0);
+
+                    updateStockDiffDisplayDirectly(barcode, data.new_stock_diff);
+                } else { alert(`재고 오류: ${data.message}`); }
+            }).catch(error => { console.error('재고 API 오류:', error); alert('서버 통신 오류.'); }).finally(() => { buttons.forEach(btn => btn.disabled = false); });
+        }
+
+        function toggleFavoriteOnServer(productNumber, button) {
+            fetch("{{ url_for('toggle_favorite') }}", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ product_number: productNumber }) })
+            .then(response => response.json()).then(data => {
+                 if (data.status === 'success') {
+                     if (data.new_favorite_status === 1) {
+                         button.innerHTML = '<i class="bi bi-star-fill me-1"></i> 즐겨찾기 해제';
+                         button.classList.add('btn-warning');
+                         button.classList.remove('btn-outline-secondary');
+                     } else {
+                         button.innerHTML = '<i class="bi bi-star me-1"></i> 즐겨찾기 추가';
+                         button.classList.remove('btn-warning');
+                         button.classList.add('btn-outline-secondary');
+                     }
+                 } else { alert(`즐겨찾기 오류: ${data.message}`); } })
+            .catch(error => { console.error('즐겨찾기 API 오류:', error); alert('서버 통신 오류.'); })
+            .finally(() => { button.disabled = false; });
+        }
+
+        function saveActualStock(barcode, actualStock, saveButton, inputElement) {
+            fetch("{{ url_for('update_actual_stock') }}", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ barcode: barcode, actual_stock: actualStock }) })
+            .then(response => response.json()).then(data => {
+                if (data.status === 'success') {
+                    updateStockDiffDisplayDirectly(barcode, data.new_stock_diff);
+                    inputElement.value = data.new_actual_stock;
+                    saveButton.disabled = true;
+                    inputElement.disabled = !document.getElementById('toggle-actual-stock-btn').classList.contains('active');
+                    
+                     const inputs = Array.from(document.querySelectorAll('.actual-stock-input'));
+                     const currentIndex = inputs.indexOf(inputElement);
+                     const nextInput = inputs[currentIndex + 1];
+                     if (nextInput && document.getElementById('toggle-actual-stock-btn').classList.contains('active')) {
+                         nextInput.focus();
+                         nextInput.select();
+                     }
+
+                } else {
+                     alert(`실사재고 저장 오류: ${data.message}`);
+                     saveButton.disabled = false;
+                     inputElement.disabled = false;
+                }
+            }).catch(error => {
+                console.error('실사재고 API 오류:', error); alert('서버 통신 오류.');
+                saveButton.disabled = false;
+                inputElement.disabled = false;
+            });
+        }
+
+        function updateStockDiffDisplayDirectly(barcode, stockDiffValue) {
+            const diffSpan = document.getElementById(`diff-${barcode}`);
+            if (diffSpan) {
+                diffSpan.textContent = stockDiffValue !== '' && stockDiffValue !== null ? stockDiffValue : '-';
+                diffSpan.className = 'stock-diff badge ';
+                if (stockDiffValue !== '' && stockDiffValue !== null) {
+                    const diffValueInt = parseInt(stockDiffValue);
+                    if (!isNaN(diffValueInt)) {
+                       if (diffValueInt > 0) diffSpan.classList.add('bg-primary');
+                       else if (diffValueInt < 0) diffSpan.classList.add('bg-danger');
+                       else diffSpan.classList.add('bg-secondary');
+                    } else { diffSpan.classList.add('bg-light', 'text-dark'); }
+                } else { diffSpan.classList.add('bg-light', 'text-dark'); }
+            }
+        }
+    </script>
+</body>
+</html>

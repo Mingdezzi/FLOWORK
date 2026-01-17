@@ -1,0 +1,9 @@
+Flask
+Flask-SQLAlchemy
+SQLAlchemy
+openpyxl
+APScheduler
+gunicorn
+psycopg2-binary
+bcrypt
+flask-login

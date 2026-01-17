@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FLOWORK</title>
+    
+    <link rel="icon" href="{{ url_for('static', filename='symbol.png') }}">
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/journal/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+</head>
+<body data-update-stock-url="{{ url_for('api.update_stock') }}"
+      data-toggle-favorite-url="{{ url_for('api.toggle_favorite') }}"
+      data-update-actual-stock-url="{{ url_for('api.update_actual_stock') }}"
+      data-update-product-details-url="{{ url_for('api.api_update_product_details') }}"
+      data-product-id="{{ product.id }}">
+
+    <div class="container my-4">
+        
+        <header class="text-center mb-4 main-header">
+            <a href="{{ url_for('ui.home') }}">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="FLOWORK Logo" style="height: 40px; object-fit: contain;">
+            </a>
+            <span class="header-shop-name">{{ shop_name }}</span>
+        </header>
+
+        {% include '_navigation.html' %}
+
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="product-info">
+                    <div class="product-details">
+                        <div class="product-number text-muted small view-field">{{ product.product_number }}</div>
+                        <h2 class="mb-1 view-field">{{ product.product_name }}</h2>
+                        <div class="mb-1 edit-field">
+                             <input type="text" id="edit-product-name" class="form-control form-control-sm" value="{{ product.product_name }}">
+                        </div>
+                        <div class="product-meta mb-2 text-muted small view-field">
+                            {% if product.release_year %}<span>{{ product.release_year }}년</span>{% endif %}
+                            {% if product.item_category %}<span>{{ product.item_category }}</span>{% endif %}
+                        </div>
+                         <div class="row g-2 mb-2 edit-field">
+                            <div class="col-md">
+                                <label for="edit-release-year" class="form-label mb-0 small">출시년도</label>
+                                <input type="number" id="edit-release-year" class="form-control form-control-sm" value="{{ product.release_year or '' }}" placeholder="예: 2024">
+                            </div>
+                            <div class="col-md">
+                                <label for="edit-item-category" class="form-label mb-0 small">품목</label>
+                                <input type="text" id="edit-item-category" class="form-control form-control-sm" value="{{ product.item_category or '' }}" placeholder="예: 신발">
+                            </div>
+                        </div>
+                        {% if variants %}
+                            {% set first_variant = variants[0] if variants else None %}
+                            {% if first_variant %}
+                            <div class="product-pricing view-field">
+                                {% if first_variant.original_price and first_variant.original_price > 0 %}
+                                    <span class="original-price text-muted text-decoration-line-through">{{ "{:,d}".format(first_variant.original_price) }}원</span>
+                                    <span class="sale-price fw-bold">{{ "{:,d}".format(first_variant.sale_price) }}원</span>
+                                    <span class="discount text-danger fw-bold ms-1">
+                                        {{ ((1 - (first_variant.sale_price / first_variant.original_price)) * 100) | int }}%
+                                    </span>
+                                {% else %}
+                                     <span class="sale-price fw-bold">{{ "{:,d}".format(first_variant.sale_price) }}원</span>
+                                     <span class="discount text-secondary ms-1">0%</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    <div class="action-buttons mt-3">
+                         <div class="edit-mode-controls-wrapper">
+                            <button id="edit-product-btn" class="btn btn-info btn-edit-product">
+                                <i class="bi bi-pencil-fill me-1"></i> 상품 정보 수정
+                            </button>
+                            <button id="save-product-btn" class="btn btn-primary edit-mode-controls">
+                                <i class="bi bi-check-lg me-1"></i> 수정 완료
+                            </button>
+                            <button id="cancel-edit-btn" class="btn btn-secondary edit-mode-controls">
+                                <i class="bi bi-x-lg me-1"></i> 취소
+                            </button>
+                        </div>
+                        <button id="toggle-actual-stock-btn" class="btn btn-secondary btn-toggle-actual-stock view-field"> <i class="bi bi-pencil-square me-1"></i> 실사재고 등록
+                        </button>
+                        <button id="fav-btn" class="btn {{ 'btn-warning' if product.is_favorite == 1 else 'btn-outline-secondary' }} btn-favorite" data-product-id="{{ product.id }}">
+                            {% if product.is_favorite == 1 %} <i class="bi bi-star-fill me-1"></i> 즐겨찾기 해제 {% else %} <i class="bi bi-star me-1"></i> 즐겨찾기 추가 {% endif %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+             <div class="card-body">
+                <div class="product-image">
+                    <img src="{{ image_url }}" alt="{{ product.product_name }} 이미지" class="img-fluid rounded border p-2"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                    <p class="error-text mt-3">(이미지를 불러올 수 없습니다.)</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3 stock-section">
+             <div class="card-header">
+                <h2 class="mb-0"><i class="bi bi-table me-2"></i>재고 현황</h2>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover stock-table mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>컬러</th>
+                                <th>사이즈</th>
+                                <th>매장재고</th>
+                                <th class="view-field">실사재고</th>
+                                <th class="view-field">과부족</th>
+                                <th class="edit-field">작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="variants-tbody">
+                            {% for item in variants %}
+                            {% set stock_info = stock_data_map.get(item.id) %}
+                            {% set store_qty = stock_info.quantity if stock_info else 0 %}
+                            {% set actual_qty = stock_info.actual_stock if (stock_info and stock_info.actual_stock is not none) else none %}
+                            <tr data-barcode="{{ item.barcode }}" data-variant-id="{{ item.id }}">
+                                <td class="variant-edit-cell">
+                                    <span class="view-field">{{ item.color }}</span>
+                                    <input type="text" class="form-control form-control-sm variant-edit-input edit-field" data-field="color" value="{{ item.color }}">
+                                </td>
+                                <td class="variant-edit-cell">
+                                    <span class="view-field">{{ item.size }}</span>
+                                    <input type="text" class="form-control form-control-sm variant-edit-input edit-field" data-field="size" value="{{ item.size }}">
+                                </td>
+                                <td>
+                                    <div class="stock-control d-flex align-items-center justify-content-center">
+                                        <span id="stock-{{ item.barcode }}" class="stock-quantity me-2 {{ 'text-danger' if store_qty == 0 else '' }}">{{ store_qty }}</span>
+                                        <div class="btn-group-vertical btn-group-sm button-stack">
+                                            <button class="btn btn-outline-primary btn-inc py-0" data-barcode="{{ item.barcode }}" data-change="1">+</button>
+                                            <button class="btn btn-outline-danger btn-dec py-0" data-barcode="{{ item.barcode }}" data-change="-1">-</button>
+                                        </div>
+                                    </div>
+                                </td>
+                                
+                                <td class="view-field">
+                                    <div class="actual-stock-control input-group input-group-sm">
+                                        <input type="number"
+                                               id="actual-{{ item.barcode }}"
+                                               class="form-control form-control-sm actual-stock-input"
+                                               value="{{ actual_qty if actual_qty is not none else '' }}"
+                                               min="0"
+                                               data-barcode="{{ item.barcode }}"
+                                               disabled>
+                                        <button class="btn btn-success btn-sm btn-save-actual"
+                                                data-barcode="{{ item.barcode }}"
+                                                disabled><i class="bi bi-check-lg"></i></button>
+                                    </div>
+                                </td>
+                                <td class="view-field">
+                                    {% set diff_val = none %}
+                                    {% if actual_qty is not none %}
+                                        {% set diff_val = store_qty - actual_qty %}
+                                    {% endif %}
+                                    <span id="diff-{{ item.barcode }}"
+                                          class="stock-diff badge {% if diff_val is not none and diff_val > 0 %}bg-primary{% elif diff_val is not none and diff_val < 0 %}bg-danger{% elif diff_val is not none and diff_val == 0 %}bg-secondary{% else %}bg-light text-dark{% endif %}">
+                                        {{ diff_val if diff_val is not none else '-' }}
+                                    </span>
+                                </td>
+
+                                <td class="edit-field">
+                                     <button class="btn btn-danger btn-sm btn-delete-variant"><i class="bi bi-trash-fill"></i></button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr> <td colspan="7" class="text-center text-muted p-4">이 상품의 재고 정보가 없습니다.</td> </tr>
+                            {% endfor %}
+                            <tr id="add-variant-row">
+                                <td><input type="text" class="form-control form-control-sm variant-edit-input" data-field="new-color" placeholder="컬러"></td>
+                                <td><input type="text" class="form-control form-control-sm variant-edit-input" data-field="new-size" placeholder="사이즈"></td>
+                                <td></td>
+                                <td class="view-field"></td>
+                                <td class="view-field"></td>
+                                <td class="edit-field">
+                                    <button id="btn-add-variant" class="btn btn-success btn-sm"><i class="bi bi-plus-lg"></i> 추가</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        {% if related_products %}
+        <div class="card mb-3 related-container">
+             <div class="card-header">
+                <h2 class="mb-0"><i class="bi bi-link-45deg me-2"></i>연관 상품</h2>
+            </div>
+            <ul class="list-group list-group-flush product-list">
+                {% for rel_prod in related_products %}
+                <li class="list-group-item">
+                    <a href="{{ url_for('ui.product_detail', product_id=rel_prod.id) }}" class="product-item d-flex align-items-center text-decoration-none text-body">
+                        {% set image_pn = rel_prod.product_number.split(' ')[0] %}
+                        <img src="{{ IMAGE_URL_PREFIX }}{{ image_pn }}.jpg" alt="{{ rel_prod.product_name }}" class="item-image rounded border flex-shrink-0" onerror="this.style.visibility='hidden'">
+                        <div class="item-details flex-grow-1 ms-3">
+                            <div class="product-name fw-bold">{{ rel_prod.product_name }}</div>
+                            <div class="product-meta small text-muted">
+                                <span class="meta-item me-2">{{ rel_prod.product_number }}</span>
+                                
+                                {% if rel_prod.variants %} 
+                                    {% set colors = rel_prod.variants | map(attribute='color') | unique | sort | join(', ') %}
+                                    {% if colors %} <span class="meta-item d-block d-sm-inline me-2"><i class="bi bi-palette"></i> {{ colors }}</span> {% endif %}
+                                    {% set first_variant = rel_prod.variants[0] if rel_prod.variants else None %}
+                                    {% if first_variant %}
+                                        <span class="meta-item me-2 fw-bold text-dark">{{ "{:,d}".format(first_variant.sale_price) }}원</span>
+                                        {% if first_variant.original_price and first_variant.original_price > 0 %}
+                                            <span class="meta-item discount text-danger">
+                                                {{ ((1 - (first_variant.sale_price / first_variant.original_price)) * 100) | int }}%
+                                            </span>
+                                        {% else %}<span class="meta-item discount text-secondary">0%</span>{% endif %}
+                                    {% else %}<span class="meta-item sale-price">가격정보없음</span><span class="meta-item discount">-%</span>{% endif %}
+                                {% else %}<span class="meta-item sale-price">가격정보없음</span><span class="meta-item discount">-%</span>{% endif %}
+                            </div>
+                        </div>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    
+    <script src="{{ url_for('static', filename='js/detail.js') }}" defer></script>
+</body>
+</html>

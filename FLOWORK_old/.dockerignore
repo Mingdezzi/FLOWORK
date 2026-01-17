@@ -1,0 +1,24 @@
+# .dockerignore
+
+# Git
+.git
+.gitignore
+
+# Python 가상 환경
+.venv
+venv
+*/.venv
+*/venv
+
+# Python 캐시
+__pycache__
+*.pyc
+*.pyo
+
+# IDE/에디터 설정
+.idea
+.vscode
+
+# 로컬 DB 파일 (배포 시 불필요)
+*.db
+*.db-journal

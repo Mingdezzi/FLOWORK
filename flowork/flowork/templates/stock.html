@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FLOWORK</title>
+    
+    <link rel="icon" href="{{ url_for('static', filename='symbol.png') }}">
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/journal/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+</head>
+<body data-analyze-excel-url="{{ url_for('api.analyze_excel') }}">
+    
+    <div class="container my-4">
+        
+        <header class="text-center mb-4 main-header">
+            <a href="{{ url_for('ui.home') }}">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="FLOWORK Logo" style="height: 40px; object-fit: contain;">
+            </a>
+            <span class="header-shop-name">{{ shop_name }}</span>
+        </header>
+
+        {% include '_navigation.html' %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert {{ 'alert-success' if category == 'success' else ('alert-info' if category == 'info' else ('alert-warning' if category == 'warning' else 'alert-danger')) }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+
+        <hr> 
+        <div class="mb-4">
+             <h2 class="section-title"><i class="bi bi-database-gear me-2"></i>재고 데이터 관리</h2>
+
+            <div class="card mb-3 management-section">
+                <div class="card-header">
+                    <h3 class="mb-0"><i class="bi bi-house-gear me-2"></i>매장재고 업데이트</h3>
+                </div>
+                <div class="card-body">
+                    <div class="card-description">
+                        <strong>매장재고를 업데이트 합니다.</strong>
+                        <span>(1) '파일 선택'을 눌러 엑셀 파일을 선택하면 (2) 열 분석이 실행됩니다.<br>(3) 각 항목에 맞는 엑셀 열(A, B, C...)을 선택하고 (4) 미리보기를 확인한 뒤 (5) '매장재고 업데이트' 버튼을 누르세요.</span>
+                    </div>
+                    
+                    <form action="{{ url_for('api.update_store_stock_excel') }}" method="POST" enctype="multipart/form-data" 
+                          class="update-stock-form" id="form-update-store"
+                          onsubmit="return confirm('엑셀 파일 기준으로 매장 재고를 업데이트합니다.\nDB에 없는 상품은 추가됩니다.\n계속하시겠습니까?');">
+                        
+                        <div class="mb-3">
+                            <label for="store_stock_excel_file" class="form-label file-upload-wrapper" id="wrapper-store-file">
+                                <i class="bi bi-file-earmark-excel-fill fs-4"></i>
+                                <div>파일 선택 (매장재고)</div>
+                                <div class="file-status-text" id="status-store-file">엑셀 파일을 선택하세요.</div>
+                            </label>
+                            <input type="file" name="excel_file" class="form-control" accept=".xlsx, .xls" required id="store_stock_excel_file">
+                        </div>
+                        
+                        <div class="column-mapping-grid mb-3" id="grid-update-store">
+                            <div class="mapping-item-wrapper">
+                                <div class="mapping-item">
+                                    <label for="col_pn_store">품번*</label>
+                                    <select id="col_pn_store" name="col_product_number" class="form-select form-select-sm" required disabled>
+                                        <option value="">-- 열 선택 --</option>
+                                    </select>
+                                    <div class="col-preview" id="preview_col_pn_store"></div>
+                                </div>
+                            </div>
+                            <div class="mapping-item-wrapper">
+                                <div class="mapping-item">
+                                    <label for="col_pname_store">품명*</label>
+                                    <select id="col_pname_store" name="col_product_name" class="form-select form-select-sm" required disabled>
+                                        <option value="">-- 열 선택 --</option>
+                                    </select>
+                                    <div class="col-preview" id="preview_col_pname_store"></div>
+                                </div>
+                            </div>
+                            <div class="mapping-item-wrapper">
+                                <div class="mapping-item">
+                                    <label for="col_color_store">컬러*</label>
+                                    <select id="col_color_store" name="col_color" class="form-select form-select-sm" required disabled>
+                                        <option value="">-- 열 선택 --</option>
+                                    </select>
+                                    <div class="col-preview" id="preview_col_color_store"></div>
+                                </div>
+                            </div>
+                             <div class="mapping-item-wrapper">
+                                <div class="mapping-item">
+                                    <label for="col_size_store">사이즈*</label>
+                                    <select id="col_size_store" name="col_size" class="form-select form-select-sm" required disabled>
+                                        <option value="">-- 열 선택 --</option>
+                                    </select>
+                                    <div class="col-preview" id="preview_col_size_store"></div>
+                                </div>
+                            </div>
+                             <div class="mapping-item-wrapper">
+                                <div class="mapping-item">
+                                    <label for="col_stock_store">매장재고*</label>
+                                    <select id="col_stock_store" name="col_stock" class="form-select form-select-sm" required disabled>
+                                        <option value="">-- 열 선택 --</option>
+                                    </select>
+                                    <div class="col-preview" id="preview_col_stock_store"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-arrow-clockwise me-1"></i>매장재고 업데이트</button>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card mb-3 management-section">
+                <div class="card-header">
+                    <h3 class="mb-0"><i class="bi bi-building-gear me-2"></i>본사재고 업데이트</h3>
+                </div>
+                <div class="card-body">
+                    <div class="card-description">
+                        <strong>본사재고를 업데이트 합니다.</strong>
+                        <span>(1) '파일 선택'을 눌러 엑셀 파일을 선택하면 (2) 열 분석이 실행됩니다.<br>(3) 각 항목에 맞는 엑셀 열(A, B, C...)을 선택하고 (4) 미리보기를 확인한 뒤 (5) '본사재고 업데이트' 버튼을 누르세요.</span>
+                    </div>
+                    
+                    <form action="{{ url_for('api.update_hq_stock_excel') }}" method="POST" enctype="multipart/form-data" 
+                          class="update-stock-form" id="form-update-hq"
+                          onsubmit="return confirm('엑셀 파일 기준으로 본사 재고를 업데이트합니다.\nDB에 없는 상품은 추가됩니다.\n계속하시겠습니까?');">
+                        
+                        <div class="mb-3">
+                             <label for="hq_stock_excel_file" class="form-label file-upload-wrapper" id="wrapper-hq-file">
+                                <i class="bi bi-file-earmark-excel-fill fs-4"></i>
+                                <div>파일 선택 (본사재고)</div>
+                                <div class="file-status-text" id="status-hq-file">엑셀 파일을 선택하세요.</div>
+                            </label>
+                            <input type="file" name="excel_file" class="form-control" accept=".xlsx, .xls" required id="hq_stock_excel_file">
+                        </div>
+
+                        <div class="column-mapping-grid mb-3" id="grid-update-hq">
+                            <div class="mapping-item-wrapper">
+                                <div class="mapping-item">
+                                    <label for="col_pn_hq">품번*</label>
+                                    <select id="col_pn_hq" name="col_product_number" class="form-select form-select-sm" required disabled>
+                                        <option value="">-- 열 선택 --</option>
+                                    </select>
+                                    <div class="col-preview" id="preview_col_pn_hq"></div>
+                                </div>
+                            </div>
+                            <div class="mapping-item-wrapper">
+                                <div class="mapping-item">
+                                    <label for="col_pname_hq">품명*</label>
+                                    <select id="col_pname_hq" name="col_product_name" class="form-select form-select-sm" required disabled>
+                                        <option value="">-- 열 선택 --</option>
+                                    </select>
+                                    <div class="col-preview" id="preview_col_pname_hq"></div>
+                                </div>
+                            </div>
+                            <div class="mapping-item-wrapper">
+                                <div class="mapping-item">
+                                    <label for="col_color_hq">컬러*</label>
+                                    <select id="col_color_hq" name="col_color" class="form-select form-select-sm" required disabled>
+                                        <option value="">-- 열 선택 --</option>
+                                    </select>
+                                    <div class="col-preview" id="preview_col_color_hq"></div>
+                                </div>
+                            </div>
+                            <div class="mapping-item-wrapper">
+                                <div class="mapping-item">
+                                    <label for="col_size_hq">사이즈*</label>
+                                    <select id="col_size_hq" name="col_size" class="form-select form-select-sm" required disabled>
+                                        <option value="">-- 열 선택 --</option>
+                                    </select>
+                                    <div class="col-preview" id="preview_col_size_hq"></div>
+                                </div>
+                            </div>
+                            <div class="mapping-item-wrapper">
+                                <div class="mapping-item">
+                                    <label for="col_stock_hq">본사재고*</label>
+                                    <select id="col_stock_hq" name="col_stock" class="form-select form-select-sm" required disabled>
+                                        <option value="">-- 열 선택 --</option>
+                                    </select>
+                                    <div class="col-preview" id="preview_col_stock_hq"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-arrow-clockwise me-1"></i>본사재고 업데이트</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mb-3 management-section">
+                <div class="card-header">
+                    <h3 class="mb-0"><i class="bi bi-arrow-repeat me-2"></i>누락 DB 자동 동기화</h3>
+                </div>
+                <div class="card-body">
+                     <div class="card-description">
+                        <strong>DB 의 누락된 데이터를 자동으로 동기화 합니다.</strong>
+                        <span>하단의 '데이터 동기화 실행' 버튼을 누르면, <br>[매장재고 업데이트] 및 [본사재고 업데이트] 를 실행 후, <br>DB 의 누락 된 부분을 자동으로 동기화 합니다.</span>
+                    </div>
+                    <form action="{{ url_for('api.sync_missing_data') }}" method="POST" onsubmit="return confirm('데이터 동기화를 실행합니다.\n비어있는 품목/년도/가격 정보가 자동으로 채워집니다.\n계속하시겠습니까?');">
+                        <button type="submit" class="btn btn-info"><i class="bi bi-check2-circle me-1"></i>데이터 동기화 실행</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mb-3 management-section">
+                 <div class="card-header">
+                     <h3 class="mb-0"><i class="bi bi-pencil-square me-2"></i>누락 DB 수동 업로드</h3>
+                </div>
+                <div class="card-body">
+                    <div class="card-description">
+                        <strong>누락된 DB 의 항목을 수동으로 기록하여 업로드 합니다.</strong>
+                        <span>하단의 리스트에 있는 항목을 클릭 하여, 누락 된 데이터를 입력 후 저장 합니다.</span>
+                    </div>
+                    {% if missing_data_products %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover missing-data-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>품번</th>
+                                        <th>품명 (임시)</th>
+                                        <th>누락 정보</th>
+                                        <th>작업</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                {% for product in missing_data_products %}
+                                    <tr>
+                                        <td>{{ product.product_number }}</td>
+                                        <td>{{ product.product_name }}</td>
+                                        <td>
+                                            {% if not product.release_year %}년도 {% endif %}
+                                            {% if not product.item_category %}품목{% endif %}
+                                        </td>
+                                        <td>
+                                            <a href="{{ url_for('ui.product_detail', product_id=product.id) }}" class="btn btn-sm btn-outline-primary">
+                                                수정하기 <i class="bi bi-pencil-fill ms-1"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">데이터 수정이 필요한 신규 품목이 없습니다.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+    <script src="{{ url_for('static', filename='js/stock.js') }}" defer></script>
+</body>
+</html>
